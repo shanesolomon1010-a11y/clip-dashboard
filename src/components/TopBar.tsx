@@ -12,36 +12,39 @@ export default function TopBar({ title, postCount }: Props) {
   const [query, setQuery] = useState('');
 
   return (
-    <header className="h-14 shrink-0 bg-gray-950 border-b border-gray-800 flex items-center gap-4 px-6">
+    <header className="h-14 shrink-0 bg-[var(--bg-base)] border-b border-white/[0.05] flex items-center gap-4 px-6">
       {/* Page title */}
-      <h1 className="text-base font-semibold text-white w-36 shrink-0">{title}</h1>
+      <h1 className="text-sm font-semibold text-white w-32 shrink-0 tracking-tight">{title}</h1>
+
+      {/* Divider */}
+      <span className="h-5 w-px bg-white/[0.06] shrink-0" />
 
       {/* Search */}
-      <div className="flex-1 max-w-md relative">
-        <IconSearch className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="flex-1 max-w-sm relative">
+        <IconSearch className="w-3.5 h-3.5 text-gray-600 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search posts, platforms…"
-          className="w-full bg-gray-900 border border-gray-700 rounded-lg pl-9 pr-4 py-2 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/40 transition-colors"
+          className="w-full bg-white/[0.04] border border-white/[0.06] rounded-xl pl-9 pr-4 py-1.5 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/[0.05] transition-all"
         />
       </div>
 
-      <div className="flex items-center gap-3 ml-auto">
-        {/* Post count pill */}
-        <span className="hidden sm:inline text-xs text-gray-500 bg-gray-800 border border-gray-700 px-2.5 py-1 rounded-full">
+      <div className="flex items-center gap-2.5 ml-auto">
+        {/* Post count */}
+        <span className="hidden sm:inline text-[11px] text-gray-600 bg-white/[0.04] border border-white/[0.06] px-2.5 py-1 rounded-lg font-medium tabular-nums">
           {postCount} posts
         </span>
 
         {/* Notification bell */}
-        <button className="relative w-9 h-9 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-600 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
-          <IconBell className="w-4 h-4" />
-          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500" />
+        <button className="relative w-8 h-8 rounded-xl bg-white/[0.04] border border-white/[0.06] hover:bg-white/[0.07] hover:border-white/[0.1] flex items-center justify-center text-gray-500 hover:text-gray-300 transition-all">
+          <IconBell className="w-3.5 h-3.5" />
+          <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-indigo-400 ring-1 ring-[var(--bg-base)]" />
         </button>
 
         {/* Avatar */}
-        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-xs font-bold text-white select-none cursor-pointer">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[11px] font-bold text-white select-none cursor-pointer shadow-md shadow-violet-900/30">
           CS
         </div>
       </div>

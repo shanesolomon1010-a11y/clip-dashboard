@@ -20,40 +20,53 @@ export default function ContentView({ posts, onUpload }: Props) {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Recent uploads strip */}
+      {/* Recently added */}
       <div>
-        <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">Recently Added</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Recently Added</h2>
+          <span className="text-[11px] text-gray-600">{posts.length} total posts</span>
+        </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {recent.map((post) => (
             <div
               key={post.id}
-              className="bg-gray-900 border border-gray-800 rounded-xl p-4 hover:border-gray-700 transition-colors"
+              className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-4 hover:border-white/[0.1] hover:bg-white/[0.02] transition-all group"
             >
               <div className="flex items-center gap-2 mb-3">
                 <span
-                  className="text-[10px] font-bold px-2 py-0.5 rounded"
+                  className="text-[10px] font-semibold px-2 py-1 rounded-lg"
                   style={{
-                    background: `${PLATFORM_COLORS[post.platform]}22`,
+                    background: `${PLATFORM_COLORS[post.platform]}15`,
                     color: PLATFORM_COLORS[post.platform],
                   }}
                 >
                   {PLATFORM_LABELS[post.platform]}
                 </span>
-                <span className="text-[10px] text-gray-600 ml-auto">{post.date}</span>
+                <span className="text-[10px] text-gray-600 ml-auto font-medium">{post.date}</span>
               </div>
-              <p className="text-xs text-gray-200 font-medium leading-snug line-clamp-2 mb-3">{post.title}</p>
-              <div className="flex justify-between text-[11px]">
-                <span className="text-gray-500">Views</span>
-                <span className="text-white font-semibold">{formatNum(post.views)}</span>
-              </div>
-              <div className="flex justify-between text-[11px] mt-1">
-                <span className="text-gray-500">Engagement</span>
-                <span className="font-semibold" style={{ color: post.engagementRate > 10 ? '#22c55e' : '#eab308' }}>
-                  {post.engagementRate.toFixed(1)}%
-                </span>
+              <p className="text-xs text-gray-200 font-medium leading-snug line-clamp-2 mb-3 group-hover:text-white transition-colors">{post.title}</p>
+              <div className="space-y-1">
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-gray-600">Views</span>
+                  <span className="text-white font-semibold tabular-nums">{formatNum(post.views)}</span>
+                </div>
+                <div className="flex justify-between text-[11px]">
+                  <span className="text-gray-600">Engagement</span>
+                  <span
+                    className="font-semibold tabular-nums"
+                    style={{ color: post.engagementRate > 10 ? '#34d399' : post.engagementRate > 5 ? '#fbbf24' : '#6b7280' }}
+                  >
+                    {post.engagementRate.toFixed(1)}%
+                  </span>
+                </div>
               </div>
             </div>
           ))}
+          {recent.length === 0 && (
+            <div className="col-span-4 bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-8 text-center text-gray-600 text-sm">
+              No posts yet — upload a CSV to get started
+            </div>
+          )}
         </div>
       </div>
 

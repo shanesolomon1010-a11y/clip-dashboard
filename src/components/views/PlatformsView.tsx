@@ -37,9 +37,9 @@ export default function PlatformsView({ posts }: Props) {
   );
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-6 space-y-5">
       <div>
-        <h2 className="text-base font-semibold text-white mb-1">Platform Overview</h2>
+        <h2 className="text-base font-bold text-white mb-1 tracking-tight">Platform Overview</h2>
         <p className="text-sm text-gray-500">All-time stats per platform based on imported CSV data.</p>
       </div>
 
@@ -50,20 +50,24 @@ export default function PlatformsView({ posts }: Props) {
           return (
             <div
               key={platform}
-              className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden hover:border-gray-700 transition-colors"
+              className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/[0.1] transition-all"
             >
               {/* Header */}
               <div
                 className="px-5 py-4 flex items-center justify-between"
-                style={{ borderBottom: `1px solid ${color}22`, background: `${color}0a` }}
+                style={{
+                  borderBottom: `1px solid ${color}20`,
+                  background: `${color}08`,
+                }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full" style={{ background: color }} />
-                  <span className="font-semibold text-white">{PLATFORM_LABELS[platform]}</span>
+                  <div className="w-3 h-3 rounded-full shadow-md" style={{ background: color, boxShadow: `0 0 8px ${color}60` }} />
+                  <span className="font-semibold text-white text-[13px]">{PLATFORM_LABELS[platform]}</span>
+                  <span className="text-[11px] text-gray-600">{PLATFORM_META[platform].description}</span>
                 </div>
                 <span
-                  className="text-xs font-bold px-2.5 py-1 rounded-full"
-                  style={{ background: `${color}22`, color }}
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0"
+                  style={{ background: `${color}18`, color }}
                 >
                   {hasData ? `${count} posts` : 'No data'}
                 </span>
@@ -71,51 +75,58 @@ export default function PlatformsView({ posts }: Props) {
 
               <div className="p-5">
                 {!hasData ? (
-                  <div className="text-center py-4">
-                    <p className="text-gray-600 text-sm mb-1">No data imported yet</p>
-                    <p className="text-gray-700 text-xs">{PLATFORM_META[platform].exportNote}</p>
+                  <div className="text-center py-5 space-y-2">
+                    <div className="w-10 h-10 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-3">
+                      <span className="w-3 h-3 rounded-full" style={{ background: `${color}50` }} />
+                    </div>
+                    <p className="text-gray-500 text-sm font-medium">No data imported yet</p>
+                    <p className="text-gray-700 text-xs leading-relaxed">{PLATFORM_META[platform].exportNote}</p>
                   </div>
                 ) : (
                   <>
                     {/* Stats grid */}
-                    <div className="grid grid-cols-2 gap-3 mb-4">
+                    <div className="grid grid-cols-2 gap-2.5 mb-4">
                       {[
                         { label: 'Views',    value: formatNum(views) },
                         { label: 'Likes',    value: formatNum(likes) },
                         { label: 'Comments', value: formatNum(comments) },
                         { label: 'Shares',   value: formatNum(shares) },
                       ].map(({ label, value }) => (
-                        <div key={label} className="bg-gray-800/60 rounded-lg px-3 py-2.5">
-                          <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">{label}</p>
-                          <p className="text-sm font-bold text-white">{value}</p>
+                        <div key={label} className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2.5">
+                          <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 font-medium">{label}</p>
+                          <p className="text-sm font-bold text-white tabular-nums">{value}</p>
                         </div>
                       ))}
                     </div>
 
-                    {/* Avg engagement */}
+                    {/* Engagement bar */}
                     <div className="mb-4">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-xs text-gray-500">Avg Engagement Rate</span>
-                        <span className="text-sm font-bold" style={{ color: eng > 10 ? '#22c55e' : eng > 5 ? '#eab308' : '#9ca3af' }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-[11px] text-gray-500 font-medium">Avg Engagement Rate</span>
+                        <span
+                          className={`text-xs font-bold px-2 py-0.5 rounded-lg tabular-nums ${
+                            eng > 10 ? 'bg-emerald-500/10 text-emerald-400' : eng > 5 ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'
+                          }`}
+                        >
                           {eng.toFixed(2)}%
                         </span>
                       </div>
-                      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
                         <div
-                          className="h-full rounded-full"
-                          style={{ width: `${Math.min(eng * 4, 100)}%`, background: color }}
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${Math.min(eng * 4, 100)}%`, background: color, opacity: 0.8 }}
                         />
                       </div>
                     </div>
 
                     {/* Best post */}
                     {best && (
-                      <div className="bg-gray-800/50 rounded-lg p-3">
-                        <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1.5">Best Post</p>
-                        <p className="text-xs text-gray-200 font-medium leading-snug line-clamp-2 mb-1.5">{best.title}</p>
-                        <div className="flex gap-3 text-[11px]">
-                          <span className="text-gray-500">Views: <span className="text-white font-semibold">{formatNum(best.views)}</span></span>
-                          <span className="text-gray-500">Eng: <span className="text-white font-semibold">{best.engagementRate.toFixed(1)}%</span></span>
+                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5">
+                        <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-2 font-medium">Best Post</p>
+                        <p className="text-[12px] text-gray-200 font-medium leading-snug line-clamp-2 mb-2">{best.title}</p>
+                        <div className="flex gap-4 text-[11px]">
+                          <span className="text-gray-600">Views: <span className="text-white font-semibold tabular-nums">{formatNum(best.views)}</span></span>
+                          <span className="text-gray-600">Eng: <span className="text-white font-semibold tabular-nums">{best.engagementRate.toFixed(1)}%</span></span>
                         </div>
                       </div>
                     )}

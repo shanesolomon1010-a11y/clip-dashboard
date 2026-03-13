@@ -102,7 +102,6 @@ function buildInitialUserMessage(posts: UnifiedPost[]): string {
 
 function parseInsights(text: string): Insights | null {
   try {
-    // Strip any accidental markdown fences
     const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
     const parsed = JSON.parse(cleaned);
     if (
@@ -165,19 +164,19 @@ function InsightCard({
 
   return (
     <div
-      className="bg-gray-900 border rounded-xl overflow-hidden"
-      style={{ borderColor: `${accent}33` }}
+      className="bg-[var(--bg-card)] rounded-2xl overflow-hidden border"
+      style={{ borderColor: `${accent}25` }}
     >
       <div
-        className="px-5 py-3.5 flex items-center gap-2.5"
-        style={{ background: `${accent}12`, borderBottom: `1px solid ${accent}22` }}
+        className="px-5 py-4 flex items-center gap-3"
+        style={{ background: `${accent}0d`, borderBottom: `1px solid ${accent}18` }}
       >
-        <span className="text-lg">{icon}</span>
+        <span className="text-xl">{icon}</span>
         <h3 className="text-sm font-semibold text-white">{title}</h3>
       </div>
       <div className="px-5 py-4 space-y-2">
         {lines.map((line, i) => (
-          <p key={i} className="text-sm text-gray-300 leading-relaxed">
+          <p key={i} className="text-[13px] text-gray-300 leading-relaxed">
             {line}
           </p>
         ))}
@@ -189,12 +188,14 @@ function InsightCard({
 function Spinner() {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
-      <div className="relative w-12 h-12">
-        <div className="absolute inset-0 rounded-full border-2 border-gray-800" />
-        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-violet-500 animate-spin" />
+      <div className="relative w-10 h-10">
+        <div className="absolute inset-0 rounded-full border-2 border-white/[0.06]" />
+        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-violet-400 animate-spin" />
       </div>
-      <p className="text-sm text-gray-400">Analyzing your performance data…</p>
-      <p className="text-xs text-gray-600">This usually takes 5–10 seconds</p>
+      <div className="text-center">
+        <p className="text-sm text-gray-300 font-medium">Analyzing your performance data…</p>
+        <p className="text-xs text-gray-600 mt-1">This usually takes 5–10 seconds</p>
+      </div>
     </div>
   );
 }
@@ -204,7 +205,7 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div
-        className={`w-7 h-7 rounded-full shrink-0 flex items-center justify-center text-xs font-bold ${
+        className={`w-7 h-7 rounded-xl shrink-0 flex items-center justify-center text-[10px] font-bold ${
           isUser
             ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white'
             : 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white'
@@ -213,10 +214,10 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
         {isUser ? 'You' : 'AI'}
       </div>
       <div
-        className={`max-w-[80%] rounded-xl px-4 py-3 text-sm leading-relaxed ${
+        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
           isUser
-            ? 'bg-indigo-600/20 border border-indigo-500/30 text-gray-200'
-            : 'bg-gray-800 border border-gray-700 text-gray-200'
+            ? 'bg-indigo-500/12 border border-indigo-500/20 text-gray-200'
+            : 'bg-white/[0.04] border border-white/[0.07] text-gray-200'
         }`}
       >
         {msg.text.split('\n').map((line, i) => (
@@ -245,16 +246,13 @@ export default function AIInsightsView({ posts }: Props) {
   const [insights, setInsights] = useState<Insights | null>(null);
   const [rawFallback, setRawFallback] = useState<string | null>(null);
 
-  // Full API conversation (includes initial data dump)
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
-  // Display-only chat (follow-ups only)
   const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [chatLoading, setChatLoading] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Load API key from localStorage
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY);
     if (stored) {
@@ -263,7 +261,6 @@ export default function AIInsightsView({ posts }: Props) {
     }
   }, []);
 
-  // Auto-scroll chat
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatLog]);
@@ -342,10 +339,12 @@ export default function AIInsightsView({ posts }: Props) {
           {/* Header */}
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 mb-1">
-                <IconSparkles className="w-5 h-5 text-violet-400" />
-                <h2 className="text-base font-semibold text-white">AI Insights</h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-400">
+              <div className="flex items-center gap-2.5 mb-1">
+                <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
+                  <IconSparkles className="w-4 h-4 text-violet-400" />
+                </div>
+                <h2 className="text-base font-bold text-white tracking-tight">AI Insights</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-violet-500/15 text-violet-400 border border-violet-500/20">
                   Powered by Claude
                 </span>
               </div>
@@ -357,7 +356,7 @@ export default function AIInsightsView({ posts }: Props) {
               <button
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-400 border border-gray-700 rounded-lg hover:text-white hover:border-gray-500 transition-colors disabled:opacity-40"
+                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/[0.15] transition-all disabled:opacity-40"
               >
                 <IconRefresh className="w-3.5 h-3.5" />
                 Regenerate
@@ -365,18 +364,18 @@ export default function AIInsightsView({ posts }: Props) {
             )}
           </div>
 
-          {/* API Key settings */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+          {/* API Key */}
+          <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-white">Anthropic API Key</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Your key is stored locally and never sent anywhere except the Anthropic API.
+                <p className="text-xs text-gray-600 mt-0.5">
+                  Stored locally — never sent anywhere except the Anthropic API.
                 </p>
               </div>
               {keySaved && (
-                <span className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full font-medium">
-                  Saved
+                <span className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-semibold">
+                  ✓ Saved
                 </span>
               )}
             </div>
@@ -388,12 +387,12 @@ export default function AIInsightsView({ posts }: Props) {
                     value={apiKey}
                     onChange={(e) => handleApiKeyChange(e.target.value)}
                     placeholder="sk-ant-api03-…"
-                    className="w-full bg-gray-800 border border-gray-700 rounded-lg px-4 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors pr-10 font-mono"
+                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-gray-200 placeholder-gray-700 focus:outline-none focus:border-violet-500/50 focus:bg-white/[0.06] transition-all pr-10 font-mono"
                   />
                   <button
                     type="button"
                     onClick={() => setShowKey((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition-colors"
                   >
                     {showKey ? <IconEyeOff className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
                   </button>
@@ -401,27 +400,30 @@ export default function AIInsightsView({ posts }: Props) {
                 <button
                   onClick={handleSaveKey}
                   disabled={!apiKey.trim()}
-                  className="px-4 py-2.5 text-sm font-semibold bg-gray-800 border border-gray-700 text-gray-300 rounded-lg hover:border-gray-500 hover:text-white transition-colors disabled:opacity-40"
+                  className="px-4 py-2.5 text-sm font-semibold bg-white/[0.04] border border-white/[0.08] text-gray-300 rounded-xl hover:border-white/[0.15] hover:text-white transition-all disabled:opacity-40"
                 >
                   Save
                 </button>
               </div>
-              <p className="text-xs text-gray-600 mt-2">
+              <p className="text-xs text-gray-700 mt-2">
                 Get your API key at{' '}
-                <span className="text-gray-500">console.anthropic.com</span>
+                <span className="text-gray-500 font-medium">console.anthropic.com</span>
               </p>
             </div>
           </div>
 
-          {/* Generate button */}
+          {/* Generate CTA */}
           {!hasInsights && !loading && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 flex flex-col items-center text-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                <IconSparkles className="w-6 h-6 text-violet-400" />
+            <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-8 flex flex-col items-center text-center gap-4">
+              <div className="relative">
+                <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                  <IconSparkles className="w-7 h-7 text-violet-400" />
+                </div>
+                <div className="absolute -inset-2 rounded-2xl bg-violet-500/05 blur-xl" />
               </div>
               <div>
-                <p className="text-white font-semibold mb-1">Ready to analyze {posts.length} posts</p>
-                <p className="text-sm text-gray-500 max-w-sm">
+                <p className="text-white font-semibold mb-1.5">Ready to analyze {posts.length} posts</p>
+                <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
                   Claude will identify patterns across your TikTok, Instagram, LinkedIn, X, and YouTube
                   content and give you specific, data-backed recommendations.
                 </p>
@@ -429,13 +431,13 @@ export default function AIInsightsView({ posts }: Props) {
               <button
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold bg-violet-600 hover:bg-violet-500 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-violet-900/30"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold bg-violet-500 hover:bg-violet-400 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-violet-900/30"
               >
                 <IconSparkles className="w-4 h-4" />
                 Generate Insights
               </button>
               {!apiKey.trim() && (
-                <p className="text-xs text-amber-500">Add your Anthropic API key above to get started.</p>
+                <p className="text-xs text-amber-400/80">Add your Anthropic API key above to get started.</p>
               )}
             </div>
           )}
@@ -445,49 +447,29 @@ export default function AIInsightsView({ posts }: Props) {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-5 py-4 flex items-start gap-3">
-              <span className="text-red-400 text-lg leading-none mt-px">✕</span>
+            <div className="bg-red-500/08 border border-red-500/25 rounded-2xl px-5 py-4 flex items-start gap-3">
+              <span className="text-red-400 text-base leading-none mt-0.5">✕</span>
               <div>
                 <p className="text-sm font-semibold text-red-400">API Error</p>
-                <p className="text-xs text-red-300/70 mt-1">{error}</p>
+                <p className="text-xs text-red-400/60 mt-1">{error}</p>
               </div>
             </div>
           )}
 
-          {/* Parsed insights cards */}
+          {/* Insight cards */}
           {insights && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <InsightCard
-                title="What's Working"
-                content={insights.whatsWorking}
-                accent="#22c55e"
-                icon="✅"
-              />
-              <InsightCard
-                title="What to Improve"
-                content={insights.whatToImprove}
-                accent="#f59e0b"
-                icon="🎯"
-              />
-              <InsightCard
-                title="Your Next 3 Clips"
-                content={insights.nextClips}
-                accent="#8b5cf6"
-                icon="🎬"
-              />
-              <InsightCard
-                title="Best Times to Post"
-                content={insights.bestTimes}
-                accent="#38bdf8"
-                icon="🕐"
-              />
+              <InsightCard title="What's Working"     content={insights.whatsWorking}  accent="#22c55e" icon="✅" />
+              <InsightCard title="What to Improve"    content={insights.whatToImprove} accent="#f59e0b" icon="🎯" />
+              <InsightCard title="Your Next 3 Clips"  content={insights.nextClips}     accent="#8b5cf6" icon="🎬" />
+              <InsightCard title="Best Times to Post" content={insights.bestTimes}     accent="#38bdf8" icon="🕐" />
             </div>
           )}
 
-          {/* Raw fallback if JSON parse failed */}
+          {/* Raw fallback */}
           {rawFallback && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-800 flex items-center gap-2">
+            <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/[0.05] flex items-center gap-2">
                 <IconSparkles className="w-4 h-4 text-violet-400" />
                 <h3 className="text-sm font-semibold text-white">AI Analysis</h3>
               </div>
@@ -499,33 +481,32 @@ export default function AIInsightsView({ posts }: Props) {
             </div>
           )}
 
-          {/* Follow-up chat — shown after first insights are generated */}
+          {/* Follow-up chat */}
           {hasInsights && (
-            <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
-                <div className="flex items-center gap-2">
+            <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
                   <h3 className="text-sm font-semibold text-white">Ask a Follow-up</h3>
                 </div>
-                <span className="text-xs text-gray-600">
+                <span className="text-[11px] text-gray-600">
                   {chatLog.length > 0
                     ? `${Math.ceil(chatLog.length / 2)} exchange${chatLog.length / 2 !== 1 ? 's' : ''}`
                     : 'Full context included'}
                 </span>
               </div>
 
-              {/* Chat history */}
               {chatLog.length > 0 && (
-                <div className="px-5 py-4 space-y-4 border-b border-gray-800 max-h-96 overflow-y-auto">
+                <div className="px-5 py-4 space-y-4 border-b border-white/[0.05] max-h-96 overflow-y-auto">
                   {chatLog.map((msg, i) => (
                     <ChatBubble key={i} msg={msg} />
                   ))}
                   {chatLoading && (
                     <div className="flex gap-3">
-                      <div className="w-7 h-7 rounded-full bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-xs font-bold text-white shrink-0">
+                      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
                         AI
                       </div>
-                      <div className="bg-gray-800 border border-gray-700 rounded-xl px-4 py-3 flex items-center gap-1.5">
+                      <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl px-4 py-3 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '150ms' }} />
                         <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -536,7 +517,6 @@ export default function AIInsightsView({ posts }: Props) {
                 </div>
               )}
 
-              {/* Suggested prompts — only on first open */}
               {chatLog.length === 0 && (
                 <div className="px-5 pt-4 pb-2 flex flex-wrap gap-2">
                   {[
@@ -548,7 +528,7 @@ export default function AIInsightsView({ posts }: Props) {
                     <button
                       key={prompt}
                       onClick={() => setChatInput(prompt)}
-                      className="text-xs text-gray-400 border border-gray-700 hover:border-gray-500 hover:text-white rounded-full px-3 py-1.5 transition-colors"
+                      className="text-xs text-gray-500 border border-white/[0.07] hover:border-white/[0.15] hover:text-gray-200 rounded-xl px-3 py-1.5 transition-all"
                     >
                       {prompt}
                     </button>
@@ -556,7 +536,6 @@ export default function AIInsightsView({ posts }: Props) {
                 </div>
               )}
 
-              {/* Input */}
               <div className="px-5 py-4 flex gap-2">
                 <input
                   type="text"
@@ -565,12 +544,12 @@ export default function AIInsightsView({ posts }: Props) {
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleFollowUp()}
                   placeholder="Ask anything about your content performance…"
                   disabled={chatLoading}
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded-xl px-4 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500/30 transition-colors disabled:opacity-50"
+                  className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all disabled:opacity-50"
                 />
                 <button
                   onClick={handleFollowUp}
                   disabled={!chatInput.trim() || chatLoading}
-                  className="w-10 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors"
+                  className="w-10 h-10 rounded-xl bg-violet-500 hover:bg-violet-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors shadow-lg shadow-violet-900/20"
                 >
                   <IconSend className="w-4 h-4" />
                 </button>

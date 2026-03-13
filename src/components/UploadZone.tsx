@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { parseCSV } from '@/lib/normalizers';
 import { UnifiedPost } from '@/types';
+import { IconUpload } from './Icons';
 
 interface Props {
   onUpload: (posts: UnifiedPost[]) => void;
@@ -54,32 +55,41 @@ export default function UploadZone({ onUpload }: Props) {
   };
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-5">
-      <h2 className="text-sm font-semibold uppercase tracking-widest text-gray-500 mb-4">Import CSV Data</h2>
+    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-semibold text-white">Import CSV Data</h2>
+        <span className="text-[11px] text-gray-600">Auto-detects platform from column headers</span>
+      </div>
+
       <label
-        className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-xl py-10 px-6 cursor-pointer transition-all duration-200 ${
+        className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-10 px-6 cursor-pointer transition-all duration-200 ${
           isDragging
-            ? 'border-indigo-500 bg-indigo-500/10'
-            : 'border-gray-700 hover:border-gray-500 hover:bg-gray-800/50'
+            ? 'border-indigo-500/60 bg-indigo-500/08'
+            : 'border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.02]'
         }`}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
         onDrop={onDrop}
       >
         <input type="file" accept=".csv" className="hidden" onChange={onInputChange} />
-        <div className="w-12 h-12 rounded-full bg-gray-800 flex items-center justify-center text-2xl">
-          {processing ? '⏳' : '📂'}
+        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
+          isDragging ? 'bg-indigo-500/20' : 'bg-white/[0.04] border border-white/[0.06]'
+        }`}>
+          {processing
+            ? <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-indigo-400 animate-spin" />
+            : <IconUpload className={`w-5 h-5 ${isDragging ? 'text-indigo-400' : 'text-gray-500'}`} />
+          }
         </div>
         <div className="text-center">
-          <p className="text-gray-300 font-medium">
+          <p className="text-gray-300 font-medium text-sm">
             {processing ? 'Processing…' : 'Drop a CSV export here'}
           </p>
           <p className="text-gray-600 text-xs mt-1">
-            Supports TikTok, Instagram, LinkedIn, X/Twitter, YouTube — auto-detected from column headers
+            or click to browse your files
           </p>
         </div>
         {!processing && (
-          <span className="text-xs text-indigo-400 border border-indigo-500/40 rounded-md px-3 py-1 hover:bg-indigo-500/10 transition-colors">
+          <span className="text-xs text-indigo-400 border border-indigo-500/25 rounded-lg px-3 py-1.5 hover:bg-indigo-500/10 hover:border-indigo-500/40 transition-colors font-medium">
             Browse file
           </span>
         )}
@@ -87,13 +97,13 @@ export default function UploadZone({ onUpload }: Props) {
 
       {status && (
         <div
-          className={`mt-3 rounded-lg px-4 py-2.5 text-xs font-medium flex items-center gap-2 ${
+          className={`mt-3 rounded-xl px-4 py-2.5 text-xs font-medium flex items-center gap-2 ${
             status.type === 'success'
-              ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-              : 'bg-red-500/10 text-red-400 border border-red-500/20'
+              ? 'bg-emerald-500/08 text-emerald-400 border border-emerald-500/20'
+              : 'bg-red-500/08 text-red-400 border border-red-500/20'
           }`}
         >
-          <span>{status.type === 'success' ? '✓' : '✕'}</span>
+          <span className="text-base leading-none">{status.type === 'success' ? '✓' : '✕'}</span>
           {status.msg}
         </div>
       )}
@@ -101,16 +111,16 @@ export default function UploadZone({ onUpload }: Props) {
       <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-2">
         {(
           [
-            { label: 'TikTok', cols: 'Video views, Likes, Comments, Shares', color: '#FF0050' },
-            { label: 'Instagram', cols: 'Impressions, Likes, Comments, Saves', color: '#E1306C' },
-            { label: 'LinkedIn', cols: 'Impressions, Reactions, Comments, Reposts', color: '#0A66C2' },
-            { label: 'X/Twitter', cols: 'impressions, likes, replies, reposts', color: '#1DA1F2' },
-            { label: 'YouTube', cols: 'Views, Likes, Comments', color: '#FF0000' },
+            { label: 'TikTok',    cols: 'Video views, Likes, Comments, Shares', color: '#FF0050' },
+            { label: 'Instagram', cols: 'Impressions, Likes, Comments, Saves',  color: '#E1306C' },
+            { label: 'LinkedIn',  cols: 'Impressions, Reactions, Comments',     color: '#0A66C2' },
+            { label: 'X/Twitter', cols: 'Impressions, Likes, Reposts',          color: '#1DA1F2' },
+            { label: 'YouTube',   cols: 'Views, Likes, Comments',               color: '#FF0000' },
           ] as const
         ).map(({ label, cols, color }) => (
-          <div key={label} className="bg-gray-800/60 rounded-lg p-2.5 text-xs">
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="w-2 h-2 rounded-full" style={{ background: color }} />
+          <div key={label} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-2.5 text-xs hover:bg-white/[0.04] transition-colors">
+            <div className="flex items-center gap-1.5 mb-1.5">
+              <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
               <span className="text-gray-300 font-semibold">{label}</span>
             </div>
             <p className="text-gray-600 leading-relaxed">{cols}</p>
