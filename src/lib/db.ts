@@ -38,6 +38,43 @@ export async function clearInsightHistory(): Promise<void> {
   if (error) throw error;
 }
 
+// ── Editor feedback ───────────────────────────────────────────────────────────
+
+export interface EditorFeedbackRow {
+  id: string;
+  created_at: string;
+  prompt: string;
+  fcpxml_generated: string;
+  feedback: string;
+  feedback_type: 'good' | 'mistake';
+}
+
+export async function fetchEditorFeedback(): Promise<EditorFeedbackRow[]> {
+  const { data, error } = await supabase
+    .from('editor_feedback')
+    .select('id, created_at, prompt, fcpxml_generated, feedback, feedback_type')
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) throw error;
+  return (data ?? []) as EditorFeedbackRow[];
+}
+
+export async function saveEditorFeedback(
+  row: Omit<EditorFeedbackRow, 'id' | 'created_at'>
+): Promise<void> {
+  const { error } = await supabase.from('editor_feedback').insert(row);
+  if (error) throw error;
+}
+
+export async function clearEditorFeedback(): Promise<void> {
+  const { error } = await supabase
+    .from('editor_feedback')
+    .delete()
+    .not('id', 'is', null);
+  if (error) throw error;
+}
+
 function calcEngagementRate(
   views: number,
   likes: number,
