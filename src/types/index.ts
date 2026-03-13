@@ -13,7 +13,7 @@ export interface UnifiedPost {
   title: string;
 }
 
-export type DateRange = '7d' | '30d' | '90d' | 'all';
+export type DateRange = '1d' | '7d' | '30d' | '90d' | 'all';
 
 export const PLATFORM_COLORS: Record<Platform, string> = {
   tiktok: '#FF0050',

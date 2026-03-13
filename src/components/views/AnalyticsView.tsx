@@ -15,9 +15,13 @@ function formatNum(n: number): string {
 
 function filterByDateRange(posts: UnifiedPost[], range: DateRange): UnifiedPost[] {
   if (range === 'all') return posts;
-  const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
   const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
+  if (range === '1d') {
+    cutoff.setHours(cutoff.getHours() - 24);
+  } else {
+    const days = range === '7d' ? 7 : range === '30d' ? 30 : 90;
+    cutoff.setDate(cutoff.getDate() - days);
+  }
   return posts.filter((p) => p.date >= cutoff.toISOString().slice(0, 10));
 }
 
@@ -59,7 +63,7 @@ export default function AnalyticsView({ posts }: Props) {
       <div className="flex items-center gap-3 flex-wrap">
         {/* Date range pills */}
         <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.06] rounded-xl p-1">
-          {(['7d', '30d', '90d', 'all'] as DateRange[]).map((r) => (
+          {(['1d', '7d', '30d', '90d', 'all'] as DateRange[]).map((r) => (
             <button
               key={r}
               onClick={() => setDateRange(r)}
