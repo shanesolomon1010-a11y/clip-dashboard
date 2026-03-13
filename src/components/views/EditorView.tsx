@@ -1,52 +1,49 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const MODEL = 'claude-sonnet-4-20250514';
 const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
-const MAX_FILE_BYTES = 500 * 1024 * 1024;
 
 const SYSTEM_PROMPT =
-  'You are a video editing assistant. The user will describe how they want to edit their video. You will respond with:\n' +
-  '1. A brief plain English explanation of the edits\n' +
-  '2. A JSON block with the ffmpeg args array like: { "args": ["-i", "input.mp4", "-vf", "scale=1080:1920", "output.mp4"] }\n' +
-  "Always use 'input.mp4' as input filename and 'output.mp4' as output filename. " +
-  'Only use ffmpeg filters that work in FFmpeg.wasm. Do not use hardware acceleration flags.';
+  'You are a Final Cut Pro XML (FCPXML) generator. Given video metadata and an edit request, ' +
+  'output a valid FCPXML 1.10 document that describes the requested edits as a sequence.\n\n' +
+  'Rules:\n' +
+  '- Return raw XML only — no markdown fences, no explanation before or after, nothing but the XML\n' +
+  '- Use fcpxml version="1.10"\n' +
+  '- In the <asset> element set src="file:///FILENAME" using the exact filename provided\n' +
+  '- Choose a <format> frameDuration matching the fps (e.g. "1001/30000s" for 29.97, "1/30s" for 30, "1/24s" for 24, "1/25s" for 25)\n' +
+  '- Express all time values as rational fractions followed by "s" (e.g. "30/1s", "15/1s", "45100/30000s")\n' +
+  '- For trim edits: set the clip start= to the source in-point and duration= to the desired output length\n' +
+  '- For speed changes: include a <timeMap> child with appropriate <timept> entries\n' +
+  '- Set the asset duration to the full original video duration\n' +
+  '- Set the sequence duration to the final output duration after edits\n' +
+  '- Include one <event> named "Clip Studio Edit" and one <project> named after the edit request\n' +
+  '- The response must start with <?xml version="1.0" encoding="UTF-8"?>';
 
 const EXAMPLE_PROMPTS = [
-  'Convert to 9:16 vertical',
   'Trim to the best 30 seconds',
-  'Speed up 1.5x',
-  'Add 2 second black intro',
   'Cut from 0:15 to 1:30',
-  'Flip horizontally',
+  'Speed up 1.5x',
+  'Keep only the in/out points',
+  'Remove the first 10 seconds',
+  'Export the last 45 seconds',
 ];
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface VideoMeta {
+  filename: string;
   duration: number;
   width: number;
   height: number;
+  fps: number;
   size: number;
 }
 
-interface EditResult {
-  explanation: string;
-  args: string[];
-}
-
-type Status =
-  | 'idle'
-  | 'calling-claude'
-  | 'loading-ffmpeg'
-  | 'processing'
-  | 'done'
-  | 'error';
+type Status = 'idle' | 'calling-claude' | 'done' | 'error';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -62,77 +59,31 @@ function formatFileSize(bytes: number): string {
   return `${(bytes / 1024).toFixed(0)} KB`;
 }
 
-function parseClaudeResponse(text: string): EditResult | null {
-  // Strip code fences
-  const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '');
-
-  // Find "args" key and trace back to opening brace
-  const argsIdx = cleaned.search(/"args"\s*:/);
-  if (argsIdx === -1) return null;
-
-  let braceStart = argsIdx - 1;
-  while (braceStart >= 0 && cleaned[braceStart] !== '{') braceStart--;
-  if (braceStart < 0) return null;
-
-  // Match closing brace
-  let depth = 0;
-  let braceEnd = -1;
-  for (let i = braceStart; i < cleaned.length; i++) {
-    if (cleaned[i] === '{') depth++;
-    else if (cleaned[i] === '}') {
-      depth--;
-      if (depth === 0) { braceEnd = i + 1; break; }
-    }
-  }
-  if (braceEnd === -1) return null;
-
-  try {
-    const parsed = JSON.parse(cleaned.slice(braceStart, braceEnd)) as { args?: unknown };
-    if (!Array.isArray(parsed.args) || parsed.args.length === 0) return null;
-    const explanation =
-      cleaned.slice(0, braceStart).trim().replace(/^1\.\s*/m, '').trim() ||
-      'Ready to apply edits.';
-    return { explanation, args: parsed.args as string[] };
-  } catch {
-    return null;
-  }
-}
-
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function EditorView() {
-  const [videoFile, setVideoFile]     = useState<File | null>(null);
-  const [videoUrl, setVideoUrl]       = useState<string | null>(null);
-  const [videoMeta, setVideoMeta]     = useState<VideoMeta | null>(null);
-  const [trimStart, setTrimStart]     = useState(0);
-  const [trimEnd, setTrimEnd]         = useState(0);
-  const [prompt, setPrompt]           = useState('');
-  const [editResult, setEditResult]   = useState<EditResult | null>(null);
-  const [outputUrl, setOutputUrl]     = useState<string | null>(null);
-  const [status, setStatus]           = useState<Status>('idle');
-  const [progress, setProgress]       = useState(0);
-  const [error, setError]             = useState<string | null>(null);
-  const [isDragging, setIsDragging]   = useState(false);
-  const [ffmpegLoaded, setFfmpegLoaded] = useState(false);
+  const [videoFile, setVideoFile]   = useState<File | null>(null);
+  const [videoUrl, setVideoUrl]     = useState<string | null>(null);
+  const [videoMeta, setVideoMeta]   = useState<VideoMeta | null>(null);
+  const [trimStart, setTrimStart]   = useState(0);
+  const [trimEnd, setTrimEnd]       = useState(0);
+  const [prompt, setPrompt]         = useState('');
+  const [fcpxml, setFcpxml]         = useState<string | null>(null);
+  const [status, setStatus]         = useState<Status>('idle');
+  const [error, setError]           = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
-  const ffmpegRef   = useRef<FFmpeg | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ── File handling ──────────────────────────────────────────────────────────
 
   const loadVideo = useCallback((file: File) => {
-    if (file.size > MAX_FILE_BYTES) {
-      setError(
-        `File is ${formatFileSize(file.size)} — please use videos under 500 MB for browser processing.`
-      );
-      return;
-    }
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
     setVideoFile(file);
-    setEditResult(null);
-    setOutputUrl(null);
+    setFcpxml(null);
     setError(null);
     setStatus('idle');
-    setProgress(0);
+    setPrompt('');
 
     const url = URL.createObjectURL(file);
     setVideoUrl(url);
@@ -140,17 +91,18 @@ export default function EditorView() {
     const vid = document.createElement('video');
     vid.src = url;
     vid.onloadedmetadata = () => {
-      const meta: VideoMeta = {
+      setVideoMeta({
+        filename: file.name,
         duration: vid.duration,
         width: vid.videoWidth,
         height: vid.videoHeight,
+        fps: 30, // HTMLVideoElement does not expose fps; 30 is passed as a sensible default
         size: file.size,
-      };
-      setVideoMeta(meta);
+      });
       setTrimStart(0);
       setTrimEnd(vid.duration);
     };
-  }, []);
+  }, [videoUrl]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -170,36 +122,35 @@ export default function EditorView() {
 
   const handleClear = () => {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
-    if (outputUrl) URL.revokeObjectURL(outputUrl);
     setVideoFile(null);
     setVideoUrl(null);
     setVideoMeta(null);
-    setEditResult(null);
-    setOutputUrl(null);
+    setFcpxml(null);
     setStatus('idle');
     setError(null);
-    setProgress(0);
     setPrompt('');
   };
 
-  // ── Claude ─────────────────────────────────────────────────────────────────
+  // ── Generate FCPXML via Claude ─────────────────────────────────────────────
 
-  const handleGenerateEdit = async () => {
+  const handleGenerate = async () => {
     if (!prompt.trim() || !videoMeta || !API_KEY) return;
     setStatus('calling-claude');
     setError(null);
-    setEditResult(null);
+    setFcpxml(null);
 
-    const trimContext =
-      trimStart > 0 || trimEnd < videoMeta.duration
-        ? `\nTrim context: user wants output from ${formatTime(trimStart)} to ${formatTime(trimEnd)}.`
-        : '';
+    const hasCustomTrim = trimStart > 0 || trimEnd < videoMeta.duration;
+    const trimNote = hasCustomTrim
+      ? `\nIn/out points set by user: start=${formatTime(trimStart)} (${trimStart.toFixed(3)}s), ` +
+        `end=${formatTime(trimEnd)} (${trimEnd.toFixed(3)}s), ` +
+        `selection=${formatTime(trimEnd - trimStart)} (${(trimEnd - trimStart).toFixed(3)}s).`
+      : '';
 
     const userMsg =
-      `User request: ${prompt.trim()}\n` +
-      `Video info: duration=${videoMeta.duration.toFixed(1)}s, ` +
-      `${videoMeta.width}×${videoMeta.height}, ${formatFileSize(videoMeta.size)}` +
-      trimContext;
+      `Edit request: ${prompt.trim()}\n` +
+      `Video: filename="${videoMeta.filename}", duration=${videoMeta.duration.toFixed(3)}s, ` +
+      `${videoMeta.width}×${videoMeta.height}, fps=${videoMeta.fps}, size=${formatFileSize(videoMeta.size)}` +
+      trimNote;
 
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -212,7 +163,7 @@ export default function EditorView() {
         },
         body: JSON.stringify({
           model: MODEL,
-          max_tokens: 1024,
+          max_tokens: 4096,
           system: SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userMsg }],
         }),
@@ -224,131 +175,76 @@ export default function EditorView() {
       }
 
       const data = (await res.json()) as { content: { text: string }[] };
-      const rawText = data.content[0]?.text ?? '';
-      const parsed = parseClaudeResponse(rawText);
-      if (!parsed) {
-        throw new Error(
-          'Claude did not return a valid ffmpeg command. Try rephrasing your prompt.'
-        );
+      const raw = data.content[0]?.text ?? '';
+
+      // Strip any accidental markdown fences Claude may include
+      const cleaned = raw
+        .replace(/^```xml\s*/m, '')
+        .replace(/^```\s*/m, '')
+        .replace(/```\s*$/m, '')
+        .trim();
+
+      if (!cleaned.startsWith('<?xml') && !cleaned.startsWith('<fcpxml')) {
+        throw new Error('Claude did not return valid FCPXML. Try rephrasing your prompt.');
       }
-      setEditResult(parsed);
-      setStatus('idle');
+
+      setFcpxml(cleaned);
+      setStatus('done');
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
       setStatus('error');
     }
   };
 
-  // ── FFmpeg ─────────────────────────────────────────────────────────────────
-
-  const handleApplyEdits = async () => {
-    if (!videoFile || !editResult) return;
-    setError(null);
-    setOutputUrl(null);
-    setProgress(0);
-
-    try {
-      // Load FFmpeg once
-      if (!ffmpegRef.current || !ffmpegLoaded) {
-        setStatus('loading-ffmpeg');
-        const ffmpeg = new FFmpeg();
-        ffmpegRef.current = ffmpeg;
-
-        ffmpeg.on('progress', ({ progress: p }: { progress: number }) => {
-          setProgress(Math.round(Math.min(p, 1) * 100));
-        });
-
-        const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/umd';
-        await ffmpeg.load({
-          coreURL:   await toBlobURL(`${baseURL}/ffmpeg-core.js`,     'text/javascript'),
-          wasmURL:   await toBlobURL(`${baseURL}/ffmpeg-core.wasm`,   'application/wasm'),
-          workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript'),
-        });
-        setFfmpegLoaded(true);
-      }
-
-      const ffmpeg = ffmpegRef.current!;
-      setStatus('processing');
-
-      // Clean up leftover files
-      try { await ffmpeg.deleteFile('input.mp4'); } catch { /* empty */ }
-      try { await ffmpeg.deleteFile('output.mp4'); } catch { /* empty */ }
-
-      // Write input
-      await ffmpeg.writeFile('input.mp4', await fetchFile(videoFile));
-
-      // Strip leading "ffmpeg" if Claude included it
-      let args = [...editResult.args];
-      if (args[0]?.toLowerCase() === 'ffmpeg') args = args.slice(1);
-
-      await ffmpeg.exec(args);
-
-      // Determine output filename from last arg
-      const outputName = args[args.length - 1];
-      const rawData = await ffmpeg.readFile(outputName);
-      const ext = outputName.split('.').pop()?.toLowerCase() ?? 'mp4';
-      const mime =
-        ext === 'webm' ? 'video/webm' :
-        ext === 'mov'  ? 'video/quicktime' :
-                         'video/mp4';
-
-      // Copy into a plain ArrayBuffer so Blob constructor accepts it
-      const blob = new Blob([new Uint8Array(rawData as Uint8Array)], { type: mime });
-      const url = URL.createObjectURL(blob);
-      setOutputUrl(url);
-      setStatus('done');
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'FFmpeg processing failed');
-      setStatus('error');
-    }
-  };
+  // ── Download ───────────────────────────────────────────────────────────────
 
   const handleDownload = () => {
-    if (!outputUrl || !videoFile) return;
-    const outputName = editResult?.args[editResult.args.length - 1] ?? 'output.mp4';
+    if (!fcpxml || !videoFile) return;
+    const baseName = videoFile.name.replace(/\.[^.]+$/, '');
+    const blob = new Blob([fcpxml], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = outputUrl;
-    a.download = `edited-${outputName}`;
+    a.href = url;
+    a.download = `${baseName}.fcpxml`;
     a.click();
+    URL.revokeObjectURL(url);
   };
-
-  // ── Derived state ──────────────────────────────────────────────────────────
-
-  const isProcessing =
-    status === 'loading-ffmpeg' ||
-    status === 'calling-claude' ||
-    status === 'processing';
-
-  const duration = videoMeta?.duration ?? 0;
-
-  const statusLabel =
-    status === 'loading-ffmpeg' ? 'Loading video engine…' :
-    status === 'calling-claude' ? 'Claude is planning your edit…' :
-    status === 'processing'     ? `Applying edits… ${progress}%` :
-    status === 'done'           ? 'Edit complete! Ready to download.' :
-    null;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
+  const isBusy = status === 'calling-claude';
+  const duration = videoMeta?.duration ?? 0;
+
   return (
     <div className="flex flex-col h-full overflow-y-auto">
-      {/* No API key banner */}
+
+      {/* No API key warning */}
       {!API_KEY && (
         <div className="mx-5 mt-5 bg-amber-500/08 border border-amber-500/25 rounded-2xl px-5 py-3.5 flex items-center gap-3">
           <span className="text-amber-400 shrink-0">⚠</span>
           <p className="text-sm text-amber-200/90">
-            No Anthropic API key configured — AI editing is disabled. Add{' '}
-            <span className="font-semibold text-amber-100">NEXT_PUBLIC_ANTHROPIC_API_KEY</span> and
-            redeploy, or set your key in the{' '}
-            <span className="font-semibold text-amber-100">AI Insights</span> tab.
+            No Anthropic API key configured. Add{' '}
+            <span className="font-semibold font-mono text-amber-100">NEXT_PUBLIC_ANTHROPIC_API_KEY</span> and redeploy.
           </p>
         </div>
       )}
 
+      {/* FCPXML info banner */}
+      <div className="mx-5 mt-5 bg-indigo-500/08 border border-indigo-500/20 rounded-2xl px-5 py-3.5 flex items-start gap-3">
+        <span className="text-indigo-400 shrink-0 mt-px">ℹ</span>
+        <p className="text-sm text-indigo-200/80 leading-relaxed">
+          <span className="font-semibold text-white">How it works:</span> Describe your edit, Claude generates an FCPXML file.
+          Download it and import into{' '}
+          <span className="font-semibold text-white">Premiere Pro</span> via{' '}
+          <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">File → Import</span>.
+          Relink media if prompted.
+        </p>
+      </div>
+
       {/* 3-column layout */}
       <div className="flex flex-col xl:flex-row gap-4 p-5 flex-1">
 
-        {/* ── Left panel: Upload + Preview ────────────────────────────── */}
+        {/* ── Left: video upload + preview ──────────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-4">
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
@@ -358,13 +254,12 @@ export default function EditorView() {
                   onClick={handleClear}
                   className="text-xs text-gray-600 hover:text-gray-300 transition-colors px-2.5 py-1 rounded-lg hover:bg-white/[0.05]"
                 >
-                  Clear video
+                  Clear
                 </button>
               )}
             </div>
             <div className="p-5">
               {!videoFile ? (
-                /* Drop zone */
                 <div
                   onDrop={handleDrop}
                   onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -385,7 +280,7 @@ export default function EditorView() {
                   <p className="text-sm font-semibold text-gray-300 mb-1">
                     {isDragging ? 'Drop to upload' : 'Drop a video here'}
                   </p>
-                  <p className="text-xs text-gray-600">MP4, MOV, WebM · max 500 MB</p>
+                  <p className="text-xs text-gray-600">MP4, MOV, WebM — any size</p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -395,7 +290,6 @@ export default function EditorView() {
                   />
                 </div>
               ) : (
-                /* Video preview */
                 <div className="space-y-3">
                   <video
                     src={videoUrl ?? undefined}
@@ -403,10 +297,11 @@ export default function EditorView() {
                     className="w-full rounded-xl bg-black aspect-video object-contain"
                   />
                   {videoMeta && (
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                       {[
                         { label: 'Duration',   value: formatTime(videoMeta.duration) },
                         { label: 'Resolution', value: `${videoMeta.width}×${videoMeta.height}` },
+                        { label: 'FPS',        value: `~${videoMeta.fps}` },
                         { label: 'Size',       value: formatFileSize(videoMeta.size) },
                       ].map(({ label, value }) => (
                         <div key={label} className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2.5 text-center">
@@ -422,16 +317,16 @@ export default function EditorView() {
           </div>
         </div>
 
-        {/* ── Center panel: Prompt + Claude response ───────────────────── */}
+        {/* ── Center: prompt + FCPXML output ────────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-4">
+
           {/* Prompt input */}
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05]">
               <h3 className="text-sm font-semibold text-white">Edit Prompt</h3>
-              <p className="text-xs text-gray-600 mt-0.5">Describe what you want Claude to do with your video</p>
+              <p className="text-xs text-gray-600 mt-0.5">Describe your edit — Claude generates the FCPXML</p>
             </div>
             <div className="p-5 space-y-4">
-              {/* Example chips */}
               <div className="flex flex-wrap gap-1.5">
                 {EXAMPLE_PROMPTS.map((p) => (
                   <button
@@ -447,82 +342,52 @@ export default function EditorView() {
               <textarea
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
-                placeholder={'e.g. "Trim to 30s, convert to 9:16 vertical, and speed up 1.2x"'}
+                placeholder={'e.g. "Trim to 30s" or "Cut 0:15 to 1:30, speed up 1.5x"'}
                 rows={4}
-                disabled={isProcessing}
+                disabled={isBusy}
                 className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 transition-all resize-none disabled:opacity-50"
               />
 
               <button
-                onClick={handleGenerateEdit}
-                disabled={!prompt.trim() || !videoFile || !API_KEY || isProcessing}
+                onClick={handleGenerate}
+                disabled={!prompt.trim() || !videoFile || !API_KEY || isBusy}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-indigo-500 hover:bg-indigo-400 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-900/20"
               >
-                {status === 'calling-claude' ? (
+                {isBusy ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Claude is planning your edit…
+                    Generating FCPXML…
                   </>
                 ) : (
                   <>
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 opacity-90">
                       <path d="M12 3l1.88 5.76a1 1 0 00.95.69H21l-4.94 3.59a1 1 0 00-.36 1.12L17.58 20 12 16.41 6.42 20l1.88-5.84a1 1 0 00-.36-1.12L3 9.45h6.17a1 1 0 00.95-.69L12 3z" />
                     </svg>
-                    Generate Edit
+                    Generate FCPXML
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          {/* Claude's plan */}
-          {editResult && (
+          {/* Generated FCPXML */}
+          {fcpxml && (
             <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/[0.05] flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                <h3 className="text-sm font-semibold text-white">Claude&apos;s Plan</h3>
+              <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+                  <h3 className="text-sm font-semibold text-white">Generated FCPXML</h3>
+                </div>
+                <span className="text-[11px] text-gray-600 font-mono tabular-nums">
+                  {videoFile?.name.replace(/\.[^.]+$/, '')}.fcpxml
+                </span>
               </div>
-              <div className="p-5 space-y-3">
-                {/* Explanation bubble */}
-                <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-4 py-3">
-                  <p className="text-sm text-gray-300 leading-relaxed">{editResult.explanation}</p>
+              <div className="p-5">
+                <div className="bg-gray-950/70 border border-white/[0.06] rounded-xl overflow-auto max-h-72">
+                  <pre className="px-4 py-3 text-[11px] text-emerald-300/90 font-mono leading-relaxed whitespace-pre-wrap break-all select-all">
+                    {fcpxml}
+                  </pre>
                 </div>
-
-                {/* FFmpeg args */}
-                <div className="bg-gray-950/60 border border-white/[0.06] rounded-xl px-4 py-3">
-                  <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-2 font-medium">
-                    FFmpeg Command
-                  </p>
-                  <code className="text-[11px] text-emerald-400 font-mono leading-relaxed break-all">
-                    ffmpeg {editResult.args.join(' ')}
-                  </code>
-                </div>
-
-                {/* Apply button */}
-                <button
-                  onClick={handleApplyEdits}
-                  disabled={isProcessing}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-emerald-900/20"
-                >
-                  {status === 'loading-ffmpeg' ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Loading video engine…
-                    </>
-                  ) : status === 'processing' ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      Applying edits… {progress}%
-                    </>
-                  ) : (
-                    <>
-                      <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                        <path d="M8 5v14l11-7z" />
-                      </svg>
-                      Apply Edits
-                    </>
-                  )}
-                </button>
               </div>
             </div>
           )}
@@ -539,10 +404,10 @@ export default function EditorView() {
           )}
         </div>
 
-        {/* ── Right panel: Timeline + Export ──────────────────────────── */}
+        {/* ── Right: timeline + export ──────────────────────────────────── */}
         <div className="w-full xl:w-72 shrink-0 space-y-4">
 
-          {/* Timeline / Trim */}
+          {/* Timeline / trim */}
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05]">
               <h3 className="text-sm font-semibold text-white">Timeline</h3>
@@ -550,12 +415,9 @@ export default function EditorView() {
             </div>
             <div className="p-5">
               {!videoMeta ? (
-                <p className="text-xs text-gray-600 text-center py-6">
-                  Upload a video to set trim points
-                </p>
+                <p className="text-xs text-gray-600 text-center py-6">Upload a video to set trim points</p>
               ) : (
                 <div className="space-y-5">
-                  {/* Timeline bar */}
                   <div className="relative h-3">
                     <div className="absolute inset-y-1 inset-x-0 bg-white/[0.06] rounded-full" />
                     <div
@@ -567,40 +429,26 @@ export default function EditorView() {
                     />
                   </div>
 
-                  {/* In point slider */}
                   <div>
                     <div className="flex justify-between text-[11px] mb-2">
                       <span className="text-gray-500 font-medium">In point</span>
                       <span className="text-white font-semibold tabular-nums">{formatTime(trimStart)}</span>
                     </div>
                     <input
-                      type="range"
-                      min={0}
-                      max={duration}
-                      step={0.1}
-                      value={trimStart}
-                      onChange={(e) =>
-                        setTrimStart(Math.min(Number(e.target.value), trimEnd - 0.5))
-                      }
+                      type="range" min={0} max={duration} step={0.1} value={trimStart}
+                      onChange={(e) => setTrimStart(Math.min(Number(e.target.value), trimEnd - 0.5))}
                       className="w-full h-1.5 appearance-none bg-white/[0.08] rounded-full cursor-pointer accent-indigo-400"
                     />
                   </div>
 
-                  {/* Out point slider */}
                   <div>
                     <div className="flex justify-between text-[11px] mb-2">
                       <span className="text-gray-500 font-medium">Out point</span>
                       <span className="text-white font-semibold tabular-nums">{formatTime(trimEnd)}</span>
                     </div>
                     <input
-                      type="range"
-                      min={0}
-                      max={duration}
-                      step={0.1}
-                      value={trimEnd}
-                      onChange={(e) =>
-                        setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.5))
-                      }
+                      type="range" min={0} max={duration} step={0.1} value={trimEnd}
+                      onChange={(e) => setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.5))}
                       className="w-full h-1.5 appearance-none bg-white/[0.08] rounded-full cursor-pointer accent-indigo-400"
                     />
                   </div>
@@ -614,43 +462,18 @@ export default function EditorView() {
             </div>
           </div>
 
-          {/* Export / Output */}
+          {/* Export / download */}
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05]">
               <h3 className="text-sm font-semibold text-white">Export</h3>
             </div>
-            <div className="p-5 space-y-4">
-
-              {/* Processing progress */}
-              {(status === 'loading-ffmpeg' || status === 'processing') && (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-4 h-4 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin shrink-0" />
-                    <p className="text-sm text-gray-300 font-medium">{statusLabel}</p>
-                  </div>
-                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-indigo-500 rounded-full transition-all duration-300"
-                      style={{
-                        width: status === 'loading-ffmpeg' ? '12%' : `${Math.max(progress, 4)}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Output video */}
-              {status === 'done' && outputUrl && (
+            <div className="p-5">
+              {status === 'done' && fcpxml ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-emerald-400">
-                    <span className="text-base shrink-0">✓</span>
-                    <p className="text-sm font-semibold">Edit complete! Ready to download.</p>
+                    <span className="shrink-0">✓</span>
+                    <p className="text-sm font-semibold">FCPXML ready</p>
                   </div>
-                  <video
-                    src={outputUrl}
-                    controls
-                    className="w-full rounded-xl bg-black aspect-video object-contain"
-                  />
                   <button
                     onClick={handleDownload}
                     className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-white/[0.07] hover:bg-white/[0.11] text-white border border-white/[0.1] transition-all"
@@ -658,25 +481,25 @@ export default function EditorView() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
                     </svg>
-                    Download
+                    Download .fcpxml
                   </button>
+                  <p className="text-[11px] text-gray-600 leading-relaxed">
+                    Import into Premiere Pro via{' '}
+                    <span className="font-mono text-gray-500 text-[10px]">File → Import</span>.
+                    Relink media if prompted.
+                  </p>
                 </div>
-              )}
-
-              {/* Idle hint */}
-              {status !== 'loading-ffmpeg' && status !== 'processing' && status !== 'done' && (
+              ) : (
                 <p className="text-xs text-gray-600 text-center py-4 leading-relaxed">
                   {!videoFile
                     ? 'Upload a video to get started'
-                    : !editResult
-                    ? 'Generate an edit plan to continue'
-                    : 'Click "Apply Edits" in the center panel to process your video'}
+                    : 'Generate FCPXML to enable download'}
                 </p>
               )}
             </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   );
