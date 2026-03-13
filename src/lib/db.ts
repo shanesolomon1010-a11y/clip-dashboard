@@ -1,6 +1,43 @@
 import { supabase } from './supabase';
 import { Platform, UnifiedPost } from '@/types';
 
+// ── Insight history ───────────────────────────────────────────────────────────
+
+export interface InsightRow {
+  id: string;
+  created_at: string;
+  insight_text: string;
+  post_count: number;
+  top_platform: string;
+  avg_views: number;
+}
+
+export async function fetchInsightHistory(): Promise<InsightRow[]> {
+  const { data, error } = await supabase
+    .from('insights')
+    .select('id, created_at, insight_text, post_count, top_platform, avg_views')
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+  if (error) throw error;
+  return (data ?? []) as InsightRow[];
+}
+
+export async function saveInsight(
+  row: Omit<InsightRow, 'id' | 'created_at'>
+): Promise<void> {
+  const { error } = await supabase.from('insights').insert(row);
+  if (error) throw error;
+}
+
+export async function clearInsightHistory(): Promise<void> {
+  const { error } = await supabase
+    .from('insights')
+    .delete()
+    .not('id', 'is', null);
+  if (error) throw error;
+}
+
 function calcEngagementRate(
   views: number,
   likes: number,

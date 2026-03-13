@@ -1,8 +1,14 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { PLATFORM_LABELS, UnifiedPost } from '@/types';
+import { Platform, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { IconSparkles, IconSend, IconRefresh } from '@/components/Icons';
+import {
+  InsightRow,
+  fetchInsightHistory,
+  saveInsight,
+  clearInsightHistory,
+} from '@/lib/db';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,17 +36,9 @@ const MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 2048;
 const ADMIN_API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
-const SYSTEM_PROMPT =
-  'You are a social media performance analyst specializing in short-form video content for a clipping business. ' +
-  'Analyze this creator\'s cross-platform performance data and give specific actionable recommendations. ' +
-  'When responding to the initial analysis request, always return valid JSON (no markdown fences, raw JSON only) ' +
-  'with exactly these four string keys: whatsWorking, whatToImprove, nextClips, bestTimes. ' +
-  'Each value should be a detailed multi-line string using plain numbered or bulleted lines — no markdown headers.';
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function hashString(input: string): string {
-  // Deterministic, lightweight hash (djb2 variant) for change detection.
   let h = 5381;
   for (let i = 0; i < input.length; i++) h = (h * 33) ^ input.charCodeAt(i);
   return (h >>> 0).toString(16);
@@ -52,6 +50,66 @@ function fingerprintPosts(posts: UnifiedPost[]): string {
   const dates = posts.map((p) => p.date).sort();
   const sumViews = posts.reduce((s, p) => s + p.views, 0);
   return hashString(`${posts.length}|${dates[0]}|${dates[dates.length - 1]}|${sumViews}|${ids}`);
+}
+
+function getTopPlatform(posts: UnifiedPost[]): string {
+  const totals = new Map<Platform, number>();
+  for (const p of posts) totals.set(p.platform, (totals.get(p.platform) ?? 0) + p.views);
+  let top: Platform | null = null;
+  let topViews = 0;
+  totals.forEach((views, platform) => {
+    if (views > topViews) { top = platform; topViews = views; }
+  });
+  return top ? PLATFORM_LABELS[top] : 'Unknown';
+}
+
+function getAvgViews(posts: UnifiedPost[]): number {
+  if (!posts.length) return 0;
+  return Math.round(posts.reduce((s, p) => s + p.views, 0) / posts.length);
+}
+
+/** Converts structured insights to a human-readable string for Supabase storage. */
+function insightsToText(ins: Insights): string {
+  return [
+    `What's Working:\n${ins.whatsWorking}`,
+    `What to Improve:\n${ins.whatToImprove}`,
+    `Your Next 3 Clips:\n${ins.nextClips}`,
+    `Best Times to Post:\n${ins.bestTimes}`,
+  ].join('\n\n');
+}
+
+/** Builds the system prompt, optionally injecting previous insight history. */
+function buildSystemPrompt(history: InsightRow[]): string {
+  const parts: string[] = [];
+
+  if (history.length > 0) {
+    const chronological = [...history].reverse(); // oldest → newest for Claude
+    const lines = chronological.map((row) => {
+      const date = new Date(row.created_at).toLocaleDateString('en-US', {
+        month: 'short', day: 'numeric', year: 'numeric',
+      });
+      return `${date}: ${row.insight_text}`;
+    });
+    parts.push(
+      'You are a social media performance analyst with memory of past analyses. ' +
+      'Use the previous insights below to identify trends, check if past recommendations were followed, ' +
+      'and give increasingly specific advice over time.\n\n' +
+      `Previous analyses (oldest to newest):\n${lines.join('\n\n')}`
+    );
+  } else {
+    parts.push(
+      'You are a social media performance analyst specializing in short-form video content for a clipping business. ' +
+      'Analyze this creator\'s cross-platform performance data and give specific actionable recommendations.'
+    );
+  }
+
+  parts.push(
+    'When responding to the initial analysis request, always return valid JSON (no markdown fences, raw JSON only) ' +
+    'with exactly these four string keys: whatsWorking, whatToImprove, nextClips, bestTimes. ' +
+    'Each value should be a detailed multi-line string using plain numbered or bulleted lines — no markdown headers.'
+  );
+
+  return parts.join('\n\n');
 }
 
 function buildPostPayload(posts: UnifiedPost[]) {
@@ -134,11 +192,14 @@ function parseInsights(text: string): Insights | null {
   }
 }
 
-async function callClaude(apiKey: string, messages: ApiMessage[]): Promise<string> {
+async function callClaude(
+  messages: ApiMessage[],
+  systemPrompt: string
+): Promise<string> {
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'x-api-key': apiKey,
+      'x-api-key': ADMIN_API_KEY,
       'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
@@ -146,7 +207,7 @@ async function callClaude(apiKey: string, messages: ApiMessage[]): Promise<strin
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: SYSTEM_PROMPT,
+      system: systemPrompt,
       messages,
     }),
   });
@@ -163,38 +224,20 @@ async function callClaude(apiKey: string, messages: ApiMessage[]): Promise<strin
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function InsightCard({
-  title,
-  content,
-  accent,
-  icon,
+  title, content, accent, icon,
 }: {
-  title: string;
-  content: string;
-  accent: string;
-  icon: string;
+  title: string; content: string; accent: string; icon: string;
 }) {
-  const lines = content
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean);
-
+  const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
   return (
-    <div
-      className="bg-[var(--bg-card)] rounded-2xl overflow-hidden border"
-      style={{ borderColor: `${accent}25` }}
-    >
-      <div
-        className="px-5 py-4 flex items-center gap-3"
-        style={{ background: `${accent}0d`, borderBottom: `1px solid ${accent}18` }}
-      >
+    <div className="bg-[var(--bg-card)] rounded-2xl overflow-hidden border" style={{ borderColor: `${accent}25` }}>
+      <div className="px-5 py-4 flex items-center gap-3" style={{ background: `${accent}0d`, borderBottom: `1px solid ${accent}18` }}>
         <span className="text-xl">{icon}</span>
         <h3 className="text-sm font-semibold text-white">{title}</h3>
       </div>
       <div className="px-5 py-4 space-y-2">
         {lines.map((line, i) => (
-          <p key={i} className="text-[13px] text-gray-300 leading-relaxed">
-            {line}
-          </p>
+          <p key={i} className="text-[13px] text-gray-300 leading-relaxed">{line}</p>
         ))}
       </div>
     </div>
@@ -220,29 +263,34 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
   const isUser = msg.role === 'user';
   return (
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
-      <div
-        className={`w-7 h-7 rounded-xl shrink-0 flex items-center justify-center text-[10px] font-bold ${
-          isUser
-            ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white'
-            : 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white'
-        }`}
-      >
+      <div className={`w-7 h-7 rounded-xl shrink-0 flex items-center justify-center text-[10px] font-bold ${
+        isUser
+          ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white'
+          : 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white'
+      }`}>
         {isUser ? 'You' : 'AI'}
       </div>
-      <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-          isUser
-            ? 'bg-indigo-500/12 border border-indigo-500/20 text-gray-200'
-            : 'bg-white/[0.04] border border-white/[0.07] text-gray-200'
-        }`}
-      >
+      <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+        isUser
+          ? 'bg-indigo-500/12 border border-indigo-500/20 text-gray-200'
+          : 'bg-white/[0.04] border border-white/[0.07] text-gray-200'
+      }`}>
         {msg.text.split('\n').map((line, i) => (
-          <p key={i} className={line === '' ? 'mt-2' : ''}>
-            {line}
-          </p>
+          <p key={i} className={line === '' ? 'mt-2' : ''}>{line}</p>
         ))}
       </div>
     </div>
+  );
+}
+
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
+      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+    >
+      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }
 
@@ -253,40 +301,59 @@ interface Props {
 }
 
 export default function AIInsightsView({ posts }: Props) {
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [insights, setInsights] = useState<Insights | null>(null);
-  const [rawFallback, setRawFallback] = useState<string | null>(null);
+  const [loading, setLoading]                     = useState(false);
+  const [error, setError]                         = useState<string | null>(null);
+  const [insights, setInsights]                   = useState<Insights | null>(null);
+  const [rawFallback, setRawFallback]             = useState<string | null>(null);
   const [savedForFingerprint, setSavedForFingerprint] = useState<string | null>(null);
 
-  const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
-  const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [chatLoading, setChatLoading] = useState(false);
+  // Persistent system prompt for the current session (includes history context)
+  const [sessionSystemPrompt, setSessionSystemPrompt] = useState(() => buildSystemPrompt([]));
+
+  const [apiMessages, setApiMessages]             = useState<ApiMessage[]>([]);
+  const [chatLog, setChatLog]                     = useState<ChatMessage[]>([]);
+  const [chatInput, setChatInput]                 = useState('');
+  const [chatLoading, setChatLoading]             = useState(false);
+
+  // Supabase history
+  const [insightHistory, setInsightHistory]       = useState<InsightRow[]>([]);
+  const [historyOpen, setHistoryOpen]             = useState(false);
+  const [clearingHistory, setClearingHistory]     = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
+  // ── Load on mount ───────────────────────────────────────────────────────────
+
   useEffect(() => {
+    // Restore last session from localStorage
     try {
       const stored = localStorage.getItem(INSIGHTS_STORAGE_KEY);
-      if (!stored) return;
-      const parsed = JSON.parse(stored) as {
-        insights?: Insights | null;
-        rawFallback?: string | null;
-        generatedAt?: string;
-        postsFingerprint?: string;
-      };
-      if (parsed?.insights) setInsights(parsed.insights);
-      if (typeof parsed?.rawFallback === 'string') setRawFallback(parsed.rawFallback);
-      if (typeof parsed?.postsFingerprint === 'string') setSavedForFingerprint(parsed.postsFingerprint);
-    } catch {
-      // ignore corrupted storage
-    }
+      if (stored) {
+        const parsed = JSON.parse(stored) as {
+          insights?: Insights | null;
+          rawFallback?: string | null;
+          postsFingerprint?: string;
+        };
+        if (parsed?.insights) setInsights(parsed.insights);
+        if (typeof parsed?.rawFallback === 'string') setRawFallback(parsed.rawFallback);
+        if (typeof parsed?.postsFingerprint === 'string') setSavedForFingerprint(parsed.postsFingerprint);
+      }
+    } catch { /* ignore */ }
+
+    // Load Supabase history (non-fatal)
+    fetchInsightHistory()
+      .then((rows) => {
+        setInsightHistory(rows);
+        setSessionSystemPrompt(buildSystemPrompt(rows));
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatLog]);
+
+  // ── Generate ────────────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
     if (!ADMIN_API_KEY.trim() || !posts.length) return;
@@ -295,11 +362,21 @@ export default function AIInsightsView({ posts }: Props) {
     setChatLog([]);
     setApiMessages([]);
 
-    const userMsg = buildInitialUserMessage(posts);
-    const messages: ApiMessage[] = [{ role: 'user', content: userMsg }];
-
     try {
-      const text = await callClaude(ADMIN_API_KEY.trim(), messages);
+      // Fetch latest history first so the prompt is as fresh as possible
+      let history: InsightRow[] = insightHistory;
+      try {
+        history = await fetchInsightHistory();
+        setInsightHistory(history);
+      } catch { /* use cached */ }
+
+      const sysPrompt = buildSystemPrompt(history);
+      setSessionSystemPrompt(sysPrompt);
+
+      const userMsg = buildInitialUserMessage(posts);
+      const messages: ApiMessage[] = [{ role: 'user', content: userMsg }];
+      const text = await callClaude(messages, sysPrompt);
+
       const parsed = parseInsights(text);
       if (parsed) {
         setInsights(parsed);
@@ -310,23 +387,35 @@ export default function AIInsightsView({ posts }: Props) {
       }
       setApiMessages([...messages, { role: 'assistant', content: text }]);
 
+      // Persist fingerprint + result to localStorage
       const fp = fingerprintPosts(posts);
       setSavedForFingerprint(fp);
-      localStorage.setItem(
-        INSIGHTS_STORAGE_KEY,
-        JSON.stringify({
-          insights: parsed,
-          rawFallback: parsed ? null : text,
-          generatedAt: new Date().toISOString(),
-          postsFingerprint: fp,
-        })
-      );
+      localStorage.setItem(INSIGHTS_STORAGE_KEY, JSON.stringify({
+        insights: parsed,
+        rawFallback: parsed ? null : text,
+        generatedAt: new Date().toISOString(),
+        postsFingerprint: fp,
+      }));
+
+      // Save snapshot to Supabase (non-fatal)
+      const insightText = parsed ? insightsToText(parsed) : text;
+      saveInsight({
+        insight_text: insightText,
+        post_count: posts.length,
+        top_platform: getTopPlatform(posts),
+        avg_views: getAvgViews(posts),
+      })
+        .then(() => fetchInsightHistory().then(setInsightHistory).catch(() => {}))
+        .catch(() => {});
+
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
       setLoading(false);
     }
   };
+
+  // ── Follow-up chat ──────────────────────────────────────────────────────────
 
   const handleFollowUp = async () => {
     const text = chatInput.trim();
@@ -340,7 +429,7 @@ export default function AIInsightsView({ posts }: Props) {
     setChatLoading(true);
 
     try {
-      const reply = await callClaude(ADMIN_API_KEY.trim(), updatedHistory);
+      const reply = await callClaude(updatedHistory, sessionSystemPrompt);
       setApiMessages([...updatedHistory, { role: 'assistant', content: reply }]);
       setChatLog((prev) => [...prev, { role: 'assistant', text: reply }]);
     } catch (e) {
@@ -353,10 +442,27 @@ export default function AIInsightsView({ posts }: Props) {
     }
   };
 
+  // ── Clear history ───────────────────────────────────────────────────────────
+
+  const handleClearHistory = async () => {
+    setClearingHistory(true);
+    try {
+      await clearInsightHistory();
+      setInsightHistory([]);
+      setSessionSystemPrompt(buildSystemPrompt([]));
+    } catch { /* non-fatal */ } finally {
+      setClearingHistory(false);
+    }
+  };
+
+  // ── Derived state ───────────────────────────────────────────────────────────
+
   const hasInsights = insights !== null || rawFallback !== null;
   const canGenerate = !!ADMIN_API_KEY.trim() && posts.length > 0 && !loading;
-  const currentFingerprint = fingerprintPosts(posts);
-  const insightsAreForCurrentData = !!savedForFingerprint && savedForFingerprint === currentFingerprint;
+  const insightsAreForCurrentData =
+    !!savedForFingerprint && savedForFingerprint === fingerprintPosts(posts);
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col h-full">
@@ -374,16 +480,22 @@ export default function AIInsightsView({ posts }: Props) {
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-violet-500/15 text-violet-400 border border-violet-500/20">
                   Powered by Claude
                 </span>
+                {insightHistory.length > 0 && (
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-white/[0.05] text-gray-500 border border-white/[0.06]">
+                    {insightHistory.length} saved
+                  </span>
+                )}
               </div>
               <p className="text-sm text-gray-500">
                 Get AI-generated analysis and recommendations based on your {posts.length} imported posts.
+                {insightHistory.length > 0 && ' Claude has memory of your past analyses.'}
               </p>
             </div>
             {hasInsights && (
               <button
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/[0.15] transition-all disabled:opacity-40"
+                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/[0.15] transition-all disabled:opacity-40 shrink-0"
               >
                 <IconRefresh className="w-3.5 h-3.5" />
                 Regenerate
@@ -391,16 +503,16 @@ export default function AIInsightsView({ posts }: Props) {
             )}
           </div>
 
-          {/* Admin API Key (non-user editable) */}
+          {/* API key status */}
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-white">Anthropic API Key</h3>
                 <p className="text-xs text-gray-600 mt-0.5">
-                  Configured by the admin at build-time. Users can’t edit it.
+                  Configured by the admin at build-time. Users can&apos;t edit it.
                 </p>
               </div>
-              {!!ADMIN_API_KEY.trim() ? (
+              {ADMIN_API_KEY.trim() ? (
                 <span className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-semibold">
                   ✓ Configured
                 </span>
@@ -411,7 +523,7 @@ export default function AIInsightsView({ posts }: Props) {
               )}
             </div>
             <div className="p-5">
-              {!!ADMIN_API_KEY.trim() ? (
+              {ADMIN_API_KEY.trim() ? (
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3">
                   <p className="text-xs text-gray-500">
                     Key present (hidden). Set via environment variable{' '}
@@ -441,8 +553,9 @@ export default function AIInsightsView({ posts }: Props) {
               <div>
                 <p className="text-white font-semibold mb-1.5">Ready to analyze {posts.length} posts</p>
                 <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
-                  Claude will identify patterns across your TikTok, Instagram, LinkedIn, X, and YouTube
-                  content and give you specific, data-backed recommendations.
+                  {insightHistory.length > 0
+                    ? `Claude will analyze your data and compare against ${insightHistory.length} previous ${insightHistory.length === 1 ? 'analysis' : 'analyses'} to track trends and follow up on past recommendations.`
+                    : 'Claude will identify patterns across your TikTok, Instagram, LinkedIn, X, and YouTube content and give you specific, data-backed recommendations.'}
                 </p>
               </div>
               <button
@@ -498,6 +611,87 @@ export default function AIInsightsView({ posts }: Props) {
             </div>
           )}
 
+          {/* ── Insight History ──────────────────────────────────────────── */}
+          <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+            <button
+              onClick={() => setHistoryOpen((v) => !v)}
+              className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="flex items-center gap-2.5">
+                <h3 className="text-sm font-semibold text-white">Insight History</h3>
+                {insightHistory.length > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/[0.06] text-gray-400 tabular-nums">
+                    {insightHistory.length}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                {insightHistory.length > 0 && (
+                  <span
+                    role="button"
+                    onClick={(e) => { e.stopPropagation(); handleClearHistory(); }}
+                    className={`text-xs font-medium transition-colors ${
+                      clearingHistory
+                        ? 'text-gray-600 pointer-events-none'
+                        : 'text-red-400/60 hover:text-red-400 cursor-pointer'
+                    }`}
+                  >
+                    {clearingHistory ? 'Clearing…' : 'Clear history'}
+                  </span>
+                )}
+                <ChevronIcon open={historyOpen} />
+              </div>
+            </button>
+
+            {historyOpen && (
+              <div className="border-t border-white/[0.05]">
+                {insightHistory.length === 0 ? (
+                  <p className="px-5 py-8 text-xs text-gray-600 text-center">
+                    No analyses saved yet — generate your first insight above.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-white/[0.04]">
+                    {insightHistory.map((row) => {
+                      const preview = row.insight_text
+                        .split('\n')
+                        .map((l) => l.trim())
+                        .filter(Boolean)
+                        .slice(0, 2)
+                        .join(' · ');
+                      const date = new Date(row.created_at).toLocaleDateString('en-US', {
+                        month: 'short', day: 'numeric', year: 'numeric',
+                      });
+                      const time = new Date(row.created_at).toLocaleTimeString('en-US', {
+                        hour: 'numeric', minute: '2-digit',
+                      });
+                      return (
+                        <div key={row.id} className="px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-semibold text-gray-400">{date}</span>
+                              <span className="text-[10px] text-gray-600">{time}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-[10px] text-gray-600">
+                              <span className="tabular-nums">{row.post_count} posts</span>
+                              <span
+                                className="px-1.5 py-0.5 rounded-md bg-white/[0.04] font-medium"
+                                style={{ color: '#9ca3af' }}
+                              >
+                                {row.top_platform}
+                              </span>
+                              <span className="tabular-nums">~{row.avg_views.toLocaleString()} avg views</span>
+                            </div>
+                          </div>
+                          <p className="text-[12px] text-gray-500 leading-relaxed line-clamp-2">{preview}</p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Follow-up chat */}
           {hasInsights && (
             <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
@@ -549,13 +743,13 @@ export default function AIInsightsView({ posts }: Props) {
                     'What type of hooks perform best in my data?',
                     'How can I improve my LinkedIn engagement?',
                     'What day of the week gets the most views?',
-                  ].map((prompt) => (
+                  ].map((p) => (
                     <button
-                      key={prompt}
-                      onClick={() => setChatInput(prompt)}
+                      key={p}
+                      onClick={() => setChatInput(p)}
                       className="text-xs text-gray-500 border border-white/[0.07] hover:border-white/[0.15] hover:text-gray-200 rounded-xl px-3 py-1.5 transition-all"
                     >
-                      {prompt}
+                      {p}
                     </button>
                   ))}
                 </div>
@@ -581,6 +775,7 @@ export default function AIInsightsView({ posts }: Props) {
               </div>
             </div>
           )}
+
         </div>
       </div>
     </div>
