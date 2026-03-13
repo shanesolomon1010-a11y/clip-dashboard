@@ -29,9 +29,9 @@ export default function PlatformsView({ posts }: Props) {
       const likes = pp.reduce((s, p) => s + p.likes, 0);
       const comments = pp.reduce((s, p) => s + p.comments, 0);
       const shares = pp.reduce((s, p) => s + p.shares, 0);
-      const eng = pp.length ? pp.reduce((s, p) => s + p.engagementRate, 0) / pp.length : 0;
+      const interactions = pp.reduce((s, p) => s + p.likes + p.comments + p.shares + p.saves, 0);
       const best = [...pp].sort((a, b) => b.views - a.views)[0] ?? null;
-      return { platform: pl, count: pp.length, views, likes, comments, shares, eng, best };
+      return { platform: pl, count: pp.length, views, likes, comments, shares, interactions, best };
     }),
     [posts]
   );
@@ -44,7 +44,7 @@ export default function PlatformsView({ posts }: Props) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-        {platformData.map(({ platform, count, views, likes, comments, shares, eng, best }) => {
+        {platformData.map(({ platform, count, views, likes, comments, shares, interactions, best }) => {
           const color = PLATFORM_COLORS[platform];
           const hasData = count > 0;
           return (
@@ -99,22 +99,18 @@ export default function PlatformsView({ posts }: Props) {
                       ))}
                     </div>
 
-                    {/* Engagement bar */}
+                    {/* Interactions bar */}
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] text-gray-500 font-medium">Avg Engagement Rate</span>
-                        <span
-                          className={`text-xs font-bold px-2 py-0.5 rounded-lg tabular-nums ${
-                            eng > 10 ? 'bg-emerald-500/10 text-emerald-400' : eng > 5 ? 'bg-amber-500/10 text-amber-400' : 'bg-gray-500/10 text-gray-400'
-                          }`}
-                        >
-                          {eng.toFixed(2)}%
+                        <span className="text-[11px] text-gray-500 font-medium">Interactions / Views</span>
+                        <span className="text-xs font-bold tabular-nums text-gray-300">
+                          {formatNum(interactions)} / {formatNum(views)}
                         </span>
                       </div>
                       <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${Math.min(eng * 4, 100)}%`, background: color, opacity: 0.8 }}
+                          style={{ width: `${views > 0 ? Math.min((interactions / views) * 100 * 10, 100) : 0}%`, background: color, opacity: 0.8 }}
                         />
                       </div>
                     </div>
@@ -126,7 +122,7 @@ export default function PlatformsView({ posts }: Props) {
                         <p className="text-[12px] text-gray-200 font-medium leading-snug line-clamp-2 mb-2">{best.title}</p>
                         <div className="flex gap-4 text-[11px]">
                           <span className="text-gray-600">Views: <span className="text-white font-semibold tabular-nums">{formatNum(best.views)}</span></span>
-                          <span className="text-gray-600">Eng: <span className="text-white font-semibold tabular-nums">{best.engagementRate.toFixed(1)}%</span></span>
+                          <span className="text-gray-600">Interactions: <span className="text-white font-semibold tabular-nums">{formatNum(best.likes + best.comments + best.shares + best.saves)}</span></span>
                         </div>
                       </div>
                     )}

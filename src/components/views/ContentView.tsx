@@ -51,12 +51,9 @@ export default function ContentView({ posts, onUpload }: Props) {
                   <span className="text-white font-semibold tabular-nums">{formatNum(post.views)}</span>
                 </div>
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-gray-600">Engagement</span>
-                  <span
-                    className="font-semibold tabular-nums"
-                    style={{ color: post.engagementRate > 10 ? '#34d399' : post.engagementRate > 5 ? '#fbbf24' : '#6b7280' }}
-                  >
-                    {post.engagementRate.toFixed(1)}%
+                  <span className="text-gray-600">Interactions</span>
+                  <span className="font-semibold tabular-nums text-gray-300">
+                    {formatNum(post.likes + post.comments + post.shares + post.saves)}
                   </span>
                 </div>
               </div>

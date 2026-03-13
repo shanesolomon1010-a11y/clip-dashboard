@@ -1,8 +1,8 @@
 'use client';
 
-import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles } from './Icons';
+import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors } from './Icons';
 
-export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'insights' | 'settings';
+export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'insights' | 'editor' | 'settings';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?: string }[] = [
   { id: 'dashboard',  label: 'Dashboard',    icon: <IconDashboard className="w-[18px] h-[18px]" /> },
@@ -10,12 +10,13 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
   { id: 'analytics',  label: 'Analytics',    icon: <IconAnalytics className="w-[18px] h-[18px]" /> },
   { id: 'platforms',  label: 'Platforms',    icon: <IconPlatforms className="w-[18px] h-[18px]" /> },
   { id: 'insights',   label: 'AI Insights',  icon: <IconSparkles  className="w-[18px] h-[18px]" />, badge: 'AI' },
+  { id: 'editor',     label: 'Editor',       icon: <IconScissors  className="w-[18px] h-[18px]" />, badge: 'AI' },
   { id: 'settings',   label: 'Settings',     icon: <IconSettings  className="w-[18px] h-[18px]" /> },
 ];
 
 const NAV_GROUPS = [
   { label: 'Main', items: ['dashboard', 'content', 'analytics', 'platforms'] },
-  { label: 'Tools', items: ['insights', 'settings'] },
+  { label: 'Tools', items: ['insights', 'editor', 'settings'] },
 ];
 
 interface Props {

@@ -29,7 +29,7 @@ export default function TopPostsTable({ posts }: Props) {
               <th className="px-5 py-3 text-[11px] font-medium text-gray-600 uppercase tracking-wider">Title</th>
               <th className="px-5 py-3 text-[11px] font-medium text-gray-600 uppercase tracking-wider text-right">Views</th>
               <th className="px-5 py-3 text-[11px] font-medium text-gray-600 uppercase tracking-wider text-right">Likes</th>
-              <th className="px-5 py-3 text-[11px] font-medium text-gray-600 uppercase tracking-wider text-right">Eng. Rate</th>
+              <th className="px-5 py-3 text-[11px] font-medium text-gray-600 uppercase tracking-wider text-right">Interactions</th>
             </tr>
           </thead>
           <tbody>
@@ -66,16 +66,8 @@ export default function TopPostsTable({ posts }: Props) {
                   <span className="text-gray-400 tabular-nums">{formatNum(post.likes)}</span>
                 </td>
                 <td className="px-5 py-3.5 text-right">
-                  <span
-                    className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[11px] font-semibold tabular-nums ${
-                      post.engagementRate > 10
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : post.engagementRate > 5
-                        ? 'bg-amber-500/10 text-amber-400'
-                        : 'bg-gray-500/10 text-gray-400'
-                    }`}
-                  >
-                    {post.engagementRate.toFixed(2)}%
+                  <span className="text-gray-300 font-semibold tabular-nums text-[13px]">
+                    {formatNum(post.likes + post.comments + post.shares + post.saves)}
                   </span>
                 </td>
               </tr>

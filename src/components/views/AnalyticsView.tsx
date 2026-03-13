@@ -39,18 +39,18 @@ export default function AnalyticsView({ posts }: Props) {
     [byDate, activePlatform]
   );
 
-  const totalViews    = filtered.reduce((s, p) => s + p.views, 0);
-  const totalLikes    = filtered.reduce((s, p) => s + p.likes, 0);
-  const totalComments = filtered.reduce((s, p) => s + p.comments, 0);
-  const totalShares   = filtered.reduce((s, p) => s + p.shares, 0);
-  const avgEng        = filtered.length ? filtered.reduce((s, p) => s + p.engagementRate, 0) / filtered.length : 0;
+  const totalViews         = filtered.reduce((s, p) => s + p.views, 0);
+  const totalLikes         = filtered.reduce((s, p) => s + p.likes, 0);
+  const totalComments      = filtered.reduce((s, p) => s + p.comments, 0);
+  const totalShares        = filtered.reduce((s, p) => s + p.shares, 0);
+  const totalInteractions  = filtered.reduce((s, p) => s + p.likes + p.comments + p.shares + p.saves, 0);
 
   const stats = [
-    { label: 'Views',      value: formatNum(totalViews),    accent: '#6366f1' },
-    { label: 'Likes',      value: formatNum(totalLikes),    accent: '#e1306c' },
-    { label: 'Comments',   value: formatNum(totalComments), accent: '#f59e0b' },
-    { label: 'Shares',     value: formatNum(totalShares),   accent: '#10b981' },
-    { label: 'Avg Eng.',   value: `${avgEng.toFixed(2)}%`,  accent: '#8b5cf6' },
+    { label: 'Views',        value: formatNum(totalViews),         accent: '#6366f1' },
+    { label: 'Likes',        value: formatNum(totalLikes),         accent: '#e1306c' },
+    { label: 'Comments',     value: formatNum(totalComments),      accent: '#f59e0b' },
+    { label: 'Shares',       value: formatNum(totalShares),        accent: '#10b981' },
+    { label: 'Interactions', value: formatNum(totalInteractions),  accent: '#8b5cf6' },
   ];
 
   return (
@@ -138,7 +138,7 @@ export default function AnalyticsView({ posts }: Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left border-b border-white/[0.04]">
-              {['Platform', 'Posts', 'Total Views', 'Total Likes', 'Comments', 'Shares', 'Avg Engagement'].map((h) => (
+              {['Platform', 'Posts', 'Total Views', 'Total Likes', 'Comments', 'Shares', 'Interactions / Views'].map((h) => (
                 <th key={h} className="px-5 py-3 text-[11px] font-medium text-gray-600 uppercase tracking-wider">{h}</th>
               ))}
             </tr>
@@ -147,7 +147,8 @@ export default function AnalyticsView({ posts }: Props) {
             {ALL_PLATFORMS.map((pl) => {
               const pp = byDate.filter((p) => p.platform === pl);
               if (!pp.length) return null;
-              const pEng = pp.reduce((s, p) => s + p.engagementRate, 0) / pp.length;
+              const plViews = pp.reduce((s, p) => s + p.views, 0);
+              const plInteractions = pp.reduce((s, p) => s + p.likes + p.comments + p.shares + p.saves, 0);
               return (
                 <tr key={pl} className="hover:bg-white/[0.02] transition-colors">
                   <td className="px-5 py-3.5">
@@ -157,19 +158,13 @@ export default function AnalyticsView({ posts }: Props) {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 text-gray-400 tabular-nums">{pp.length}</td>
-                  <td className="px-5 py-3.5 text-white font-semibold tabular-nums">{formatNum(pp.reduce((s, p) => s + p.views, 0))}</td>
+                  <td className="px-5 py-3.5 text-white font-semibold tabular-nums">{formatNum(plViews)}</td>
                   <td className="px-5 py-3.5 text-gray-400 tabular-nums">{formatNum(pp.reduce((s, p) => s + p.likes, 0))}</td>
                   <td className="px-5 py-3.5 text-gray-400 tabular-nums">{formatNum(pp.reduce((s, p) => s + p.comments, 0))}</td>
                   <td className="px-5 py-3.5 text-gray-400 tabular-nums">{formatNum(pp.reduce((s, p) => s + p.shares, 0))}</td>
                   <td className="px-5 py-3.5">
-                    <span className={`inline-flex px-2 py-0.5 rounded-lg text-[11px] font-semibold tabular-nums ${
-                      pEng > 10
-                        ? 'bg-emerald-500/10 text-emerald-400'
-                        : pEng > 5
-                        ? 'bg-amber-500/10 text-amber-400'
-                        : 'bg-gray-500/10 text-gray-400'
-                    }`}>
-                      {pEng.toFixed(2)}%
+                    <span className="text-[11px] font-semibold tabular-nums text-gray-300">
+                      {formatNum(plInteractions)} / {formatNum(plViews)}
                     </span>
                   </td>
                 </tr>

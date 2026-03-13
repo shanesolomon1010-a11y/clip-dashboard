@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { PLATFORM_LABELS, UnifiedPost } from '@/types';
-import { IconSparkles, IconSend, IconEye, IconEyeOff, IconRefresh } from '@/components/Icons';
+import { IconSparkles, IconSend, IconRefresh } from '@/components/Icons';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -25,9 +25,10 @@ interface Insights {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const STORAGE_KEY = 'clip_studio_anthropic_key';
+const INSIGHTS_STORAGE_KEY = 'clip_studio_ai_insights_v1';
 const MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 2048;
+const ADMIN_API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
 const SYSTEM_PROMPT =
   'You are a social media performance analyst specializing in short-form video content for a clipping business. ' +
@@ -37,6 +38,21 @@ const SYSTEM_PROMPT =
   'Each value should be a detailed multi-line string using plain numbered or bulleted lines — no markdown headers.';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+function hashString(input: string): string {
+  // Deterministic, lightweight hash (djb2 variant) for change detection.
+  let h = 5381;
+  for (let i = 0; i < input.length; i++) h = (h * 33) ^ input.charCodeAt(i);
+  return (h >>> 0).toString(16);
+}
+
+function fingerprintPosts(posts: UnifiedPost[]): string {
+  if (!posts.length) return 'empty';
+  const ids = posts.map((p) => p.id).sort().join('|');
+  const dates = posts.map((p) => p.date).sort();
+  const sumViews = posts.reduce((s, p) => s + p.views, 0);
+  return hashString(`${posts.length}|${dates[0]}|${dates[dates.length - 1]}|${sumViews}|${ids}`);
+}
 
 function buildPostPayload(posts: UnifiedPost[]) {
   const sorted = [...posts].sort((a, b) => b.views - a.views);
@@ -237,14 +253,11 @@ interface Props {
 }
 
 export default function AIInsightsView({ posts }: Props) {
-  const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
-  const [keySaved, setKeySaved] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [insights, setInsights] = useState<Insights | null>(null);
   const [rawFallback, setRawFallback] = useState<string | null>(null);
+  const [savedForFingerprint, setSavedForFingerprint] = useState<string | null>(null);
 
   const [apiMessages, setApiMessages] = useState<ApiMessage[]>([]);
   const [chatLog, setChatLog] = useState<ChatMessage[]>([]);
@@ -254,10 +267,20 @@ export default function AIInsightsView({ posts }: Props) {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) {
-      setApiKey(stored);
-      setKeySaved(true);
+    try {
+      const stored = localStorage.getItem(INSIGHTS_STORAGE_KEY);
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as {
+        insights?: Insights | null;
+        rawFallback?: string | null;
+        generatedAt?: string;
+        postsFingerprint?: string;
+      };
+      if (parsed?.insights) setInsights(parsed.insights);
+      if (typeof parsed?.rawFallback === 'string') setRawFallback(parsed.rawFallback);
+      if (typeof parsed?.postsFingerprint === 'string') setSavedForFingerprint(parsed.postsFingerprint);
+    } catch {
+      // ignore corrupted storage
     }
   }, []);
 
@@ -265,22 +288,10 @@ export default function AIInsightsView({ posts }: Props) {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [chatLog]);
 
-  const handleApiKeyChange = (val: string) => {
-    setApiKey(val);
-    setKeySaved(false);
-  };
-
-  const handleSaveKey = () => {
-    localStorage.setItem(STORAGE_KEY, apiKey.trim());
-    setKeySaved(true);
-  };
-
   const handleGenerate = async () => {
-    if (!apiKey.trim() || !posts.length) return;
+    if (!ADMIN_API_KEY.trim() || !posts.length) return;
     setLoading(true);
     setError(null);
-    setInsights(null);
-    setRawFallback(null);
     setChatLog([]);
     setApiMessages([]);
 
@@ -288,14 +299,28 @@ export default function AIInsightsView({ posts }: Props) {
     const messages: ApiMessage[] = [{ role: 'user', content: userMsg }];
 
     try {
-      const text = await callClaude(apiKey.trim(), messages);
+      const text = await callClaude(ADMIN_API_KEY.trim(), messages);
       const parsed = parseInsights(text);
       if (parsed) {
         setInsights(parsed);
+        setRawFallback(null);
       } else {
         setRawFallback(text);
+        setInsights(null);
       }
       setApiMessages([...messages, { role: 'assistant', content: text }]);
+
+      const fp = fingerprintPosts(posts);
+      setSavedForFingerprint(fp);
+      localStorage.setItem(
+        INSIGHTS_STORAGE_KEY,
+        JSON.stringify({
+          insights: parsed,
+          rawFallback: parsed ? null : text,
+          generatedAt: new Date().toISOString(),
+          postsFingerprint: fp,
+        })
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
     } finally {
@@ -305,7 +330,7 @@ export default function AIInsightsView({ posts }: Props) {
 
   const handleFollowUp = async () => {
     const text = chatInput.trim();
-    if (!text || chatLoading || !apiKey.trim()) return;
+    if (!text || chatLoading || !ADMIN_API_KEY.trim()) return;
 
     setChatInput('');
     const newUserMsg: ApiMessage = { role: 'user', content: text };
@@ -315,7 +340,7 @@ export default function AIInsightsView({ posts }: Props) {
     setChatLoading(true);
 
     try {
-      const reply = await callClaude(apiKey.trim(), updatedHistory);
+      const reply = await callClaude(ADMIN_API_KEY.trim(), updatedHistory);
       setApiMessages([...updatedHistory, { role: 'assistant', content: reply }]);
       setChatLog((prev) => [...prev, { role: 'assistant', text: reply }]);
     } catch (e) {
@@ -329,7 +354,9 @@ export default function AIInsightsView({ posts }: Props) {
   };
 
   const hasInsights = insights !== null || rawFallback !== null;
-  const canGenerate = !!apiKey.trim() && posts.length > 0 && !loading;
+  const canGenerate = !!ADMIN_API_KEY.trim() && posts.length > 0 && !loading;
+  const currentFingerprint = fingerprintPosts(posts);
+  const insightsAreForCurrentData = !!savedForFingerprint && savedForFingerprint === currentFingerprint;
 
   return (
     <div className="flex flex-col h-full">
@@ -364,51 +391,41 @@ export default function AIInsightsView({ posts }: Props) {
             )}
           </div>
 
-          {/* API Key */}
+          {/* Admin API Key (non-user editable) */}
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-semibold text-white">Anthropic API Key</h3>
                 <p className="text-xs text-gray-600 mt-0.5">
-                  Stored locally — never sent anywhere except the Anthropic API.
+                  Configured by the admin at build-time. Users can’t edit it.
                 </p>
               </div>
-              {keySaved && (
+              {!!ADMIN_API_KEY.trim() ? (
                 <span className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-semibold">
-                  ✓ Saved
+                  ✓ Configured
+                </span>
+              ) : (
+                <span className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg font-semibold">
+                  Needs setup
                 </span>
               )}
             </div>
             <div className="p-5">
-              <div className="flex gap-2">
-                <div className="flex-1 relative">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    value={apiKey}
-                    onChange={(e) => handleApiKeyChange(e.target.value)}
-                    placeholder="sk-ant-api03-…"
-                    className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-gray-200 placeholder-gray-700 focus:outline-none focus:border-violet-500/50 focus:bg-white/[0.06] transition-all pr-10 font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowKey((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition-colors"
-                  >
-                    {showKey ? <IconEyeOff className="w-4 h-4" /> : <IconEye className="w-4 h-4" />}
-                  </button>
+              {!!ADMIN_API_KEY.trim() ? (
+                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3">
+                  <p className="text-xs text-gray-500">
+                    Key present (hidden). Set via environment variable{' '}
+                    <span className="text-gray-300 font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span>.
+                  </p>
                 </div>
-                <button
-                  onClick={handleSaveKey}
-                  disabled={!apiKey.trim()}
-                  className="px-4 py-2.5 text-sm font-semibold bg-white/[0.04] border border-white/[0.08] text-gray-300 rounded-xl hover:border-white/[0.15] hover:text-white transition-all disabled:opacity-40"
-                >
-                  Save
-                </button>
-              </div>
-              <p className="text-xs text-gray-700 mt-2">
-                Get your API key at{' '}
-                <span className="text-gray-500 font-medium">console.anthropic.com</span>
-              </p>
+              ) : (
+                <div className="bg-amber-500/08 border border-amber-500/20 rounded-xl px-4 py-3">
+                  <p className="text-xs text-amber-200/90">
+                    Missing admin key. Add{' '}
+                    <span className="text-amber-100 font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span> and redeploy.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -436,8 +453,8 @@ export default function AIInsightsView({ posts }: Props) {
                 <IconSparkles className="w-4 h-4" />
                 Generate Insights
               </button>
-              {!apiKey.trim() && (
-                <p className="text-xs text-amber-400/80">Add your Anthropic API key above to get started.</p>
+              {!ADMIN_API_KEY.trim() && (
+                <p className="text-xs text-amber-400/80">Admin setup required: configure the Anthropic API key.</p>
               )}
             </div>
           )}
@@ -496,6 +513,14 @@ export default function AIInsightsView({ posts }: Props) {
                 </span>
               </div>
 
+              {!insightsAreForCurrentData && (
+                <div className="px-5 py-3 border-b border-white/[0.05] bg-amber-500/08">
+                  <p className="text-xs text-amber-200/80">
+                    These insights were generated for a previous dataset. Import new data and click Regenerate to update them.
+                  </p>
+                </div>
+              )}
+
               {chatLog.length > 0 && (
                 <div className="px-5 py-4 space-y-4 border-b border-white/[0.05] max-h-96 overflow-y-auto">
                   {chatLog.map((msg, i) => (
@@ -543,12 +568,12 @@ export default function AIInsightsView({ posts }: Props) {
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleFollowUp()}
                   placeholder="Ask anything about your content performance…"
-                  disabled={chatLoading}
+                  disabled={chatLoading || !ADMIN_API_KEY.trim()}
                   className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all disabled:opacity-50"
                 />
                 <button
                   onClick={handleFollowUp}
-                  disabled={!chatInput.trim() || chatLoading}
+                  disabled={!chatInput.trim() || chatLoading || !ADMIN_API_KEY.trim()}
                   className="w-10 h-10 rounded-xl bg-violet-500 hover:bg-violet-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors shadow-lg shadow-violet-900/20"
                 >
                   <IconSend className="w-4 h-4" />

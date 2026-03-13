@@ -28,10 +28,13 @@ function filterDays(posts: UnifiedPost[], days: number): UnifiedPost[] {
   return posts.filter((p) => p.date >= cutoffStr);
 }
 
+function postInteractions(p: UnifiedPost): number {
+  return p.likes + p.comments + p.shares + p.saves;
+}
+
 function metrics(posts: UnifiedPost[]) {
   const views = posts.reduce((s, p) => s + p.views, 0);
-  const eng = posts.length ? posts.reduce((s, p) => s + p.engagementRate, 0) / posts.length : 0;
-  return { views, posts: posts.length, eng };
+  return { views, posts: posts.length };
 }
 
 interface Props {
@@ -63,7 +66,7 @@ export default function DashboardView({ posts }: Props) {
   );
 
   const totalViews = posts.reduce((s, p) => s + p.views, 0);
-  const totalEng = posts.length ? posts.reduce((s, p) => s + p.engagementRate, 0) / posts.length : 0;
+  const totalInteractions = posts.reduce((s, p) => s + postInteractions(p), 0);
   const topPlatform = platformTotals[0];
 
   return (
@@ -99,9 +102,9 @@ export default function DashboardView({ posts }: Props) {
             accent="#8b5cf6"
           />
           <MetricCard
-            label="Avg Engagement"
-            value={`${totalEng.toFixed(1)}%`}
-            sub="across all platforms"
+            label="Total Interactions"
+            value={formatNum(totalInteractions)}
+            sub="likes, comments, shares & saves"
             icon={<IconTrendUp className="w-4 h-4" />}
             accent="#10b981"
           />
@@ -141,7 +144,7 @@ export default function DashboardView({ posts }: Props) {
                 <span className="flex-1 text-[13px] text-gray-300 truncate min-w-0 group-hover:text-white transition-colors">{post.title}</span>
                 <div className="text-right shrink-0">
                   <p className="text-sm font-bold text-white tabular-nums">{formatNum(post.views)}</p>
-                  <p className="text-[10px] text-gray-600 tabular-nums">{post.engagementRate.toFixed(1)}% eng</p>
+                  <p className="text-[10px] text-gray-600 tabular-nums">{formatNum(postInteractions(post))} interactions</p>
                 </div>
               </div>
             ))}
@@ -175,8 +178,8 @@ export default function DashboardView({ posts }: Props) {
                 <p className="text-xl font-bold text-white">{posts.length}</p>
               </div>
               <div>
-                <p className="text-[11px] text-gray-600 mb-1">Avg Eng.</p>
-                <p className="text-xl font-bold text-white">{totalEng.toFixed(1)}%</p>
+                <p className="text-[11px] text-gray-600 mb-1">Interactions</p>
+                <p className="text-xl font-bold text-white">{formatNum(totalInteractions)}</p>
               </div>
             </div>
           </div>

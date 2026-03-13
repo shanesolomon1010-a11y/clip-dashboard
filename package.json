@@ -9,6 +9,9 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.15",
+    "@ffmpeg/util": "^0.12.2",
+    "@supabase/supabase-js": "^2.99.1",
     "@types/papaparse": "^5.5.2",
     "next": "14.2.35",
     "papaparse": "^5.5.3",

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { UnifiedPost } from '@/types';
 import { SAMPLE_POSTS } from '@/lib/sampleData';
+import { fetchAllPosts, upsertPosts } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import DashboardView from '@/components/views/DashboardView';
@@ -10,6 +11,7 @@ import ContentView from '@/components/views/ContentView';
 import AnalyticsView from '@/components/views/AnalyticsView';
 import PlatformsView from '@/components/views/PlatformsView';
 import AIInsightsView from '@/components/views/AIInsightsView';
+import EditorView from '@/components/views/EditorView';
 import SettingsView from '@/components/views/SettingsView';
 
 const NAV_TITLES: Record<NavSection, string> = {
@@ -18,19 +20,61 @@ const NAV_TITLES: Record<NavSection, string> = {
   analytics:  'Analytics',
   platforms:  'Platforms',
   insights:   'AI Insights',
+  editor:     'Editor',
   settings:   'Settings',
 };
 
 export default function App() {
-  const [posts, setPosts] = useState<UnifiedPost[]>(SAMPLE_POSTS);
+  const [posts, setPosts] = useState<UnifiedPost[]>([]);
   const [activeNav, setActiveNav] = useState<NavSection>('dashboard');
+  const [loading, setLoading] = useState(true);
 
-  const handleUpload = (newPosts: UnifiedPost[]) => {
+  useEffect(() => {
+    fetchAllPosts()
+      .then((fetched) => {
+        setPosts(fetched.length > 0 ? fetched : SAMPLE_POSTS);
+      })
+      .catch(() => {
+        // Supabase unavailable or not configured — fall back to sample data
+        setPosts(SAMPLE_POSTS);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleClearData = () => {
+    setPosts(SAMPLE_POSTS);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('clip_studio_ai_insights_v1');
+      localStorage.removeItem('clip_studio_anthropic_key');
+    }
+  };
+
+  const handleUpload = async (newPosts: UnifiedPost[]) => {
+    // Merge into local state immediately
     setPosts((prev) => {
       const existingIds = new Set(prev.map((p) => p.id));
       return [...prev, ...newPosts.filter((p) => !existingIds.has(p.id))];
     });
+
+    // Persist to Supabase in the background
+    try {
+      await upsertPosts(newPosts);
+    } catch {
+      // Non-fatal — data is still in local state for this session
+      console.error('Failed to save posts to Supabase');
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-gray-950">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500">Loading your data…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-950 text-white">
@@ -45,7 +89,8 @@ export default function App() {
           {activeNav === 'analytics'  && <AnalyticsView posts={posts} />}
           {activeNav === 'platforms'  && <PlatformsView posts={posts} />}
           {activeNav === 'insights'   && <AIInsightsView posts={posts} />}
-          {activeNav === 'settings'   && <SettingsView />}
+          {activeNav === 'editor'     && <EditorView />}
+          {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}
         </main>
       </div>
     </div>
