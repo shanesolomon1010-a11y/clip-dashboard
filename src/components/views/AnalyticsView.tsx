@@ -26,6 +26,29 @@ function filterByDateRange(posts: UnifiedPost[], range: DateRange): UnifiedPost[
   return posts.filter((p) => p.date >= cutoff.toISOString().slice(0, 10));
 }
 
+function exportToCSV(posts: UnifiedPost[]): void {
+  const headers = ['date', 'platform', 'title', 'views', 'likes', 'comments', 'shares', 'saves', 'content_type'];
+  const rows = posts.map((p) => [
+    p.date,
+    p.platform,
+    `"${p.title.replace(/"/g, '""')}"`,
+    p.views,
+    p.likes,
+    p.comments,
+    p.shares,
+    p.saves,
+    p.content_type ?? '',
+  ]);
+  const csv = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `clip-studio-export-${new Date().toISOString().slice(0, 10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 interface Props { posts: UnifiedPost[] }
 
 export default function AnalyticsView({ posts }: Props) {
@@ -114,6 +137,18 @@ export default function AnalyticsView({ posts }: Props) {
             );
           })}
         </div>
+
+        {/* Export */}
+        <button
+          onClick={() => exportToCSV(filtered)}
+          disabled={filtered.length === 0}
+          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-white/[0.08] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-white/[0.15] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          Export CSV
+        </button>
       </div>
 
       {/* Stat strip */}
