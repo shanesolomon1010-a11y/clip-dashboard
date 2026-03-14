@@ -87,6 +87,8 @@ export async function clearEditorFeedback(): Promise<void> {
   if (error) throw error;
 }
 
+// ── Posts ─────────────────────────────────────────────────────────────────────
+
 function calcEngagementRate(
   views: number,
   likes: number,
@@ -123,6 +125,7 @@ export async function fetchAllPosts(): Promise<UnifiedPost[]> {
       Number(row.shares),
       Number(row.saves)
     ),
+    content_type: row.content_type as string | undefined,
   }));
 }
 
@@ -136,11 +139,83 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
     comments: p.comments,
     shares: p.shares,
     saves: p.saves,
+    content_type: p.content_type,
   }));
 
   const { error } = await supabase
     .from('posts')
     .upsert(rows, { onConflict: 'platform,title,date', ignoreDuplicates: true });
 
+  if (error) throw error;
+}
+
+export async function updatePostContentType(
+  platform: string,
+  title: string,
+  date: string,
+  content_type: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('posts')
+    .update({ content_type })
+    .match({ platform, title, date });
+  if (error) throw error;
+}
+
+// ── Goals ─────────────────────────────────────────────────────────────────────
+
+export interface GoalRow {
+  id: string;
+  platform: string;
+  metric: string;
+  target: number;
+  created_at: string;
+}
+
+export async function fetchGoals(): Promise<GoalRow[]> {
+  const { data, error } = await supabase
+    .from('goals')
+    .select('*')
+    .order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as GoalRow[];
+}
+
+export async function saveGoal(
+  platform: string,
+  metric: string,
+  target: number
+): Promise<void> {
+  // Delete existing goal for this platform+metric then insert fresh
+  await supabase.from('goals').delete().match({ platform, metric });
+  const { error } = await supabase.from('goals').insert({ platform, metric, target });
+  if (error) throw error;
+}
+
+// ── Captions ──────────────────────────────────────────────────────────────────
+
+export interface CaptionRow {
+  id: string;
+  created_at: string;
+  clip_description: string;
+  platform: string;
+  tone: string;
+  caption_text: string;
+}
+
+export async function fetchCaptions(): Promise<CaptionRow[]> {
+  const { data, error } = await supabase
+    .from('captions')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(10);
+  if (error) throw error;
+  return (data ?? []) as CaptionRow[];
+}
+
+export async function saveCaption(
+  row: Omit<CaptionRow, 'id' | 'created_at'>
+): Promise<void> {
+  const { error } = await supabase.from('captions').insert(row);
   if (error) throw error;
 }
