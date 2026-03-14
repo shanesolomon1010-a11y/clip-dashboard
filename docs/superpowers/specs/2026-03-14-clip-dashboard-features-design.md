@@ -47,7 +47,8 @@ No new logic needed. The component handles its own Supabase reads/writes via `fe
 **Changes:**
 - `Sidebar.tsx`:
   - Add `'comparison'` to `NavSection` union type
-  - Add `{ id: 'comparison', label: 'Comparison', icon: <IconAnalytics className="w-4 h-4" /> }` to `NAV_ITEMS`
+  - Add `{ id: 'comparison', label: 'Comparison', icon: <IconComparison className="w-4 h-4" /> }` to `NAV_ITEMS`
+  - Add `IconComparison` to the existing import line in `Sidebar.tsx`
   - Add `'comparison'` to the `'Analytics'` group in `NAV_GROUPS` (after `'platforms'`)
 - `page.tsx`: Import `ComparisonView`, add `'comparison'` case to nav switch, add `'comparison'` to `NAV_TITLES` record
 
@@ -58,7 +59,7 @@ No new logic needed. The component handles its own Supabase reads/writes via `fe
 **Location:** `AnalyticsView.tsx`
 
 **Implementation:**
-- Add "Export CSV" button to the Analytics page header (top-right, alongside existing filter pills)
+- Add "Export CSV" button to the Analytics page controls bar — `ml-auto` within the existing flex row, pushed to the far right after the platform filter pills
 - Reads the already-computed filtered posts array from component state (no extra Supabase fetch)
 - Client-side CSV generation: format rows with columns `date, platform, title, views, likes, comments, shares, saves, content_type`
   - `content_type` is optional on `UnifiedPost` — write empty string for null/undefined values
@@ -105,7 +106,8 @@ CREATE TABLE IF NOT EXISTS captions (
   - Hook Video, Tutorial, UGC Style, Talking Head, B-Roll, Podcast Clip, Text Post, Other
 - On selection: call `updatePostContentType(platform, title, date, content_type)` → update Supabase; fire `onContentTypeChange(post.id, content_type)` callback to update parent state
 - `TopPostsTable` gains new prop: `onContentTypeChange?: (postId: string, contentType: string) => void`
-- `ContentView.tsx` (which renders `TopPostsTable`) wires the handler: updates the top-level `posts` state in `page.tsx` via its existing `onUpload`-style callback pattern (a new `onPostUpdate` prop passed down from `page.tsx`)
+- `ContentView.tsx` gains prop `onPostUpdate: (postId: string, contentType: string) => void`; passes it through to `TopPostsTable` as `onContentTypeChange`
+- `page.tsx` wires the handler: `(postId, contentType) => setPosts(prev => prev.map(p => p.id === postId ? { ...p, content_type: contentType } : p))`
 - Optimistic UI: update badge immediately, revert on Supabase error
 
 **Badge color scheme** (dark theme, muted tones):
@@ -157,7 +159,8 @@ CREATE TABLE IF NOT EXISTS captions (
 - On success: call `saveCaption({ clip_description, platform, tone, caption_text })` to persist in Supabase `captions` table
 
 **History section (bottom half):**
-- Load past captions on mount via `fetchCaptions()` — show spinner while loading, empty state message if no captions yet
+- Load past captions on mount via `fetchCaptions()` — returns the 10 most recent (hard-coded limit in `db.ts`); no pagination required
+- Show spinner while loading, empty state message if no captions yet
 - Cards displayed newest-first, each showing: platform badge, tone tag, truncated clip description, full caption text, relative timestamp
 - No delete functionality (YAGNI)
 - On `saveCaption()` failure: show inline error message below the output box; caption remains visible for manual copy
