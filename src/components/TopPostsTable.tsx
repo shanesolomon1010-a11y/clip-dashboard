@@ -29,7 +29,10 @@ export default function TopPostsTable({ posts }: Props) {
               <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Title</th>
               <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">Views</th>
               <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">Likes</th>
-              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">Interactions</th>
+              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">Comments</th>
+              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">
+                <span title="Engagement Rate = (Likes + Comments + Shares + Saves) / Views × 100" className="cursor-help underline decoration-dotted underline-offset-2">Eng. Rate</span>
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.04]">
@@ -66,15 +69,18 @@ export default function TopPostsTable({ posts }: Props) {
                   <span className="text-[var(--text-2)] tabular-nums font-['JetBrains_Mono']">{formatNum(post.likes)}</span>
                 </td>
                 <td className="px-5 py-3.5 text-right">
+                  <span className="text-[var(--text-2)] tabular-nums font-['JetBrains_Mono']">{formatNum(post.comments)}</span>
+                </td>
+                <td className="px-5 py-3.5 text-right">
                   <span className="text-[var(--text-2)] font-semibold tabular-nums font-['JetBrains_Mono'] text-[13px]">
-                    {formatNum(post.likes + post.comments + post.shares + post.saves)}
+                    {post.views === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / post.views * 100).toFixed(1)}%`}
                   </span>
                 </td>
               </tr>
             ))}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-5 py-10 text-center text-[var(--text-2)] text-sm">No posts yet</td>
+                <td colSpan={6} className="px-5 py-10 text-center text-[var(--text-2)] text-sm">No posts yet</td>
               </tr>
             )}
           </tbody>

@@ -673,7 +673,7 @@ export default function EditorView() {
               <div>
                 <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>
                   Reference Video
-                  <span className="ml-2 text-[11px] font-normal text-[var(--text-3)]" style={{ fontFamily: 'var(--font-space)', fontStyle: 'normal' }}>(optional)</span>
+                  <span className="ml-2 text-[11px] font-normal text-[var(--text-3)]" style={{ fontFamily: 'var(--font-sans)', fontStyle: 'normal' }}>(optional)</span>
                 </h3>
                 <p className="text-xs text-[var(--text-3)] mt-0.5">Show Claude the editing style you want</p>
               </div>

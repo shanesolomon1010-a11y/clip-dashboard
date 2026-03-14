@@ -51,9 +51,9 @@ export default function ContentView({ posts, onUpload }: Props) {
                   <span className="text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono']">{formatNum(post.views)}</span>
                 </div>
                 <div className="flex justify-between text-[11px]">
-                  <span className="text-[var(--text-2)]">Interactions</span>
+                  <span className="text-[var(--text-2)]">Eng. Rate</span>
                   <span className="font-semibold tabular-nums text-[var(--text-2)] font-['JetBrains_Mono']">
-                    {formatNum(post.likes + post.comments + post.shares + post.saves)}
+                    {post.views === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / post.views * 100).toFixed(1)}%`}
                   </span>
                 </div>
               </div>

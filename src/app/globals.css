@@ -27,14 +27,14 @@
 
   /* Font families */
   --font-serif:    'Instrument Serif', Georgia, serif;
-  --font-space:    'Space Grotesk', system-ui, sans-serif;
+  --font-sans:     'DM Sans', system-ui, sans-serif;
   --font-mono:     'JetBrains Mono', 'Geist Mono', monospace;
 }
 
 body {
   color: var(--text-1);
   background: var(--bg-base);
-  font-family: var(--font-space);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

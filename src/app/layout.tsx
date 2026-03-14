@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Space_Grotesk, JetBrains_Mono, Instrument_Serif } from 'next/font/google';
+import { DM_Sans, JetBrains_Mono, Instrument_Serif } from 'next/font/google';
 import "./globals.css";
 
-const spaceGrotesk = Space_Grotesk({
+const dmSans = DM_Sans({
   subsets: ['latin'],
-  variable: '--font-space',
+  variable: '--font-sans',
   weight: ['300', '400', '500', '600', '700'],
 });
 
@@ -34,8 +34,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${spaceGrotesk.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} antialiased`}
-        style={{ fontFamily: 'var(--font-space)' }}
+        className={`${dmSans.variable} ${jetbrainsMono.variable} ${instrumentSerif.variable} antialiased`}
+        style={{ fontFamily: 'var(--font-sans)' }}
       >
         {children}
       </body>
