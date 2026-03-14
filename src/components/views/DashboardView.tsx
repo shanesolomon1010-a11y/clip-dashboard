@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useEffect } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import MetricCard from '@/components/MetricCard';
 import ViewsLineChart from '@/components/ViewsLineChart';
@@ -15,13 +15,24 @@ const TIPS = [
   { icon: '💬', title: 'Reply to early comments', body: 'Engaging in the first 30 min signals content quality and boosts distribution.' },
 ];
 
+type RangeKey = '1d' | '7d' | '30d' | '90d' | 'all';
+
+const RANGES: { key: RangeKey; label: string; days: number | null }[] = [
+  { key: '1d',  label: 'Last 24 hours', days: 1   },
+  { key: '7d',  label: 'Last 7 days',   days: 7   },
+  { key: '30d', label: 'Last 30 days',  days: 30  },
+  { key: '90d', label: 'Last 90 days',  days: 90  },
+  { key: 'all', label: 'All time',      days: null },
+];
+
 function formatNum(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return String(n);
 }
 
-function filterDays(posts: UnifiedPost[], days: number): UnifiedPost[] {
+function filterByDays(posts: UnifiedPost[], days: number | null): UnifiedPost[] {
+  if (days === null) return posts;
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
   const cutoffStr = cutoff.toISOString().slice(0, 10);
@@ -32,11 +43,6 @@ function postInteractions(p: UnifiedPost): number {
   return p.likes + p.comments + p.shares + p.saves;
 }
 
-function metrics(posts: UnifiedPost[]) {
-  const views = posts.reduce((s, p) => s + p.views, 0);
-  return { views, posts: posts.length };
-}
-
 interface Props {
   posts: UnifiedPost[];
 }
@@ -44,29 +50,49 @@ interface Props {
 export default function DashboardView({ posts }: Props) {
   const now = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  const last30 = useMemo(() => filterDays(posts, 30), [posts]);
-  const last90 = useMemo(() => filterDays(posts, 90), [posts]);
+  const [range, setRange] = useState<RangeKey>('30d');
+  const [open, setOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const m30 = useMemo(() => metrics(last30), [last30]);
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
 
-  const topPosts = useMemo(() => [...last30].sort((a, b) => b.views - a.views).slice(0, 6), [last30]);
+  const selectedRange = RANGES.find((r) => r.key === range)!;
+
+  const filteredPosts = useMemo(
+    () => filterByDays(posts, selectedRange.days),
+    [posts, selectedRange.days]
+  );
+
+  const topPosts = useMemo(
+    () => [...filteredPosts].sort((a, b) => b.views - a.views).slice(0, 6),
+    [filteredPosts]
+  );
 
   const activePlatforms = useMemo<Platform[]>(
-    () => ALL_PLATFORMS.filter((pl) => last90.some((p) => p.platform === pl)),
-    [last90]
+    () => ALL_PLATFORMS.filter((pl) => filteredPosts.some((p) => p.platform === pl)),
+    [filteredPosts]
   );
+
+  const totalViews = useMemo(() => filteredPosts.reduce((s, p) => s + p.views, 0), [filteredPosts]);
+  const totalInteractions = useMemo(() => filteredPosts.reduce((s, p) => s + postInteractions(p), 0), [filteredPosts]);
 
   const platformTotals = useMemo(() =>
     ALL_PLATFORMS.map((pl) => ({
       platform: pl,
-      views: posts.filter((p) => p.platform === pl).reduce((s, p) => s + p.views, 0),
-      count: posts.filter((p) => p.platform === pl).length,
+      views: filteredPosts.filter((p) => p.platform === pl).reduce((s, p) => s + p.views, 0),
+      count: filteredPosts.filter((p) => p.platform === pl).length,
     })).sort((a, b) => b.views - a.views),
-    [posts]
+    [filteredPosts]
   );
 
-  const totalViews = posts.reduce((s, p) => s + p.views, 0);
-  const totalInteractions = posts.reduce((s, p) => s + postInteractions(p), 0);
   const topPlatform = platformTotals[0];
 
   return (
@@ -80,9 +106,42 @@ export default function DashboardView({ posts }: Props) {
             <p className="text-[10px] text-[var(--text-3)] mb-1" style={{ fontFamily: 'var(--font-mono)' }}>{now}</p>
             <h2 className="text-[22px] text-[var(--text-1)] leading-tight tracking-tight" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Welcome back, Creator</h2>
           </div>
-          <span className="text-[10px] text-[var(--text-3)] border border-white/[0.06] px-2.5 py-1 rounded-lg" style={{ fontFamily: 'var(--font-mono)' }}>
-            Last 30 days
-          </span>
+
+          {/* Date range dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setOpen((o) => !o)}
+              className="flex items-center gap-1.5 text-[10px] text-[var(--text-2)] border border-white/[0.06] px-2.5 py-1 rounded-lg hover:border-white/[0.12] hover:text-[var(--text-1)] transition-all"
+              style={{ fontFamily: 'var(--font-mono)' }}
+            >
+              {selectedRange.label}
+              <svg
+                className={`w-3 h-3 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {open && (
+              <div className="absolute right-0 top-full mt-1.5 w-40 bg-[var(--bg-elevated)] border border-white/[0.08] rounded-xl shadow-xl z-50 overflow-hidden py-1">
+                {RANGES.map((r) => (
+                  <button
+                    key={r.key}
+                    onClick={() => { setRange(r.key); setOpen(false); }}
+                    className={`w-full text-left px-3.5 py-2 text-[11px] transition-colors ${
+                      r.key === range
+                        ? 'text-[var(--gold)] bg-[var(--gold-dim)]'
+                        : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04]'
+                    }`}
+                    style={{ fontFamily: 'var(--font-mono)' }}
+                  >
+                    {r.key === range && <span className="mr-1.5">✓</span>}{r.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Metric cards strip */}
@@ -90,14 +149,14 @@ export default function DashboardView({ posts }: Props) {
           <MetricCard
             label="Total Views"
             value={formatNum(totalViews)}
-            sub="all-time across platforms"
+            sub={selectedRange.label.toLowerCase()}
             icon={<IconEye className="w-4 h-4" />}
             accent="#d4922a"
           />
           <MetricCard
-            label="Posts (30d)"
-            value={String(m30.posts)}
-            sub={`${posts.length} total all-time`}
+            label="Posts"
+            value={String(filteredPosts.length)}
+            sub={selectedRange.label.toLowerCase()}
             icon={<IconStar className="w-4 h-4" />}
             accent="#d4922a"
           />
@@ -120,13 +179,13 @@ export default function DashboardView({ posts }: Props) {
         </div>
 
         {/* Views line chart */}
-        <ViewsLineChart posts={last90} activePlatforms={activePlatforms} />
+        <ViewsLineChart posts={filteredPosts} activePlatforms={activePlatforms} />
 
         {/* Top content */}
         <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
             <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Top Content</h3>
-            <span className="text-[11px] text-[var(--text-2)]">Last 30 days</span>
+            <span className="text-[11px] text-[var(--text-2)]">{selectedRange.label}</span>
           </div>
           <div className="divide-y divide-white/[0.03]">
             {topPosts.map((post, i) => (
@@ -149,7 +208,7 @@ export default function DashboardView({ posts }: Props) {
               </div>
             ))}
             {topPosts.length === 0 && (
-              <div className="px-5 py-8 text-center text-[var(--text-2)] text-sm">No posts in the last 30 days</div>
+              <div className="px-5 py-8 text-center text-[var(--text-2)] text-sm">No posts for {selectedRange.label.toLowerCase()}</div>
             )}
           </div>
         </div>
@@ -168,14 +227,14 @@ export default function DashboardView({ posts }: Props) {
               <IconEye className="w-3 h-3" /> Total Views
             </p>
             <p className="text-4xl leading-none tracking-tight" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--text-1)' }}>{formatNum(totalViews)}</p>
-            <p className="text-[11px] text-[var(--text-2)] mt-1">across all platforms</p>
+            <p className="text-[11px] text-[var(--text-2)] mt-1">{selectedRange.label.toLowerCase()}</p>
 
             <div className="h-px bg-white/[0.05] my-4" />
 
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-1">Total Posts</p>
-                <p className="text-xl font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{posts.length}</p>
+                <p className="text-xl font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{filteredPosts.length}</p>
               </div>
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-1">Interactions</p>
