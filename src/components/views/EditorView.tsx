@@ -13,19 +13,21 @@ import {
 const MODEL = 'claude-sonnet-4-20250514';
 const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
-const PREMIERE_XML_RULES =
+const EDL_RULES =
   'Rules:\n' +
-  '- Return raw XML only — no markdown fences, no explanation before or after, nothing but the XML\n' +
-  '- The response must start with <?xml version="1.0" encoding="UTF-8"?>\n' +
-  '- Use Adobe Premiere Pro XML interchange format with root element <PremiereData Version="3">\n' +
-  '- Structure: <PremiereData> → <Project> → <RootProjectItem> → <ProjectItemList> → <Sequence>\n' +
-  '- Include a <VideoFrameRate> matching the video fps (e.g. 30 for 30fps, 24 for 24fps, 25 for 25fps)\n' +
-  '- Express all time values in ticks: multiply seconds by 254016000 (e.g. 5 seconds = 1270080000 ticks)\n' +
-  '- Clips are defined with <ClipProjectItem> elements containing <Name>, <MediaStart>, <MediaEnd> in ticks\n' +
-  '- Reference the media file by filename only in <PathRelativeToProjectRoot> so Premiere can relink\n' +
-  '- Include a <Sequence> with <VideoClipList> and <AudioClipList> containing the edit decisions\n' +
-  '- Set sequence In/Out points in ticks matching the intended output duration\n' +
-  '- Name the project after the edit request\n' +
+  '- Return raw EDL text only — no markdown fences, no explanation before or after, nothing but the EDL\n' +
+  '- Use CMX 3600 EDL format exactly as specified below\n' +
+  '- The first line must be: TITLE: [filename without extension]\n' +
+  '- The second line must be: FCM: NON-DROP FRAME\n' +
+  '- Leave one blank line after FCM, then list each edit on its own numbered line\n' +
+  '- Each edit line format: 001  AX       V     C        HH:MM:SS:FF HH:MM:SS:FF HH:MM:SS:FF HH:MM:SS:FF\n' +
+  '  - Column 1: edit number, zero-padded to 3 digits (001, 002, 003…)\n' +
+  '  - Column 2: reel name — always use AX for offline media\n' +
+  '  - Column 3: channel — V for video only, VA for video+audio, A for audio only\n' +
+  '  - Column 4: transition — C for cut, D for dissolve\n' +
+  '  - Columns 5-8: four timecodes: source in, source out, record in, record out (HH:MM:SS:FF)\n' +
+  '  - Timecodes use frames (FF) not milliseconds; assume 30fps unless told otherwise\n' +
+  '- After each edit line, add a comment line: * FROM CLIP NAME: [original filename]\n' +
   '- Treat REFERENCE INSTRUCTIONS, CUTTING INSTRUCTIONS, TRANSITION INSTRUCTIONS, and CAPTION INSTRUCTIONS as independent sections — never mix up logic across sections';
 
 function buildSystemPrompt(history: EditorFeedbackRow[]): string {
@@ -43,13 +45,13 @@ function buildSystemPrompt(history: EditorFeedbackRow[]): string {
       : '  (none yet)';
 
   return (
-    'You are an expert Adobe Premiere Pro XML generator. Learn from past feedback below before generating.\n\n' +
+    'You are an expert CMX 3600 EDL generator. Learn from past feedback below before generating.\n\n' +
     'Past mistakes to avoid:\n' +
     mistakesBlock + '\n\n' +
     'Things that worked well:\n' +
     goodBlock + '\n\n' +
     'Apply these lessons to every new generation. Never repeat a past mistake.\n\n' +
-    PREMIERE_XML_RULES
+    EDL_RULES
   );
 }
 
@@ -347,7 +349,7 @@ export default function EditorView() {
     if (refFrames.length > 0) {
       content.push({
         type: 'text',
-        text: 'Here are 6 frames from a reference video showing the editing style I want. Use this as visual context for the style, pacing, and cut pattern when generating the FCPXML.',
+        text: 'Here are 6 frames from a reference video showing the editing style I want. Use this as visual context for the style, pacing, and cut pattern when generating the EDL.',
       });
       for (const frame of refFrames) {
         content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: frame } });
@@ -381,13 +383,12 @@ export default function EditorView() {
       const raw  = data.content.find((c) => c.type === 'text')?.text ?? '';
 
       const cleaned = raw
-        .replace(/^```xml\s*/m, '')
-        .replace(/^```\s*/m, '')
+        .replace(/^```[^\n]*\n?/m, '')
         .replace(/```\s*$/m, '')
         .trim();
 
-      if (!cleaned.startsWith('<?xml') && !cleaned.startsWith('<PremiereData')) {
-        throw new Error('Claude did not return valid Premiere XML. Try rephrasing your prompt.');
+      if (!cleaned.startsWith('TITLE:')) {
+        throw new Error('Claude did not return a valid EDL. Try rephrasing your prompt.');
       }
 
       generatedPromptRef.current = instructionsText;
@@ -406,11 +407,11 @@ export default function EditorView() {
   const handleDownload = () => {
     if (!fcpxml || !videoFile) return;
     const baseName = videoFile.name.replace(/\.[^.]+$/, '');
-    const blob = new Blob([fcpxml], { type: 'application/xml' });
+    const blob = new Blob([fcpxml], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${baseName}.xml`;
+    a.download = `${baseName}.edl`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -483,11 +484,11 @@ export default function EditorView() {
       <div className="mx-5 mt-5 bg-indigo-500/08 border border-indigo-500/20 rounded-2xl px-5 py-3.5 flex items-start gap-3">
         <span className="text-indigo-400 shrink-0 mt-px">ℹ</span>
         <p className="text-sm text-indigo-200/80 leading-relaxed">
-          <span className="font-semibold text-white">How it works:</span> Describe your edit, Claude generates a Premiere XML file.
-          Download the <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">.xml</span> file and import it into{' '}
+          <span className="font-semibold text-white">How it works:</span> Describe your edit, Claude generates an EDL file.
+          Download the <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">.edl</span> file and import into{' '}
           <span className="font-semibold text-white">Premiere Pro</span> via{' '}
           <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">File → Import</span>.
-          Relink media if prompted by pointing to your original video file.
+          When prompted to locate media, point to your original video file.
         </p>
       </div>
 
@@ -728,7 +729,7 @@ export default function EditorView() {
                 {isBusy ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Generating Premiere XML…
+                    Generating EDL…
                   </>
                 ) : extractingFrames ? (
                   <>
@@ -740,7 +741,7 @@ export default function EditorView() {
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 opacity-90">
                       <path d="M12 3l1.88 5.76a1 1 0 00.95.69H21l-4.94 3.59a1 1 0 00-.36 1.12L17.58 20 12 16.41 6.42 20l1.88-5.84a1 1 0 00-.36-1.12L3 9.45h6.17a1 1 0 00.95-.69L12 3z" />
                     </svg>
-                    Generate Premiere XML
+                    Generate EDL
                   </>
                 )}
               </button>
@@ -753,10 +754,10 @@ export default function EditorView() {
               <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                  <h3 className="text-sm font-semibold text-white">Generated Premiere XML</h3>
+                  <h3 className="text-sm font-semibold text-white">Generated EDL</h3>
                 </div>
                 <span className="text-[11px] text-gray-600 font-mono tabular-nums">
-                  {videoFile?.name.replace(/\.[^.]+$/, '')}.xml
+                  {videoFile?.name.replace(/\.[^.]+$/, '')}.edl
                 </span>
               </div>
               <div className="p-5 space-y-4">
@@ -770,7 +771,7 @@ export default function EditorView() {
                 <div className="border-t border-white/[0.05] pt-4">
                   {feedbackState === 'none' && (
                     <div className="flex items-center gap-3">
-                      <p className="text-xs text-gray-500 flex-1">Did this Premiere XML work as expected?</p>
+                      <p className="text-xs text-gray-500 flex-1">Did this EDL work as expected?</p>
                       <button
                         onClick={handleThumbsUp}
                         disabled={savingFeedback}
@@ -798,7 +799,7 @@ export default function EditorView() {
 
                   {feedbackState === 'prompted' && (
                     <div className="space-y-3">
-                      <p className="text-xs text-gray-400">What was wrong with the generated Premiere XML?</p>
+                      <p className="text-xs text-gray-400">What was wrong with the generated EDL?</p>
                       <textarea
                         value={feedbackText}
                         onChange={(e) => setFeedbackText(e.target.value)}
@@ -921,7 +922,7 @@ export default function EditorView() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-emerald-400">
                     <span className="shrink-0">✓</span>
-                    <p className="text-sm font-semibold">Premiere XML ready</p>
+                    <p className="text-sm font-semibold">EDL ready</p>
                   </div>
                   <button
                     onClick={handleDownload}
@@ -930,19 +931,19 @@ export default function EditorView() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
                     </svg>
-                    Download .xml
+                    Download .edl
                   </button>
                   <p className="text-[11px] text-gray-600 leading-relaxed">
                     Import into Premiere Pro via{' '}
                     <span className="font-mono text-gray-500 text-[10px]">File → Import</span>.
-                    Relink media if prompted by pointing to your original video file.
+                    When prompted to locate media, point to your original video file.
                   </p>
                 </div>
               ) : (
                 <p className="text-xs text-gray-600 text-center py-4 leading-relaxed">
                   {!videoFile
                     ? 'Upload a video to get started'
-                    : 'Generate Premiere XML to enable download'}
+                    : 'Generate EDL to enable download'}
                 </p>
               )}
             </div>
@@ -988,7 +989,7 @@ export default function EditorView() {
           <div className="border-t border-white/[0.05]">
             {feedbackHistory.length === 0 ? (
               <p className="px-5 py-8 text-xs text-gray-600 text-center">
-                No feedback yet. Rate generated Premiere XML to help Claude improve.
+                No feedback yet. Rate generated EDLs to help Claude improve.
               </p>
             ) : (
               <div className="divide-y divide-white/[0.04]">
