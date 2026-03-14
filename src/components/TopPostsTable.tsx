@@ -1,9 +1,23 @@
 'use client';
 
-import { PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
+import { useState } from 'react';
+import { CONTENT_TYPES, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
+import { updatePostContentType } from '@/lib/db';
+
+const CONTENT_TYPE_COLORS: Record<string, string> = {
+  'Hook Video':   '#d4922a',
+  'Tutorial':     '#3b82f6',
+  'UGC Style':    '#a855f7',
+  'Talking Head': '#22c55e',
+  'B-Roll':       '#f97316',
+  'Podcast Clip': '#ec4899',
+  'Text Post':    '#14b8a6',
+  'Other':        '#6b7280',
+};
 
 interface Props {
   posts: UnifiedPost[];
+  onContentTypeChange?: (postId: string, contentType: string | undefined) => void;
 }
 
 function formatNum(n: number): string {
@@ -12,7 +26,24 @@ function formatNum(n: number): string {
   return String(n);
 }
 
-export default function TopPostsTable({ posts }: Props) {
+export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
+  const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const handleTypeSelect = async (post: UnifiedPost, type: string) => {
+    setOpenDropdown(null);
+    setSaving(post.id);
+    const previousType = post.content_type;
+    onContentTypeChange?.(post.id, type);
+    try {
+      await updatePostContentType(post.platform, post.title, post.date, type);
+    } catch {
+      onContentTypeChange?.(post.id, previousType);
+    } finally {
+      setSaving(null);
+    }
+  };
+
   const sorted = [...posts].sort((a, b) => b.views - a.views).slice(0, 10);
 
   return (
@@ -33,6 +64,7 @@ export default function TopPostsTable({ posts }: Props) {
               <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">
                 <span title="Engagement Rate = (Likes + Comments + Shares + Saves) / Views × 100" className="cursor-help underline decoration-dotted underline-offset-2">Eng. Rate</span>
               </th>
+              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Type</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.04]">
@@ -76,11 +108,42 @@ export default function TopPostsTable({ posts }: Props) {
                     {post.views === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / post.views * 100).toFixed(1)}%`}
                   </span>
                 </td>
+                <td className="px-5 py-3.5 relative">
+                  <button
+                    onClick={() => setOpenDropdown(openDropdown === post.id ? null : post.id)}
+                    disabled={saving === post.id}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-semibold border transition-all disabled:opacity-50"
+                    style={
+                      post.content_type
+                        ? {
+                            background: `${CONTENT_TYPE_COLORS[post.content_type] ?? '#6b7280'}18`,
+                            borderColor: `${CONTENT_TYPE_COLORS[post.content_type] ?? '#6b7280'}40`,
+                            color: CONTENT_TYPE_COLORS[post.content_type] ?? '#6b7280',
+                          }
+                        : { borderColor: 'rgba(255,255,255,0.06)', color: 'var(--text-3)' }
+                    }
+                  >
+                    {post.content_type ?? '—'}
+                  </button>
+                  {openDropdown === post.id && (
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-[var(--bg-elevated)] border border-white/[0.08] rounded-xl shadow-xl overflow-hidden py-1 w-36">
+                      {CONTENT_TYPES.map((type) => (
+                        <button
+                          key={type}
+                          onClick={() => handleTypeSelect(post, type)}
+                          className="w-full text-left px-3.5 py-2 text-[11px] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04] transition-colors"
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-5 py-10 text-center text-[var(--text-2)] text-sm">No posts yet</td>
+                <td colSpan={7} className="px-5 py-10 text-center text-[var(--text-2)] text-sm">No posts yet</td>
               </tr>
             )}
           </tbody>

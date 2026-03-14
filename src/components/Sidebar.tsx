@@ -1,22 +1,24 @@
 'use client';
 
-import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors } from './Icons';
+import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison } from './Icons';
 
-export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'insights' | 'editor' | 'settings';
+export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'editor' | 'settings';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?: string }[] = [
-  { id: 'dashboard', label: 'Dashboard',   icon: <IconDashboard className="w-4 h-4" /> },
-  { id: 'content',   label: 'Content',     icon: <IconContent   className="w-4 h-4" /> },
-  { id: 'analytics', label: 'Analytics',   icon: <IconAnalytics className="w-4 h-4" /> },
-  { id: 'platforms', label: 'Platforms',   icon: <IconPlatforms className="w-4 h-4" /> },
-  { id: 'insights',  label: 'AI Insights', icon: <IconSparkles  className="w-4 h-4" />, badge: 'AI' },
-  { id: 'editor',    label: 'Editor',      icon: <IconScissors  className="w-4 h-4" />, badge: 'AI' },
-  { id: 'settings',  label: 'Settings',    icon: <IconSettings  className="w-4 h-4" /> },
+  { id: 'dashboard',   label: 'Dashboard',   icon: <IconDashboard  className="w-4 h-4" /> },
+  { id: 'content',     label: 'Content',     icon: <IconContent    className="w-4 h-4" /> },
+  { id: 'analytics',   label: 'Analytics',   icon: <IconAnalytics  className="w-4 h-4" /> },
+  { id: 'platforms',   label: 'Platforms',   icon: <IconPlatforms  className="w-4 h-4" /> },
+  { id: 'comparison',  label: 'Comparison',  icon: <IconComparison className="w-4 h-4" /> },
+  { id: 'captions',    label: 'Captions',    icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
+  { id: 'insights',    label: 'AI Insights', icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
+  { id: 'editor',      label: 'Editor',      icon: <IconScissors   className="w-4 h-4" />, badge: 'AI' },
+  { id: 'settings',    label: 'Settings',    icon: <IconSettings   className="w-4 h-4" /> },
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', 'content', 'analytics', 'platforms'] },
-  { label: 'Tools',     items: ['insights', 'editor', 'settings'] },
+  { label: 'Analytics', items: ['dashboard', 'content', 'analytics', 'platforms', 'comparison'] },
+  { label: 'Tools',     items: ['captions', 'insights', 'editor', 'settings'] },
 ];
 
 interface Props {

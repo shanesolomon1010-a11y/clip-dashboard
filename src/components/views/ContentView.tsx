@@ -7,6 +7,7 @@ import { PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 interface Props {
   posts: UnifiedPost[];
   onUpload: (posts: UnifiedPost[]) => void;
+  onPostUpdate: (postId: string, contentType: string | undefined) => void;
 }
 
 function formatNum(n: number): string {
@@ -15,7 +16,7 @@ function formatNum(n: number): string {
   return String(n);
 }
 
-export default function ContentView({ posts, onUpload }: Props) {
+export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
   const recent = [...posts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
 
   return (
@@ -68,7 +69,7 @@ export default function ContentView({ posts, onUpload }: Props) {
       </div>
 
       {/* Full posts table */}
-      <TopPostsTable posts={posts} />
+      <TopPostsTable posts={posts} onContentTypeChange={onPostUpdate} />
 
       {/* Upload zone */}
       <UploadZone onUpload={onUpload} />
