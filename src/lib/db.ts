@@ -44,7 +44,7 @@ export interface EditorFeedbackRow {
   id: string;
   created_at: string;
   prompt: string;
-  fcpxml_generated: string;
+  ffmpeg_commands_generated: string; // stored in fcpxml_generated column in Supabase
   feedback: string;
   feedback_type: 'good' | 'mistake';
 }
@@ -57,13 +57,25 @@ export async function fetchEditorFeedback(): Promise<EditorFeedbackRow[]> {
     .limit(20);
 
   if (error) throw error;
-  return (data ?? []) as EditorFeedbackRow[];
+  return (data ?? []).map((row: Record<string, unknown>) => ({
+    id: row.id as string,
+    created_at: row.created_at as string,
+    prompt: row.prompt as string,
+    ffmpeg_commands_generated: row.fcpxml_generated as string,
+    feedback: row.feedback as string,
+    feedback_type: row.feedback_type as 'good' | 'mistake',
+  }));
 }
 
 export async function saveEditorFeedback(
   row: Omit<EditorFeedbackRow, 'id' | 'created_at'>
 ): Promise<void> {
-  const { error } = await supabase.from('editor_feedback').insert(row);
+  const { error } = await supabase.from('editor_feedback').insert({
+    prompt: row.prompt,
+    fcpxml_generated: row.ffmpeg_commands_generated,
+    feedback: row.feedback,
+    feedback_type: row.feedback_type,
+  });
   if (error) throw error;
 }
 

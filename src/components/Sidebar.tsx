@@ -26,20 +26,19 @@ interface Props {
 
 export default function Sidebar({ active, onNavigate }: Props) {
   return (
-    <aside className="w-[220px] shrink-0 h-screen flex flex-col sticky top-0 bg-[#080d16] border-r border-white/[0.06]">
+    <aside className="w-[200px] shrink-0 h-screen flex flex-col sticky top-0 bg-[var(--bg-elevated)] border-r border-white/[0.05]">
 
       {/* Logo */}
-      <div className="px-5 pt-6 pb-5 border-b border-white/[0.05]">
+      <div className="px-4 pt-6 pb-5 border-b border-white/[0.05]">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-900/40">
-            <svg viewBox="0 0 24 24" fill="white" className="w-4 h-4">
-              <path d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-              <path fillRule="evenodd" d="M3 6a3 3 0 013-3h12a3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6zm3-1a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V6a1 1 0 00-1-1H6z" clipRule="evenodd" />
+          <div className="w-7 h-7 rounded-lg bg-sky-500 flex items-center justify-center shrink-0">
+            <svg viewBox="0 0 24 24" fill="white" className="w-3.5 h-3.5">
+              <path d="M8 5v14l11-7z" />
             </svg>
           </div>
           <div>
-            <p className="text-sm font-bold text-white leading-none tracking-tight">Clip Studio</p>
-            <p className="text-[10px] text-gray-500 mt-0.5 font-medium">Creator Analytics</p>
+            <p className="text-[13px] font-semibold text-[var(--text-1)] leading-none tracking-tight">Clip Studio</p>
+            <p className="text-[10px] text-[var(--text-3)] mt-0.5">Creator Analytics</p>
           </div>
         </div>
       </div>
@@ -50,7 +49,7 @@ export default function Sidebar({ active, onNavigate }: Props) {
           const groupItems = NAV_ITEMS.filter((item) => items.includes(item.id));
           return (
             <div key={label}>
-              <p className="px-3 mb-1.5 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">{label}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-3)] px-3 mb-1">{label}</p>
               <div className="space-y-0.5">
                 {groupItems.map(({ id, label: itemLabel, icon, badge }) => {
                   const isActive = active === id;
@@ -58,22 +57,18 @@ export default function Sidebar({ active, onNavigate }: Props) {
                     <button
                       key={id}
                       onClick={() => onNavigate(id)}
-                      className={`relative w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group ${
+                      className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 group ${
                         isActive
-                          ? 'bg-indigo-500/10 text-white'
-                          : 'text-gray-500 hover:text-gray-200 hover:bg-white/[0.04]'
+                          ? 'bg-sky-500/10 text-sky-400'
+                          : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04]'
                       }`}
                     >
-                      {/* Active left accent bar */}
-                      {isActive && (
-                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-indigo-400 rounded-full" />
-                      )}
-                      <span className={`shrink-0 transition-colors ${isActive ? 'text-indigo-400' : 'text-gray-600 group-hover:text-gray-400'}`}>
+                      <span className={`shrink-0 transition-colors ${isActive ? 'text-sky-400' : 'text-[var(--text-3)] group-hover:text-[var(--text-2)]'}`}>
                         {icon}
                       </span>
                       <span className="flex-1 text-left">{itemLabel}</span>
-                      {badge && !isActive && (
-                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-violet-500/15 text-violet-400 border border-violet-500/20 leading-none">
+                      {badge && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 leading-none">
                           {badge}
                         </span>
                       )}
@@ -88,19 +83,19 @@ export default function Sidebar({ active, onNavigate }: Props) {
 
       {/* Import CTA */}
       <div className="px-3 pb-5">
-        <div className="rounded-2xl bg-gradient-to-br from-indigo-500/10 to-violet-500/10 border border-indigo-500/15 p-4">
+        <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 rounded-lg bg-indigo-500/20 flex items-center justify-center">
-              <IconUpload className="w-3.5 h-3.5 text-indigo-400" />
+            <div className="w-6 h-6 rounded-lg bg-sky-500/10 border border-sky-500/20 flex items-center justify-center">
+              <IconUpload className="w-3.5 h-3.5 text-sky-400" />
             </div>
-            <span className="text-xs font-semibold text-white">Import Data</span>
+            <span className="text-[12px] font-semibold text-[var(--text-1)]">Import Data</span>
           </div>
-          <p className="text-[11px] text-gray-500 leading-relaxed mb-3">
+          <p className="text-[11px] text-[var(--text-2)] leading-relaxed mb-3">
             Upload CSV exports from any platform to sync your analytics.
           </p>
           <button
             onClick={() => onNavigate('content')}
-            className="w-full text-xs font-semibold bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg py-2 transition-colors shadow-lg shadow-indigo-900/30"
+            className="w-full text-[12px] font-semibold bg-sky-500 hover:bg-sky-400 text-white rounded-xl py-2 transition-colors"
           >
             Upload CSV
           </button>

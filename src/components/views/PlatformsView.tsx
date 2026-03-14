@@ -39,8 +39,8 @@ export default function PlatformsView({ posts }: Props) {
   return (
     <div className="p-6 space-y-5">
       <div>
-        <h2 className="text-base font-bold text-white mb-1 tracking-tight">Platform Overview</h2>
-        <p className="text-sm text-gray-500">All-time stats per platform based on imported CSV data.</p>
+        <h2 className="text-base font-bold text-[var(--text-1)] mb-1 tracking-tight">Platform Overview</h2>
+        <p className="text-sm text-[var(--text-2)]">All-time stats per platform based on imported CSV data.</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -50,7 +50,7 @@ export default function PlatformsView({ posts }: Props) {
           return (
             <div
               key={platform}
-              className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/[0.1] transition-all"
+              className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden hover:border-white/[0.09] transition-all"
             >
               {/* Header */}
               <div
@@ -62,8 +62,8 @@ export default function PlatformsView({ posts }: Props) {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-3 h-3 rounded-full shadow-md" style={{ background: color, boxShadow: `0 0 8px ${color}60` }} />
-                  <span className="font-semibold text-white text-[13px]">{PLATFORM_LABELS[platform]}</span>
-                  <span className="text-[11px] text-gray-600">{PLATFORM_META[platform].description}</span>
+                  <span className="font-semibold text-[var(--text-1)] text-[13px]">{PLATFORM_LABELS[platform]}</span>
+                  <span className="text-[11px] text-[var(--text-3)]">{PLATFORM_META[platform].description}</span>
                 </div>
                 <span
                   className="text-[11px] font-semibold px-2.5 py-1 rounded-lg shrink-0"
@@ -76,11 +76,11 @@ export default function PlatformsView({ posts }: Props) {
               <div className="p-5">
                 {!hasData ? (
                   <div className="text-center py-5 space-y-2">
-                    <div className="w-10 h-10 rounded-full bg-white/[0.03] border border-white/[0.06] flex items-center justify-center mx-auto mb-3">
+                    <div className="w-10 h-10 rounded-full bg-white/[0.03] border border-white/[0.05] flex items-center justify-center mx-auto mb-3">
                       <span className="w-3 h-3 rounded-full" style={{ background: `${color}50` }} />
                     </div>
-                    <p className="text-gray-500 text-sm font-medium">No data imported yet</p>
-                    <p className="text-gray-700 text-xs leading-relaxed">{PLATFORM_META[platform].exportNote}</p>
+                    <p className="text-[var(--text-2)] text-sm font-medium">No data imported yet</p>
+                    <p className="text-[var(--text-3)] text-xs leading-relaxed">{PLATFORM_META[platform].exportNote}</p>
                   </div>
                 ) : (
                   <>
@@ -92,9 +92,9 @@ export default function PlatformsView({ posts }: Props) {
                         { label: 'Comments', value: formatNum(comments) },
                         { label: 'Shares',   value: formatNum(shares) },
                       ].map(({ label, value }) => (
-                        <div key={label} className="bg-white/[0.03] border border-white/[0.05] rounded-xl px-3 py-2.5">
-                          <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1 font-medium">{label}</p>
-                          <p className="text-sm font-bold text-white tabular-nums">{value}</p>
+                        <div key={label} className="bg-white/[0.02] border border-white/[0.04] rounded-xl px-3 py-2.5">
+                          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-2)] mb-1">{label}</p>
+                          <p className="text-sm font-bold text-[var(--text-1)] font-['JetBrains_Mono'] tabular-nums">{value}</p>
                         </div>
                       ))}
                     </div>
@@ -102,12 +102,12 @@ export default function PlatformsView({ posts }: Props) {
                     {/* Interactions bar */}
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] text-gray-500 font-medium">Interactions / Views</span>
-                        <span className="text-xs font-bold tabular-nums text-gray-300">
+                        <span className="text-[11px] uppercase tracking-widest text-[var(--text-2)] font-medium">Interactions / Views</span>
+                        <span className="text-xs font-bold font-['JetBrains_Mono'] tabular-nums text-[var(--text-1)]">
                           {formatNum(interactions)} / {formatNum(views)}
                         </span>
                       </div>
-                      <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700"
                           style={{ width: `${views > 0 ? Math.min((interactions / views) * 100 * 10, 100) : 0}%`, background: color, opacity: 0.8 }}
@@ -117,12 +117,12 @@ export default function PlatformsView({ posts }: Props) {
 
                     {/* Best post */}
                     {best && (
-                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5">
-                        <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-2 font-medium">Best Post</p>
-                        <p className="text-[12px] text-gray-200 font-medium leading-snug line-clamp-2 mb-2">{best.title}</p>
+                      <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-2)] mb-2">Best Post</p>
+                        <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.title}</p>
                         <div className="flex gap-4 text-[11px]">
-                          <span className="text-gray-600">Views: <span className="text-white font-semibold tabular-nums">{formatNum(best.views)}</span></span>
-                          <span className="text-gray-600">Interactions: <span className="text-white font-semibold tabular-nums">{formatNum(best.likes + best.comments + best.shares + best.saves)}</span></span>
+                          <span className="text-[var(--text-2)]">Views: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.views)}</span></span>
+                          <span className="text-[var(--text-2)]">Interactions: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.likes + best.comments + best.shares + best.saves)}</span></span>
                         </div>
                       </div>
                     )}
@@ -130,7 +130,7 @@ export default function PlatformsView({ posts }: Props) {
                 )}
 
                 {/* Export hint */}
-                <p className="text-[10px] text-gray-700 mt-3 leading-relaxed">{PLATFORM_META[platform].exportNote}</p>
+                <p className="text-[11px] text-[var(--text-3)] mt-3 leading-relaxed">{PLATFORM_META[platform].exportNote}</p>
               </div>
             </div>
           );

@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import {
   EditorFeedbackRow,
   fetchEditorFeedback,
@@ -10,65 +12,57 @@ import {
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const MODEL = 'claude-sonnet-4-20250514';
+const MODEL   = 'claude-sonnet-4-20250514';
 const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
-const JSX_RULES =
+const FFMPEG_CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js';
+const FFMPEG_WASM_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm';
+
+const FFMPEG_RULES =
+  'You are an expert FFmpeg command generator for in-browser video editing.\n\n' +
   'Rules:\n' +
-  '- Return raw ExtendScript (.jsx) only — no markdown fences, no explanation before or after, nothing but the script\n' +
-  '- The script must work in Adobe Premiere Pro via File → Scripts → Run Script\n' +
-  '- Start with these exact comment lines and FILE_PATH declaration:\n' +
-  '    // INSTRUCTIONS: Update FILE_PATH to the full path of your video file\n' +
-  '    // Then run this script in Premiere Pro via File → Scripts → Run Script\n' +
-  '    var FILE_PATH = "C:/path/to/your/video.mp4"; // UPDATE THIS\n' +
-  '- Use app.project to access the active project\n' +
-  '- Import the source video with: app.project.importFiles([FILE_PATH])\n' +
-  '- Find the imported clip in app.project.rootItem.children by matching the filename\n' +
-  '- Create a new sequence with: app.project.createNewSequence(sequenceName, "sequence-001")\n' +
-  '- Get the sequence with: app.project.activeSequence\n' +
-  '- Insert clips using: sequence.videoTracks[0].insertClip(clipItem, insertPointInSeconds)\n' +
-  '- Express all time values in seconds (as plain numbers), NOT ticks\n' +
-  '- Set in/out points on the clip using clip.inPoint.seconds and clip.outPoint.seconds after insertion\n' +
-  '- For captions/markers: use sequence.markers.createMarker(timeInSeconds) and set marker.name and marker.comments\n' +
-  '- Wrap everything in a try/catch and show errors with alert()\n' +
-  '- Treat REFERENCE INSTRUCTIONS, CUTTING INSTRUCTIONS, TRANSITION INSTRUCTIONS, and CAPTION INSTRUCTIONS as independent sections — never mix up logic across sections';
+  '- Return ONLY a valid JSON array of FFmpeg argument arrays — no markdown, no explanation\n' +
+  '- Each inner array is a single FFmpeg invocation (args only, no "ffmpeg" executable)\n' +
+  '- Input file is always named "input.mp4". Final output must be named "output.mp4"\n' +
+  '- Use intermediate files (temp1.mp4, temp2.mp4…) for chained operations\n' +
+  '- For captions/text: use the drawtext filter with fontcolor=white, fontsize appropriate to resolution\n' +
+  '- For crossfades/transitions between clips: use the xfade filter\n' +
+  '- Avoid hardware acceleration flags (-hwaccel, -videotoolbox, etc) — not supported in WASM\n' +
+  '- Avoid complex filter_complex chains where possible; prefer intermediate files\n' +
+  '- Use -c copy where no transcoding is needed (cuts without re-encoding)\n' +
+  '- Times are in seconds (or HH:MM:SS). Do NOT use ticks\n' +
+  '- If no meaningful edit can be inferred, return a simple copy: [["-i","input.mp4","-c","copy","output.mp4"]]\n' +
+  '- Example valid output: [["-i","input.mp4","-ss","10","-to","45","-c","copy","output.mp4"]]\n' +
+  '- Treat REFERENCE INSTRUCTIONS, CUTTING INSTRUCTIONS, TRANSITION INSTRUCTIONS, and CAPTION INSTRUCTIONS as independent sections';
 
 function buildSystemPrompt(history: EditorFeedbackRow[]): string {
   const mistakes = history.filter((r) => r.feedback_type === 'mistake');
   const good     = history.filter((r) => r.feedback_type === 'good');
 
-  const mistakesBlock =
-    mistakes.length > 0
-      ? mistakes.map((r) => `  - Prompt: '${r.prompt}' → Issue: '${r.feedback}'`).join('\n')
-      : '  (none yet)';
+  const mistakesBlock = mistakes.length > 0
+    ? mistakes.map((r) => `  - Prompt: '${r.prompt}' → Issue: '${r.feedback}'`).join('\n')
+    : '  (none yet)';
 
-  const goodBlock =
-    good.length > 0
-      ? good.map((r) => `  - Prompt: '${r.prompt}'`).join('\n')
-      : '  (none yet)';
+  const goodBlock = good.length > 0
+    ? good.map((r) => `  - Prompt: '${r.prompt}'`).join('\n')
+    : '  (none yet)';
 
   return (
-    'You are an expert Adobe Premiere Pro ExtendScript generator. Learn from past feedback below before generating.\n\n' +
-    'Past mistakes to avoid:\n' +
-    mistakesBlock + '\n\n' +
-    'Things that worked well:\n' +
-    goodBlock + '\n\n' +
-    'Apply these lessons to every new generation. Never repeat a past mistake.\n\n' +
-    JSX_RULES
+    FFMPEG_RULES + '\n\n' +
+    'Past mistakes to avoid:\n' + mistakesBlock + '\n\n' +
+    'Things that worked well:\n' + goodBlock + '\n\n' +
+    'Apply these lessons to every new generation. Never repeat a past mistake.'
   );
 }
 
 function buildUserPrompt(
-  refInstructions: string,
-  cuttingInstructions: string,
-  transitionInstructions: string,
-  captionInstructions: string
+  ref: string, cutting: string, transition: string, caption: string
 ): string {
   const sections: string[] = [];
-  if (refInstructions.trim())       sections.push(`REFERENCE INSTRUCTIONS: ${refInstructions.trim()}`);
-  if (cuttingInstructions.trim())   sections.push(`CUTTING INSTRUCTIONS: ${cuttingInstructions.trim()}`);
-  if (transitionInstructions.trim()) sections.push(`TRANSITION INSTRUCTIONS: ${transitionInstructions.trim()}`);
-  if (captionInstructions.trim())   sections.push(`CAPTION INSTRUCTIONS: ${captionInstructions.trim()}`);
+  if (ref.trim())        sections.push(`REFERENCE INSTRUCTIONS: ${ref.trim()}`);
+  if (cutting.trim())    sections.push(`CUTTING INSTRUCTIONS: ${cutting.trim()}`);
+  if (transition.trim()) sections.push(`TRANSITION INSTRUCTIONS: ${transition.trim()}`);
+  if (caption.trim())    sections.push(`CAPTION INSTRUCTIONS: ${caption.trim()}`);
   return sections.join('\n');
 }
 
@@ -83,7 +77,7 @@ interface VideoMeta {
   size: number;
 }
 
-type Status        = 'idle' | 'calling-claude' | 'done' | 'error';
+type Status = 'idle' | 'generating' | 'processing' | 'done' | 'error';
 type FeedbackState = 'none' | 'prompted' | 'submitted';
 
 type TextBlock  = { type: 'text'; text: string };
@@ -100,7 +94,7 @@ function formatTime(s: number): string {
 
 function formatFileSize(bytes: number): string {
   if (bytes >= 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
-  if (bytes >= 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (bytes >= 1024 * 1024)        return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   return `${(bytes / 1024).toFixed(0)} KB`;
 }
 
@@ -113,13 +107,13 @@ function formatDate(iso: string): string {
 
 async function extractFrames(url: string, duration: number): Promise<string[]> {
   return new Promise((resolve) => {
-    const video = document.createElement('video');
-    video.src = url;
-    video.muted = true;
+    const video  = document.createElement('video');
+    video.src    = url;
+    video.muted  = true;
     video.playsInline = true;
 
     const canvas = document.createElement('canvas');
-    canvas.width = 640;
+    canvas.width  = 640;
     canvas.height = 360;
     const ctx = canvas.getContext('2d');
     if (!ctx) { resolve([]); return; }
@@ -152,51 +146,94 @@ async function extractFrames(url: string, duration: number): Promise<string[]> {
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function EditorView() {
+  // FFmpeg
+  const ffmpegRef      = useRef<FFmpeg | null>(null);
+  const [ffmpegLoaded,  setFfmpegLoaded]  = useState(false);
+  const [ffmpegLoading, setFfmpegLoading] = useState(false);
+  const [ffmpegError,   setFfmpegError]   = useState<string | null>(null);
+
   // Source video
-  const [videoFile, setVideoFile]   = useState<File | null>(null);
-  const [videoUrl, setVideoUrl]     = useState<string | null>(null);
-  const [videoMeta, setVideoMeta]   = useState<VideoMeta | null>(null);
-  const [trimStart, setTrimStart]   = useState(0);
-  const [trimEnd, setTrimEnd]       = useState(0);
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoUrl,  setVideoUrl]  = useState<string | null>(null);
+  const [videoMeta, setVideoMeta] = useState<VideoMeta | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
   // Reference video
-  const [refFile, setRefFile]             = useState<File | null>(null);
-  const [refUrl, setRefUrl]               = useState<string | null>(null);
-  const [refFrames, setRefFrames]         = useState<string[]>([]);
-  const [extractingFrames, setExtractingFrames] = useState(false);
-  const [isRefDragging, setIsRefDragging] = useState(false);
+  const [refFile,           setRefFile]           = useState<File | null>(null);
+  const [refUrl,            setRefUrl]             = useState<string | null>(null);
+  const [refFrames,         setRefFrames]          = useState<string[]>([]);
+  const [extractingFrames,  setExtractingFrames]   = useState(false);
+  const [isRefDragging,     setIsRefDragging]      = useState(false);
 
-  // Four prompt boxes
-  const [refInstructions, setRefInstructions]             = useState('');
-  const [cuttingInstructions, setCuttingInstructions]     = useState('');
+  // Instructions
+  const [refInstructions,        setRefInstructions]        = useState('');
+  const [cuttingInstructions,    setCuttingInstructions]    = useState('');
   const [transitionInstructions, setTransitionInstructions] = useState('');
-  const [captionInstructions, setCaptionInstructions]     = useState('');
+  const [captionInstructions,    setCaptionInstructions]    = useState('');
 
-  // Generation
-  const [fcpxml, setFcpxml]   = useState<string | null>(null);
-  const [status, setStatus]   = useState<Status>('idle');
-  const [error, setError]     = useState<string | null>(null);
+  // Generation & processing
+  const [status,        setStatus]       = useState<Status>('idle');
+  const [progress,      setProgress]     = useState(0);
+  const [outputUrl,     setOutputUrl]    = useState<string | null>(null);
+  const [commands,      setCommands]     = useState<string[][] | null>(null);
+  const [processingMs,  setProcessingMs] = useState<number | null>(null);
+  const [logLines,      setLogLines]     = useState<string[]>([]);
+  const [error,         setError]        = useState<string | null>(null);
 
   // Feedback
-  const [feedbackState, setFeedbackState]   = useState<FeedbackState>('none');
-  const [feedbackText, setFeedbackText]     = useState('');
+  const [feedbackState,  setFeedbackState]  = useState<FeedbackState>('none');
+  const [feedbackText,   setFeedbackText]   = useState('');
   const [savingFeedback, setSavingFeedback] = useState(false);
 
   // History
   const [feedbackHistory, setFeedbackHistory] = useState<EditorFeedbackRow[]>([]);
-  const [historyOpen, setHistoryOpen]         = useState(false);
+  const [historyOpen,     setHistoryOpen]     = useState(false);
   const [clearingHistory, setClearingHistory] = useState(false);
 
   const fileInputRef    = useRef<HTMLInputElement>(null);
   const refFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Snapshot at generation time for feedback saving
-  const generatedPromptRef = useRef('');
-  const generatedFcpxmlRef = useRef('');
+  // Snapshots for feedback saving
+  const generatedPromptRef   = useRef('');
+  const generatedCommandsRef = useRef('');
 
-  // ── Load history on mount ─────────────────────────────────────────────────
+  // ── FFmpeg initialization ──────────────────────────────────────────────────
 
+  const loadFFmpeg = useCallback(async () => {
+    if (ffmpegRef.current || ffmpegLoading) return;
+    setFfmpegLoading(true);
+    setFfmpegError(null);
+    try {
+      const ff = new FFmpeg();
+      ff.on('log',      ({ message }) => {
+        setLogLines((prev) => [...prev.slice(-49), message]);
+      });
+      ff.on('progress', ({ progress: p }) => {
+        setProgress(Math.max(0, Math.min(100, Math.round(p * 100))));
+      });
+
+      const [coreURL, wasmURL] = await Promise.all([
+        toBlobURL(FFMPEG_CORE_URL, 'text/javascript'),
+        toBlobURL(FFMPEG_WASM_URL, 'application/wasm'),
+      ]);
+
+      await ff.load({ coreURL, wasmURL });
+      ffmpegRef.current = ff;
+      setFfmpegLoaded(true);
+    } catch (e) {
+      setFfmpegError(e instanceof Error ? e.message : 'Failed to load FFmpeg');
+    } finally {
+      setFfmpegLoading(false);
+    }
+  }, [ffmpegLoading]);
+
+  // Auto-load FFmpeg on mount
+  useEffect(() => {
+    loadFFmpeg();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Load feedback history on mount
   useEffect(() => {
     fetchEditorFeedback()
       .then(setFeedbackHistory)
@@ -207,10 +244,14 @@ export default function EditorView() {
 
   const loadVideo = useCallback((file: File) => {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
+    if (outputUrl) { URL.revokeObjectURL(outputUrl); setOutputUrl(null); }
     setVideoFile(file);
-    setFcpxml(null);
     setError(null);
     setStatus('idle');
+    setProgress(0);
+    setCommands(null);
+    setProcessingMs(null);
+    setLogLines([]);
     setFeedbackState('none');
     setFeedbackText('');
 
@@ -223,15 +264,13 @@ export default function EditorView() {
       setVideoMeta({
         filename: file.name,
         duration: vid.duration,
-        width: vid.videoWidth,
-        height: vid.videoHeight,
-        fps: 30,
-        size: file.size,
+        width:    vid.videoWidth,
+        height:   vid.videoHeight,
+        fps:      30,
+        size:     file.size,
       });
-      setTrimStart(0);
-      setTrimEnd(vid.duration);
     };
-  }, [videoUrl]);
+  }, [videoUrl, outputUrl]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -251,14 +290,19 @@ export default function EditorView() {
 
   const handleClear = () => {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
+    if (outputUrl) URL.revokeObjectURL(outputUrl);
     setVideoFile(null);
     setVideoUrl(null);
     setVideoMeta(null);
-    setFcpxml(null);
+    setOutputUrl(null);
     setStatus('idle');
     setError(null);
+    setProgress(0);
+    setCommands(null);
+    setProcessingMs(null);
     setFeedbackState('none');
     setFeedbackText('');
+    setLogLines([]);
   };
 
   // ── Reference video ───────────────────────────────────────────────────────
@@ -268,10 +312,8 @@ export default function EditorView() {
     setRefFile(file);
     setRefFrames([]);
     setExtractingFrames(true);
-
     const url = URL.createObjectURL(file);
     setRefUrl(url);
-
     const vid = document.createElement('video');
     vid.src = url;
     vid.onloadedmetadata = async () => {
@@ -307,52 +349,60 @@ export default function EditorView() {
     setExtractingFrames(false);
   };
 
-  // ── Generate FCPXML via Claude ────────────────────────────────────────────
+  // ── Generate + Process ────────────────────────────────────────────────────
 
-  const hasAnyInstruction =
+  const hasAnyInstruction = !!(
     refInstructions.trim() || cuttingInstructions.trim() ||
-    transitionInstructions.trim() || captionInstructions.trim();
+    transitionInstructions.trim() || captionInstructions.trim()
+  );
 
   const handleGenerate = async () => {
     if (!hasAnyInstruction || !videoMeta || !API_KEY) return;
-    setStatus('calling-claude');
+
+    setStatus('generating');
     setError(null);
-    setFcpxml(null);
+    setOutputUrl(null);
+    setCommands(null);
+    setProgress(0);
+    setProcessingMs(null);
+    setLogLines([]);
     setFeedbackState('none');
     setFeedbackText('');
 
-    // Fetch fresh history to build system prompt
-    let history: EditorFeedbackRow[] = feedbackHistory;
+    // Ensure FFmpeg is loaded
+    if (!ffmpegRef.current) {
+      await loadFFmpeg();
+      if (!ffmpegRef.current) {
+        setError('FFmpeg failed to initialize. Please refresh and try again.');
+        setStatus('error');
+        return;
+      }
+    }
+
+    // Fetch fresh history
+    let history = feedbackHistory;
     try {
       history = await fetchEditorFeedback();
       setFeedbackHistory(history);
     } catch { /* use cached */ }
 
-    const systemPrompt = buildSystemPrompt(history);
+    const systemPrompt     = buildSystemPrompt(history);
     const instructionsText = buildUserPrompt(
       refInstructions, cuttingInstructions, transitionInstructions, captionInstructions
     );
 
-    const hasCustomTrim = trimStart > 0 || trimEnd < videoMeta.duration;
-    const trimNote = hasCustomTrim
-      ? `\nIn/out points set by user: start=${formatTime(trimStart)} (${trimStart.toFixed(3)}s), ` +
-        `end=${formatTime(trimEnd)} (${trimEnd.toFixed(3)}s), ` +
-        `selection=${formatTime(trimEnd - trimStart)} (${(trimEnd - trimStart).toFixed(3)}s).`
-      : '';
-
     const metaLine =
       `Video: filename="${videoMeta.filename}", duration=${videoMeta.duration.toFixed(3)}s, ` +
-      `${videoMeta.width}×${videoMeta.height}, fps=${videoMeta.fps}, size=${formatFileSize(videoMeta.size)}` +
-      trimNote;
+      `${videoMeta.width}×${videoMeta.height}, fps=${videoMeta.fps}, size=${formatFileSize(videoMeta.size)}`;
 
     const userText = `${metaLine}\n\n${instructionsText}`;
 
-    // Build content array — prepend reference frames if available
+    // Build content with optional reference frames
     const content: ContentBlock[] = [];
     if (refFrames.length > 0) {
       content.push({
         type: 'text',
-        text: 'Here are 6 frames from a reference video showing the editing style I want. Use this as visual context for the style, pacing, and cut pattern when generating the ExtendScript.',
+        text: 'These 6 frames show the editing style I want. Match this style.',
       });
       for (const frame of refFrames) {
         content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: frame } });
@@ -360,18 +410,20 @@ export default function EditorView() {
     }
     content.push({ type: 'text', text: userText });
 
+    let parsedCommands: string[][];
+
     try {
       const res = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
-          'x-api-key': API_KEY,
+          'x-api-key':  API_KEY,
           'anthropic-version': '2023-06-01',
           'anthropic-dangerous-direct-browser-access': 'true',
           'content-type': 'application/json',
         },
         body: JSON.stringify({
           model: MODEL,
-          max_tokens: 4096,
+          max_tokens: 2048,
           system: systemPrompt,
           messages: [{ role: 'user', content }],
         }),
@@ -386,21 +438,59 @@ export default function EditorView() {
       const raw  = data.content.find((c) => c.type === 'text')?.text ?? '';
 
       const cleaned = raw
-        .replace(/^```[^\n]*\n?/m, '')
+        .replace(/^```json\s*/m, '')
+        .replace(/^```\s*/m, '')
         .replace(/```\s*$/m, '')
         .trim();
 
-      if (!cleaned.startsWith('//') && !cleaned.startsWith('var ') && !cleaned.startsWith('/*')) {
-        throw new Error('Claude did not return a valid ExtendScript. Try rephrasing your prompt.');
+      parsedCommands = JSON.parse(cleaned) as string[][];
+      if (!Array.isArray(parsedCommands) || parsedCommands.length === 0) {
+        throw new Error('Claude returned an empty or invalid command list.');
       }
 
-      generatedPromptRef.current = instructionsText;
-      generatedFcpxmlRef.current = cleaned;
+      generatedPromptRef.current   = instructionsText;
+      generatedCommandsRef.current = JSON.stringify(parsedCommands, null, 2);
+      setCommands(parsedCommands);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to generate FFmpeg commands');
+      setStatus('error');
+      return;
+    }
 
-      setFcpxml(cleaned);
+    // Execute FFmpeg commands
+    setStatus('processing');
+    setProgress(0);
+    const ff    = ffmpegRef.current!;
+    const start = Date.now();
+
+    try {
+      // Write source video to virtual FS
+      await ff.writeFile('input.mp4', await fetchFile(videoFile!));
+
+      // Execute each command
+      for (const args of parsedCommands) {
+        const code = await ff.exec(args);
+        if (code !== 0) throw new Error(`FFmpeg command failed (exit ${code}): ${args.join(' ')}`);
+      }
+
+      // Read output
+      const data   = await ff.readFile('output.mp4');
+      // FileData is Uint8Array | string — at runtime it's always Uint8Array here
+      const blob   = new Blob([data as unknown as BlobPart], { type: 'video/mp4' });
+      const outUrl = URL.createObjectURL(blob);
+
+      // Cleanup virtual FS
+      const filesToClean = ['input.mp4', 'output.mp4',
+        ...Array.from({ length: 10 }, (_, i) => `temp${i + 1}.mp4`)];
+      for (const f of filesToClean) {
+        try { await ff.deleteFile(f); } catch { /* ignore missing */ }
+      }
+
+      setOutputUrl(outUrl);
+      setProcessingMs(Date.now() - start);
       setStatus('done');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Unknown error');
+      setError(e instanceof Error ? e.message : 'FFmpeg processing failed');
       setStatus('error');
     }
   };
@@ -408,15 +498,12 @@ export default function EditorView() {
   // ── Download ──────────────────────────────────────────────────────────────
 
   const handleDownload = () => {
-    if (!fcpxml || !videoFile) return;
+    if (!outputUrl || !videoFile) return;
     const baseName = videoFile.name.replace(/\.[^.]+$/, '');
-    const blob = new Blob([fcpxml], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = `${baseName}.jsx`;
+    a.href     = outputUrl;
+    a.download = `${baseName}_edited.mp4`;
     a.click();
-    URL.revokeObjectURL(url);
   };
 
   // ── Feedback ──────────────────────────────────────────────────────────────
@@ -425,10 +512,10 @@ export default function EditorView() {
     setSavingFeedback(true);
     try {
       await saveEditorFeedback({
-        prompt: generatedPromptRef.current,
-        fcpxml_generated: generatedFcpxmlRef.current,
-        feedback: text,
-        feedback_type: type,
+        prompt:                    generatedPromptRef.current,
+        ffmpeg_commands_generated: generatedCommandsRef.current,
+        feedback:                  text,
+        feedback_type:             type,
       });
       setFeedbackState('submitted');
       const updated = await fetchEditorFeedback();
@@ -445,8 +532,6 @@ export default function EditorView() {
     submitFeedback('mistake', feedbackText.trim());
   };
 
-  // ── Clear history ─────────────────────────────────────────────────────────
-
   const handleClearHistory = async () => {
     setClearingHistory(true);
     try {
@@ -459,15 +544,14 @@ export default function EditorView() {
 
   // ── Render ────────────────────────────────────────────────────────────────
 
-  const isBusy   = status === 'calling-claude';
-  const duration = videoMeta?.duration ?? 0;
+  const isBusy = status === 'generating' || status === 'processing';
+
+  const dropZoneBase =
+    'border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all';
 
   const textareaClass =
     'w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-3 text-sm text-gray-200 ' +
     'placeholder-gray-600 focus:outline-none focus:border-indigo-500/50 transition-all resize-none disabled:opacity-50';
-
-  const dropZoneBase =
-    'border-2 border-dashed rounded-2xl p-8 text-center cursor-pointer transition-all';
 
   return (
     <div className="flex flex-col h-full overflow-y-auto">
@@ -483,21 +567,33 @@ export default function EditorView() {
         </div>
       )}
 
-      {/* Info banner */}
-      <div className="mx-5 mt-5 bg-indigo-500/08 border border-indigo-500/20 rounded-2xl px-5 py-3.5 flex items-start gap-3">
-        <span className="text-indigo-400 shrink-0 mt-px">ℹ</span>
-        <p className="text-sm text-indigo-200/80 leading-relaxed">
-          <span className="font-semibold text-white">How it works:</span> Describe your edit, Claude generates a Premiere Script.
-          Download the <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">.jsx</span> file. In Premiere Pro go to{' '}
-          <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">File → Scripts → Run Script</span>,
-          select the file, then update the <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">FILE_PATH</span> variable at the top to point to your video before running.
-        </p>
-      </div>
+      {/* FFmpeg status banner */}
+      {ffmpegError ? (
+        <div className="mx-5 mt-5 bg-red-500/08 border border-red-500/25 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+          <span className="text-red-400 shrink-0">✕</span>
+          <p className="text-sm text-red-200/90">
+            FFmpeg failed to load: {ffmpegError}{' '}
+            <button onClick={loadFFmpeg} className="underline text-red-300 ml-1">Retry</button>
+          </p>
+        </div>
+      ) : ffmpegLoading ? (
+        <div className="mx-5 mt-5 bg-indigo-500/08 border border-indigo-500/20 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+          <div className="w-3.5 h-3.5 border-2 border-indigo-400/40 border-t-indigo-400 rounded-full animate-spin shrink-0" />
+          <p className="text-sm text-indigo-200/80">Loading FFmpeg.wasm — this may take a moment…</p>
+        </div>
+      ) : ffmpegLoaded ? (
+        <div className="mx-5 mt-5 bg-emerald-500/08 border border-emerald-500/20 rounded-2xl px-5 py-3.5 flex items-center gap-3">
+          <span className="text-emerald-400 shrink-0">✓</span>
+          <p className="text-sm text-emerald-200/80">
+            FFmpeg ready. Describe your edit — Claude generates FFmpeg commands that run entirely in your browser.
+          </p>
+        </div>
+      ) : null}
 
       {/* 3-column layout */}
       <div className="flex flex-col xl:flex-row gap-4 p-5 flex-1">
 
-        {/* ── Left: source video + reference video ──────────────────────── */}
+        {/* ── Left: source + reference video ───────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-4">
 
           {/* Source video */}
@@ -535,7 +631,7 @@ export default function EditorView() {
                   <p className="text-sm font-semibold text-gray-300 mb-1">
                     {isDragging ? 'Drop to upload' : 'Drop a video here'}
                   </p>
-                  <p className="text-xs text-gray-600">MP4, MOV, WebM — any size</p>
+                  <p className="text-xs text-gray-600">MP4, MOV, WebM</p>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -579,7 +675,7 @@ export default function EditorView() {
                   Reference Video
                   <span className="ml-2 text-[11px] font-normal text-gray-600">(optional)</span>
                 </h3>
-                <p className="text-xs text-gray-600 mt-0.5">Show Claude the style, pacing, or cut pattern you want.</p>
+                <p className="text-xs text-gray-600 mt-0.5">Show Claude the editing style you want</p>
               </div>
               {refFile && (
                 <button
@@ -635,7 +731,7 @@ export default function EditorView() {
                     </div>
                   ) : refFrames.length > 0 ? (
                     <div className="space-y-2">
-                      <p className="text-[11px] text-gray-600">{refFrames.length} frames extracted</p>
+                      <p className="text-[11px] text-gray-600">{refFrames.length} frames ready</p>
                       <div className="grid grid-cols-3 gap-1.5">
                         {refFrames.map((frame, i) => (
                           // eslint-disable-next-line @next/next/no-img-element
@@ -657,14 +753,14 @@ export default function EditorView() {
           </div>
         </div>
 
-        {/* ── Center: prompt boxes + Premiere XML output ──────────────────────── */}
+        {/* ── Center: instructions + output ─────────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-4">
 
-          {/* Four prompt boxes */}
+          {/* Four instruction boxes */}
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05]">
               <h3 className="text-sm font-semibold text-white">Edit Instructions</h3>
-              <p className="text-xs text-gray-600 mt-0.5">Fill in any sections — Claude handles each independently</p>
+              <p className="text-xs text-gray-600 mt-0.5">Claude generates FFmpeg commands from your instructions</p>
             </div>
             <div className="p-5 space-y-5">
 
@@ -677,8 +773,8 @@ export default function EditorView() {
                 <textarea
                   value={refInstructions}
                   onChange={(e) => setRefInstructions(e.target.value)}
-                  placeholder="e.g. Reference the edit style from [video name] — fast cuts every 2-3 seconds, bold white captions, hard cut transitions."
-                  rows={3}
+                  placeholder="e.g. Fast cuts every 2-3 seconds, bold white captions, hard cut transitions"
+                  rows={2}
                   disabled={isBusy}
                   className={textareaClass}
                 />
@@ -690,8 +786,8 @@ export default function EditorView() {
                 <textarea
                   value={cuttingInstructions}
                   onChange={(e) => setCuttingInstructions(e.target.value)}
-                  placeholder="e.g. Cut from 0:10 to 0:45, remove the last 30 seconds, keep only the best 60 seconds."
-                  rows={3}
+                  placeholder="e.g. Cut from 0:10 to 0:45, remove the last 30 seconds"
+                  rows={2}
                   disabled={isBusy}
                   className={textareaClass}
                 />
@@ -703,8 +799,8 @@ export default function EditorView() {
                 <textarea
                   value={transitionInstructions}
                   onChange={(e) => setTransitionInstructions(e.target.value)}
-                  placeholder="e.g. Add a 0.5s cross dissolve between each cut, hard cut on beat drops."
-                  rows={3}
+                  placeholder="e.g. Add a 0.5s crossfade between each cut"
+                  rows={2}
                   disabled={isBusy}
                   className={textareaClass}
                 />
@@ -716,64 +812,107 @@ export default function EditorView() {
                 <textarea
                   value={captionInstructions}
                   onChange={(e) => setCaptionInstructions(e.target.value)}
-                  placeholder="e.g. Add a lower third title at the start, bold white text, fade in over 0.5s."
-                  rows={3}
+                  placeholder='e.g. Bold white centered text saying "Subscribe" from 0:05 to 0:10'
+                  rows={2}
                   disabled={isBusy}
                   className={textareaClass}
                 />
               </div>
 
+              {/* Generate button */}
               <button
                 onClick={handleGenerate}
-                disabled={!hasAnyInstruction || !videoFile || !API_KEY || isBusy || extractingFrames}
+                disabled={!hasAnyInstruction || !videoFile || !API_KEY || isBusy || extractingFrames || (!ffmpegLoaded && !ffmpegLoading)}
                 className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-indigo-500 hover:bg-indigo-400 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-900/20"
               >
-                {isBusy ? (
+                {status === 'generating' ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Generating Premiere Script…
+                    Asking Claude…
+                  </>
+                ) : status === 'processing' ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    Processing with FFmpeg…
                   </>
                 ) : extractingFrames ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Extracting reference frames…
+                    Extracting frames…
                   </>
                 ) : (
                   <>
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 opacity-90">
                       <path d="M12 3l1.88 5.76a1 1 0 00.95.69H21l-4.94 3.59a1 1 0 00-.36 1.12L17.58 20 12 16.41 6.42 20l1.88-5.84a1 1 0 00-.36-1.12L3 9.45h6.17a1 1 0 00.95-.69L12 3z" />
                     </svg>
-                    Generate Premiere Script (.jsx)
+                    Generate Edit
                   </>
                 )}
               </button>
+
+              {/* Progress bar */}
+              {status === 'processing' && (
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[11px] text-gray-500">
+                    <span>Processing…</span>
+                    <span className="tabular-nums">{progress}%</span>
+                  </div>
+                  <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-indigo-500 rounded-full transition-all duration-300"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Generated Premiere XML */}
-          {fcpxml && (
+          {/* Generated commands (collapsible) */}
+          {commands && (
+            <details className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden group">
+              <summary className="px-5 py-3.5 text-xs font-semibold text-gray-500 cursor-pointer hover:text-gray-300 transition-colors flex items-center justify-between list-none">
+                <span>FFmpeg Commands ({commands.length})</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 group-open:rotate-180 transition-transform">
+                  <polyline points="6 9 12 15 18 9" />
+                </svg>
+              </summary>
+              <div className="border-t border-white/[0.05] p-4 space-y-2">
+                {commands.map((cmd, i) => (
+                  <div key={i} className="bg-gray-950/70 border border-white/[0.05] rounded-xl px-3 py-2 font-mono text-[11px] text-emerald-300/80 break-all">
+                    ffmpeg {cmd.join(' ')}
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+
+          {/* Output video */}
+          {status === 'done' && outputUrl && (
             <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                  <h3 className="text-sm font-semibold text-white">Generated Premiere Script (.jsx)</h3>
+                  <h3 className="text-sm font-semibold text-white">Output Preview</h3>
                 </div>
-                <span className="text-[11px] text-gray-600 font-mono tabular-nums">
-                  {videoFile?.name.replace(/\.[^.]+$/, '')}.jsx
-                </span>
+                {processingMs !== null && (
+                  <span className="text-[11px] text-gray-600 tabular-nums">
+                    {(processingMs / 1000).toFixed(1)}s processing
+                  </span>
+                )}
               </div>
               <div className="p-5 space-y-4">
-                <div className="bg-gray-950/70 border border-white/[0.06] rounded-xl overflow-auto max-h-72">
-                  <pre className="px-4 py-3 text-[11px] text-emerald-300/90 font-mono leading-relaxed whitespace-pre-wrap break-all select-all">
-                    {fcpxml}
-                  </pre>
-                </div>
+                <video
+                  src={outputUrl}
+                  controls
+                  className="w-full rounded-xl bg-black aspect-video object-contain"
+                />
 
-                {/* Feedback section */}
+                {/* Feedback */}
                 <div className="border-t border-white/[0.05] pt-4">
                   {feedbackState === 'none' && (
                     <div className="flex items-center gap-3">
-                      <p className="text-xs text-gray-500 flex-1">Did this Premiere Script (.jsx) work as expected?</p>
+                      <p className="text-xs text-gray-500 flex-1">Did this edit come out correctly?</p>
                       <button
                         onClick={handleThumbsUp}
                         disabled={savingFeedback}
@@ -783,7 +922,7 @@ export default function EditorView() {
                           <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z" />
                           <path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
                         </svg>
-                        This worked
+                        Looks good
                       </button>
                       <button
                         onClick={handleThumbsDown}
@@ -794,18 +933,18 @@ export default function EditorView() {
                           <path d="M10 15v4a3 3 0 0 0 3 3l4-9V2H5.72a2 2 0 0 0-2 1.7l-1.38 9a2 2 0 0 0 2 2.3H10z" />
                           <path d="M17 2h2.67A2.31 2.31 0 0 1 22 4v7a2.31 2.31 0 0 1-2.33 2H17" />
                         </svg>
-                        This had issues
+                        Had issues
                       </button>
                     </div>
                   )}
 
                   {feedbackState === 'prompted' && (
                     <div className="space-y-3">
-                      <p className="text-xs text-gray-400">What was wrong with the generated Premiere Script?</p>
+                      <p className="text-xs text-gray-400">What went wrong with the generated edit?</p>
                       <textarea
                         value={feedbackText}
                         onChange={(e) => setFeedbackText(e.target.value)}
-                        placeholder="e.g. Timecodes were off, speed ramp didn't export correctly…"
+                        placeholder="e.g. Timecodes were off, text didn't render, wrong clip order…"
                         rows={3}
                         className={textareaClass}
                       />
@@ -836,7 +975,7 @@ export default function EditorView() {
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-3.5 h-3.5 text-emerald-400 shrink-0">
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
-                      Thanks — feedback saved. Claude will apply this lesson on the next generation.
+                      Thanks — Claude will learn from this on the next generation.
                     </div>
                   )}
                 </div>
@@ -856,75 +995,20 @@ export default function EditorView() {
           )}
         </div>
 
-        {/* ── Right: timeline + export ──────────────────────────────────── */}
+        {/* ── Right: export + FFmpeg log ─────────────────────────────────── */}
         <div className="w-full xl:w-72 shrink-0 space-y-4">
 
-          {/* Timeline / trim */}
-          <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/[0.05]">
-              <h3 className="text-sm font-semibold text-white">Timeline</h3>
-              <p className="text-xs text-gray-600 mt-0.5">Set in/out points — passed to Claude as context</p>
-            </div>
-            <div className="p-5">
-              {!videoMeta ? (
-                <p className="text-xs text-gray-600 text-center py-6">Upload a video to set trim points</p>
-              ) : (
-                <div className="space-y-5">
-                  <div className="relative h-3">
-                    <div className="absolute inset-y-1 inset-x-0 bg-white/[0.06] rounded-full" />
-                    <div
-                      className="absolute inset-y-1 bg-indigo-500/50 rounded-full"
-                      style={{
-                        left:  `${(trimStart / duration) * 100}%`,
-                        right: `${100 - (trimEnd / duration) * 100}%`,
-                      }}
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-[11px] mb-2">
-                      <span className="text-gray-500 font-medium">In point</span>
-                      <span className="text-white font-semibold tabular-nums">{formatTime(trimStart)}</span>
-                    </div>
-                    <input
-                      type="range" min={0} max={duration} step={0.1} value={trimStart}
-                      onChange={(e) => setTrimStart(Math.min(Number(e.target.value), trimEnd - 0.5))}
-                      className="w-full h-1.5 appearance-none bg-white/[0.08] rounded-full cursor-pointer accent-indigo-400"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between text-[11px] mb-2">
-                      <span className="text-gray-500 font-medium">Out point</span>
-                      <span className="text-white font-semibold tabular-nums">{formatTime(trimEnd)}</span>
-                    </div>
-                    <input
-                      type="range" min={0} max={duration} step={0.1} value={trimEnd}
-                      onChange={(e) => setTrimEnd(Math.max(Number(e.target.value), trimStart + 0.5))}
-                      className="w-full h-1.5 appearance-none bg-white/[0.08] rounded-full cursor-pointer accent-indigo-400"
-                    />
-                  </div>
-
-                  <div className="flex justify-between text-[11px] text-gray-600 tabular-nums border-t border-white/[0.05] pt-3">
-                    <span>Selection: {formatTime(trimEnd - trimStart)}</span>
-                    <span>Total: {formatTime(duration)}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Export / download */}
+          {/* Export */}
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05]">
               <h3 className="text-sm font-semibold text-white">Export</h3>
             </div>
             <div className="p-5">
-              {status === 'done' && fcpxml ? (
+              {status === 'done' && outputUrl ? (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-emerald-400">
                     <span className="shrink-0">✓</span>
-                    <p className="text-sm font-semibold">Premiere Script (.jsx) ready</p>
+                    <p className="text-sm font-semibold">MP4 ready</p>
                   </div>
                   <button
                     onClick={handleDownload}
@@ -933,28 +1017,43 @@ export default function EditorView() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
                     </svg>
-                    Download .jsx
+                    Download MP4
                   </button>
-                  <p className="text-[11px] text-gray-600 leading-relaxed">
-                    Run in Premiere Pro via{' '}
-                    <span className="font-mono text-gray-500 text-[10px]">File → Scripts → Run Script</span>.
-                    Update the <span className="font-mono text-gray-500 text-[10px]">FILE_PATH</span> variable at the top before running.
-                  </p>
+                  {processingMs !== null && (
+                    <p className="text-[11px] text-gray-600 text-center">
+                      Processed in {(processingMs / 1000).toFixed(1)}s
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-xs text-gray-600 text-center py-4 leading-relaxed">
                   {!videoFile
                     ? 'Upload a video to get started'
-                    : 'Generate Premiere Script to enable download'}
+                    : !hasAnyInstruction
+                    ? 'Add edit instructions to generate'
+                    : 'Generate an edit to download'}
                 </p>
               )}
             </div>
           </div>
 
+          {/* FFmpeg log */}
+          {logLines.length > 0 && (
+            <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-white/[0.05]">
+                <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">FFmpeg Log</h3>
+              </div>
+              <div className="p-3 max-h-48 overflow-y-auto">
+                <pre className="text-[10px] text-gray-600 font-mono leading-relaxed whitespace-pre-wrap break-all">
+                  {logLines.join('\n')}
+                </pre>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* ── Feedback History ──────────────────────────────────────────────────── */}
+      {/* ── Feedback History ───────────────────────────────────────────────── */}
       <div className="mx-5 mb-5 bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
         <button
           onClick={() => setHistoryOpen((o) => !o)}
@@ -975,7 +1074,7 @@ export default function EditorView() {
                 disabled={clearingHistory}
                 className="text-[11px] text-gray-600 hover:text-red-400 transition-colors px-2.5 py-1 rounded-lg hover:bg-red-500/08"
               >
-                {clearingHistory ? 'Clearing…' : 'Clear Feedback History'}
+                {clearingHistory ? 'Clearing…' : 'Clear All'}
               </button>
             )}
             <svg
@@ -991,19 +1090,17 @@ export default function EditorView() {
           <div className="border-t border-white/[0.05]">
             {feedbackHistory.length === 0 ? (
               <p className="px-5 py-8 text-xs text-gray-600 text-center">
-                No feedback yet. Rate generated Premiere Scripts to help Claude improve.
+                No feedback yet. Rate generated edits to help Claude improve.
               </p>
             ) : (
               <div className="divide-y divide-white/[0.04]">
                 {feedbackHistory.map((row) => (
                   <div key={row.id} className="px-5 py-4 flex items-start gap-4">
-                    <span
-                      className={`mt-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                        row.feedback_type === 'good'
-                          ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-red-500/15 text-red-400 border border-red-500/20'
-                      }`}
-                    >
+                    <span className={`mt-0.5 shrink-0 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      row.feedback_type === 'good'
+                        ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/20'
+                        : 'bg-red-500/15 text-red-400 border border-red-500/20'
+                    }`}>
                       {row.feedback_type === 'good' ? 'Good' : 'Mistake'}
                     </span>
                     <div className="flex-1 min-w-0 space-y-1">

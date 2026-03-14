@@ -67,17 +67,17 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-950">
+      <div className="flex h-screen items-center justify-center bg-[var(--bg-base)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-sm text-gray-500">Loading your data…</p>
+          <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[var(--text-2)]">Loading your data…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-950 text-white">
+    <div className="flex h-screen overflow-hidden bg-[var(--bg-base)] text-white">
       <Sidebar active={activeNav} onNavigate={setActiveNav} />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

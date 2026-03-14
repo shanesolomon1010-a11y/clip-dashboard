@@ -1,19 +1,32 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-base:     #030712;
-  --bg-elevated: #080d16;
-  --bg-card:     #0d1117;
-  --bg-subtle:   #141b2a;
-  --border:      rgba(255, 255, 255, 0.06);
-  --border-md:   rgba(255, 255, 255, 0.09);
+  --bg-base:      #020408;
+  --bg-elevated:  #07101c;
+  --bg-card:      #0c1828;
+  --bg-subtle:    #101f30;
+  --border:       rgba(255, 255, 255, 0.05);
+  --border-md:    rgba(255, 255, 255, 0.08);
+  --border-hi:    rgba(255, 255, 255, 0.12);
+  --accent:       #0ea5e9;
+  --accent-hover: #38bdf8;
+  --accent-dim:   rgba(14, 165, 233, 0.08);
+  --accent-border:rgba(14, 165, 233, 0.2);
+  --text-1:       #e8f0f8;
+  --text-2:       #6b8099;
+  --text-3:       #3a5069;
+  --font-space:   'Space Grotesk', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', monospace;
 }
 
 body {
-  color: #f9fafb;
+  color: var(--text-1);
   background: var(--bg-base);
+  font-family: var(--font-space);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -40,6 +53,6 @@ body {
 
 /* Smooth focus rings */
 :focus-visible {
-  outline: 2px solid rgba(99, 102, 241, 0.7);
+  outline: 2px solid rgba(14, 165, 233, 0.7);
   outline-offset: 2px;
 }

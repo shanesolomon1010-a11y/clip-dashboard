@@ -58,19 +58,19 @@ export default function AnalyticsView({ posts }: Props) {
   ];
 
   return (
-    <div className="p-6 space-y-5">
+    <div className="p-5 space-y-5">
       {/* Controls bar */}
       <div className="flex items-center gap-3 flex-wrap">
         {/* Date range pills */}
-        <div className="flex items-center gap-1 bg-white/[0.04] border border-white/[0.06] rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.05] rounded-xl p-1">
           {(['1d', '7d', '30d', '90d', 'all'] as DateRange[]).map((r) => (
             <button
               key={r}
               onClick={() => setDateRange(r)}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                 dateRange === r
-                  ? 'bg-indigo-500 text-white shadow-sm'
-                  : 'text-gray-500 hover:text-gray-200 hover:bg-white/[0.04]'
+                  ? 'bg-sky-500 text-white shadow-sm'
+                  : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04]'
               }`}
             >
               {r === 'all' ? 'All time' : r.toUpperCase()}
@@ -84,8 +84,8 @@ export default function AnalyticsView({ posts }: Props) {
             onClick={() => setActivePlatform('all')}
             className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
               activePlatform === 'all'
-                ? 'bg-white text-gray-950 border-white'
-                : 'text-gray-500 border-white/[0.08] hover:text-gray-200 hover:border-white/[0.15]'
+                ? 'bg-[var(--text-1)] text-[var(--bg-base)] border-[var(--text-1)]'
+                : 'text-[var(--text-2)] border-white/[0.08] hover:text-[var(--text-1)] hover:border-white/[0.15]'
             }`}
           >
             All
@@ -104,7 +104,7 @@ export default function AnalyticsView({ posts }: Props) {
                         borderColor: `${PLATFORM_COLORS[pl]}50`,
                         color: PLATFORM_COLORS[pl],
                       }
-                    : { color: '#6b7280', borderColor: 'rgba(255,255,255,0.08)' }
+                    : { color: 'var(--text-2)', borderColor: 'rgba(255,255,255,0.08)' }
                 }
               >
                 <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PLATFORM_COLORS[pl] }} />
@@ -118,9 +118,9 @@ export default function AnalyticsView({ posts }: Props) {
       {/* Stat strip */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {stats.map(({ label, value, accent }) => (
-          <div key={label} className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl px-4 py-4 hover:border-white/[0.09] transition-colors">
-            <p className="text-[11px] text-gray-600 uppercase tracking-wider mb-2 font-medium">{label}</p>
-            <p className="text-2xl font-bold leading-none tabular-nums" style={{ color: accent }}>{value}</p>
+          <div key={label} className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl px-4 py-4 hover:border-white/[0.09] transition-colors">
+            <p className="text-[11px] text-[var(--text-2)] uppercase tracking-widest mb-2 font-medium">{label}</p>
+            <p className="text-2xl font-bold leading-none tabular-nums font-['JetBrains_Mono']" style={{ color: accent }}>{value}</p>
           </div>
         ))}
       </div>
@@ -134,20 +134,20 @@ export default function AnalyticsView({ posts }: Props) {
       </div>
 
       {/* Engagement breakdown table */}
-      <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-white">Engagement by Platform</h3>
-          <span className="text-[11px] text-gray-600">{dateRange === 'all' ? 'All time' : dateRange.toUpperCase()} window</span>
+      <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-[var(--text-1)]">Engagement by Platform</h3>
+          <span className="text-[11px] text-[var(--text-2)]">{dateRange === 'all' ? 'All time' : dateRange.toUpperCase()} window</span>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left border-b border-white/[0.04]">
               {['Platform', 'Posts', 'Total Views', 'Total Likes', 'Comments', 'Shares', 'Interactions / Views'].map((h) => (
-                <th key={h} className="px-5 py-3 text-[11px] font-medium text-gray-600 uppercase tracking-wider">{h}</th>
+                <th key={h} className="px-5 py-3 text-[10px] font-medium text-[var(--text-3)] uppercase tracking-widest">{h}</th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.03]">
+          <tbody className="divide-y divide-white/[0.04]">
             {ALL_PLATFORMS.map((pl) => {
               const pp = byDate.filter((p) => p.platform === pl);
               if (!pp.length) return null;
@@ -158,16 +158,16 @@ export default function AnalyticsView({ posts }: Props) {
                   <td className="px-5 py-3.5">
                     <span className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: PLATFORM_COLORS[pl] }} />
-                      <span className="text-gray-200 font-medium text-[13px]">{PLATFORM_LABELS[pl]}</span>
+                      <span className="text-[var(--text-1)] font-medium text-[13px]">{PLATFORM_LABELS[pl]}</span>
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-gray-400 tabular-nums">{pp.length}</td>
-                  <td className="px-5 py-3.5 text-white font-semibold tabular-nums">{formatNum(plViews)}</td>
-                  <td className="px-5 py-3.5 text-gray-400 tabular-nums">{formatNum(pp.reduce((s, p) => s + p.likes, 0))}</td>
-                  <td className="px-5 py-3.5 text-gray-400 tabular-nums">{formatNum(pp.reduce((s, p) => s + p.comments, 0))}</td>
-                  <td className="px-5 py-3.5 text-gray-400 tabular-nums">{formatNum(pp.reduce((s, p) => s + p.shares, 0))}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums font-['JetBrains_Mono'] text-[13px]">{pp.length}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono'] text-[13px]">{formatNum(plViews)}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums font-['JetBrains_Mono'] text-[13px]">{formatNum(pp.reduce((s, p) => s + p.likes, 0))}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums font-['JetBrains_Mono'] text-[13px]">{formatNum(pp.reduce((s, p) => s + p.comments, 0))}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums font-['JetBrains_Mono'] text-[13px]">{formatNum(pp.reduce((s, p) => s + p.shares, 0))}</td>
                   <td className="px-5 py-3.5">
-                    <span className="text-[11px] font-semibold tabular-nums text-gray-300">
+                    <span className="text-[var(--text-2)] font-['JetBrains_Mono'] text-[11px] tabular-nums">
                       {formatNum(plInteractions)} / {formatNum(plViews)}
                     </span>
                   </td>
