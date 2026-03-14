@@ -13,19 +13,19 @@ import {
 const MODEL = 'claude-sonnet-4-20250514';
 const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
-const FCPXML_RULES =
+const PREMIERE_XML_RULES =
   'Rules:\n' +
   '- Return raw XML only — no markdown fences, no explanation before or after, nothing but the XML\n' +
-  '- Use fcpxml version="1.10"\n' +
-  '- In the <asset> element set src="file:///FILENAME" using the exact filename provided\n' +
-  '- Choose a <format> frameDuration matching the fps (e.g. "1001/30000s" for 29.97, "1/30s" for 30, "1/24s" for 24, "1/25s" for 25)\n' +
-  '- Express all time values as rational fractions followed by "s" (e.g. "30/1s", "15/1s", "45100/30000s")\n' +
-  '- For trim edits: set the clip start= to the source in-point and duration= to the desired output length\n' +
-  '- For speed changes: include a <timeMap> child with appropriate <timept> entries\n' +
-  '- Set the asset duration to the full original video duration\n' +
-  '- Set the sequence duration to the final output duration after edits\n' +
-  '- Include one <event> named "Clip Studio Edit" and one <project> named after the edit request\n' +
   '- The response must start with <?xml version="1.0" encoding="UTF-8"?>\n' +
+  '- Use Adobe Premiere Pro XML interchange format with root element <PremiereData Version="3">\n' +
+  '- Structure: <PremiereData> → <Project> → <RootProjectItem> → <ProjectItemList> → <Sequence>\n' +
+  '- Include a <VideoFrameRate> matching the video fps (e.g. 30 for 30fps, 24 for 24fps, 25 for 25fps)\n' +
+  '- Express all time values in ticks: multiply seconds by 254016000 (e.g. 5 seconds = 1270080000 ticks)\n' +
+  '- Clips are defined with <ClipProjectItem> elements containing <Name>, <MediaStart>, <MediaEnd> in ticks\n' +
+  '- Reference the media file by filename only in <PathRelativeToProjectRoot> so Premiere can relink\n' +
+  '- Include a <Sequence> with <VideoClipList> and <AudioClipList> containing the edit decisions\n' +
+  '- Set sequence In/Out points in ticks matching the intended output duration\n' +
+  '- Name the project after the edit request\n' +
   '- Treat REFERENCE INSTRUCTIONS, CUTTING INSTRUCTIONS, TRANSITION INSTRUCTIONS, and CAPTION INSTRUCTIONS as independent sections — never mix up logic across sections';
 
 function buildSystemPrompt(history: EditorFeedbackRow[]): string {
@@ -43,13 +43,13 @@ function buildSystemPrompt(history: EditorFeedbackRow[]): string {
       : '  (none yet)';
 
   return (
-    'You are an expert FCPXML 1.10 generator. Learn from past feedback below before generating.\n\n' +
+    'You are an expert Adobe Premiere Pro XML generator. Learn from past feedback below before generating.\n\n' +
     'Past mistakes to avoid:\n' +
     mistakesBlock + '\n\n' +
     'Things that worked well:\n' +
     goodBlock + '\n\n' +
     'Apply these lessons to every new generation. Never repeat a past mistake.\n\n' +
-    FCPXML_RULES
+    PREMIERE_XML_RULES
   );
 }
 
@@ -386,8 +386,8 @@ export default function EditorView() {
         .replace(/```\s*$/m, '')
         .trim();
 
-      if (!cleaned.startsWith('<?xml') && !cleaned.startsWith('<fcpxml')) {
-        throw new Error('Claude did not return valid FCPXML. Try rephrasing your prompt.');
+      if (!cleaned.startsWith('<?xml') && !cleaned.startsWith('<PremiereData')) {
+        throw new Error('Claude did not return valid Premiere XML. Try rephrasing your prompt.');
       }
 
       generatedPromptRef.current = instructionsText;
@@ -410,7 +410,7 @@ export default function EditorView() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${baseName}.fcpxml`;
+    a.download = `${baseName}.xml`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -483,11 +483,11 @@ export default function EditorView() {
       <div className="mx-5 mt-5 bg-indigo-500/08 border border-indigo-500/20 rounded-2xl px-5 py-3.5 flex items-start gap-3">
         <span className="text-indigo-400 shrink-0 mt-px">ℹ</span>
         <p className="text-sm text-indigo-200/80 leading-relaxed">
-          <span className="font-semibold text-white">How it works:</span> Describe your edit, Claude generates an FCPXML file.
-          Download it and import into{' '}
+          <span className="font-semibold text-white">How it works:</span> Describe your edit, Claude generates a Premiere XML file.
+          Download the <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">.xml</span> file and import it into{' '}
           <span className="font-semibold text-white">Premiere Pro</span> via{' '}
           <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">File → Import</span>.
-          Relink media if prompted.
+          Relink media if prompted by pointing to your original video file.
         </p>
       </div>
 
@@ -654,7 +654,7 @@ export default function EditorView() {
           </div>
         </div>
 
-        {/* ── Center: prompt boxes + FCPXML output ──────────────────────── */}
+        {/* ── Center: prompt boxes + Premiere XML output ──────────────────────── */}
         <div className="flex-1 min-w-0 space-y-4">
 
           {/* Four prompt boxes */}
@@ -728,7 +728,7 @@ export default function EditorView() {
                 {isBusy ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Generating FCPXML…
+                    Generating Premiere XML…
                   </>
                 ) : extractingFrames ? (
                   <>
@@ -740,23 +740,23 @@ export default function EditorView() {
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 opacity-90">
                       <path d="M12 3l1.88 5.76a1 1 0 00.95.69H21l-4.94 3.59a1 1 0 00-.36 1.12L17.58 20 12 16.41 6.42 20l1.88-5.84a1 1 0 00-.36-1.12L3 9.45h6.17a1 1 0 00.95-.69L12 3z" />
                     </svg>
-                    Generate FCPXML
+                    Generate Premiere XML
                   </>
                 )}
               </button>
             </div>
           </div>
 
-          {/* Generated FCPXML */}
+          {/* Generated Premiere XML */}
           {fcpxml && (
             <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                  <h3 className="text-sm font-semibold text-white">Generated FCPXML</h3>
+                  <h3 className="text-sm font-semibold text-white">Generated Premiere XML</h3>
                 </div>
                 <span className="text-[11px] text-gray-600 font-mono tabular-nums">
-                  {videoFile?.name.replace(/\.[^.]+$/, '')}.fcpxml
+                  {videoFile?.name.replace(/\.[^.]+$/, '')}.xml
                 </span>
               </div>
               <div className="p-5 space-y-4">
@@ -770,7 +770,7 @@ export default function EditorView() {
                 <div className="border-t border-white/[0.05] pt-4">
                   {feedbackState === 'none' && (
                     <div className="flex items-center gap-3">
-                      <p className="text-xs text-gray-500 flex-1">Did this FCPXML work as expected?</p>
+                      <p className="text-xs text-gray-500 flex-1">Did this Premiere XML work as expected?</p>
                       <button
                         onClick={handleThumbsUp}
                         disabled={savingFeedback}
@@ -798,7 +798,7 @@ export default function EditorView() {
 
                   {feedbackState === 'prompted' && (
                     <div className="space-y-3">
-                      <p className="text-xs text-gray-400">What was wrong with the generated FCPXML?</p>
+                      <p className="text-xs text-gray-400">What was wrong with the generated Premiere XML?</p>
                       <textarea
                         value={feedbackText}
                         onChange={(e) => setFeedbackText(e.target.value)}
@@ -921,7 +921,7 @@ export default function EditorView() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-emerald-400">
                     <span className="shrink-0">✓</span>
-                    <p className="text-sm font-semibold">FCPXML ready</p>
+                    <p className="text-sm font-semibold">Premiere XML ready</p>
                   </div>
                   <button
                     onClick={handleDownload}
@@ -930,19 +930,19 @@ export default function EditorView() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
                     </svg>
-                    Download .fcpxml
+                    Download .xml
                   </button>
                   <p className="text-[11px] text-gray-600 leading-relaxed">
                     Import into Premiere Pro via{' '}
                     <span className="font-mono text-gray-500 text-[10px]">File → Import</span>.
-                    Relink media if prompted.
+                    Relink media if prompted by pointing to your original video file.
                   </p>
                 </div>
               ) : (
                 <p className="text-xs text-gray-600 text-center py-4 leading-relaxed">
                   {!videoFile
                     ? 'Upload a video to get started'
-                    : 'Generate FCPXML to enable download'}
+                    : 'Generate Premiere XML to enable download'}
                 </p>
               )}
             </div>
@@ -988,7 +988,7 @@ export default function EditorView() {
           <div className="border-t border-white/[0.05]">
             {feedbackHistory.length === 0 ? (
               <p className="px-5 py-8 text-xs text-gray-600 text-center">
-                No feedback yet. Rate generated FCPXML to help Claude improve.
+                No feedback yet. Rate generated Premiere XML to help Claude improve.
               </p>
             ) : (
               <div className="divide-y divide-white/[0.04]">
