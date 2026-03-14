@@ -14,6 +14,7 @@ import AIInsightsView from '@/components/views/AIInsightsView';
 import EditorView from '@/components/views/EditorView';
 import SettingsView from '@/components/views/SettingsView';
 import ComparisonView from '@/components/views/ComparisonView';
+import CaptionView from '@/components/views/CaptionView';
 
 const NAV_TITLES: Record<NavSection, string> = {
   dashboard:   'Dashboard',
@@ -98,6 +99,7 @@ export default function App() {
           {activeNav === 'analytics'  && <AnalyticsView posts={posts} />}
           {activeNav === 'platforms'  && <PlatformsView posts={posts} />}
           {activeNav === 'comparison' && <ComparisonView posts={posts} />}
+          {activeNav === 'captions'   && <CaptionView />}
           {activeNav === 'insights'   && <AIInsightsView posts={posts} />}
           {activeNav === 'editor'     && <EditorView />}
           {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}
