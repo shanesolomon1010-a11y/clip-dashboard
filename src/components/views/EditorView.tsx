@@ -599,7 +599,7 @@ export default function EditorView() {
           {/* Source video */}
           <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
-              <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Source Video</h3>
+              <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Source Video</h3>
               {videoFile && (
                 <button
                   onClick={handleClear}
@@ -671,7 +671,7 @@ export default function EditorView() {
           <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
               <div>
-                <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>
+                <h3 className="text-[15px] font-semibold text-[var(--text-1)]">
                   Reference Video
                   <span className="ml-2 text-[11px] font-normal text-[var(--text-3)]" style={{ fontFamily: 'var(--font-sans)', fontStyle: 'normal' }}>(optional)</span>
                 </h3>
@@ -759,7 +759,7 @@ export default function EditorView() {
           {/* Four instruction boxes */}
           <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.04]">
-              <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Edit Instructions</h3>
+              <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Edit Instructions</h3>
               <p className="text-xs text-[var(--text-3)] mt-0.5">Claude generates FFmpeg commands from your instructions</p>
             </div>
             <div className="p-5 space-y-5">
@@ -893,7 +893,7 @@ export default function EditorView() {
               <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                  <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Output Preview</h3>
+                  <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Output Preview</h3>
                 </div>
                 {processingMs !== null && (
                   <span className="text-[11px] text-gray-600 tabular-nums">
@@ -1001,7 +1001,7 @@ export default function EditorView() {
           {/* Export */}
           <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.05]">
-              <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Export</h3>
+              <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Export</h3>
             </div>
             <div className="p-5">
               {status === 'done' && outputUrl ? (
@@ -1060,7 +1060,7 @@ export default function EditorView() {
           className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
         >
           <div className="flex items-center gap-3">
-            <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Feedback History</h3>
+            <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Feedback History</h3>
             {feedbackHistory.length > 0 && (
               <span className="text-[11px] bg-white/[0.06] text-gray-400 rounded-full px-2 py-0.5 tabular-nums">
                 {feedbackHistory.length}

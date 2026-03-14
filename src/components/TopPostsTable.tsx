@@ -18,7 +18,7 @@ export default function TopPostsTable({ posts }: Props) {
   return (
     <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
       <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
-        <h2 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Top Posts</h2>
+        <h2 className="text-[15px] font-semibold text-[var(--text-1)]">Top Posts</h2>
         <span className="text-[11px] text-[var(--text-2)]">by views</span>
       </div>
       <div className="overflow-x-auto">

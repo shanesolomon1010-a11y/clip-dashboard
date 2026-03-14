@@ -136,7 +136,7 @@ export default function AnalyticsView({ posts }: Props) {
       {/* Engagement breakdown table */}
       <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
-          <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Engagement by Platform</h3>
+          <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Engagement by Platform</h3>
           <span className="text-[11px] text-[var(--text-2)]">{dateRange === 'all' ? 'All time' : dateRange.toUpperCase()} window</span>
         </div>
         <table className="w-full text-sm">

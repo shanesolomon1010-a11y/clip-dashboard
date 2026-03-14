@@ -53,8 +53,7 @@ export default function PlatformBarChart({ posts, activePlatforms }: Props) {
     <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-5">
         <h2
-          className="text-[15px] text-[var(--text-1)] leading-none"
-          style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}
+          className="text-[15px] font-semibold text-[var(--text-1)] leading-none"
         >
           Views by Platform
         </h2>

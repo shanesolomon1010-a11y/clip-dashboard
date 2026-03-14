@@ -28,8 +28,7 @@ export default function MetricCard({ label, value, sub, delta, icon, accent = '#
       {/* Value — Instrument Serif italic, the editorial signature */}
       <div>
         <p
-          className="text-[2.15rem] text-[var(--text-1)] leading-none tracking-tight"
-          style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}
+          className="text-[2.15rem] font-bold text-[var(--text-1)] leading-none tracking-tight"
         >
           {value}
         </p>

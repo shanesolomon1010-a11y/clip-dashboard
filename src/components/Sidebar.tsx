@@ -31,8 +31,7 @@ export default function Sidebar({ active, onNavigate }: Props) {
       {/* Wordmark — the editorial logo treatment */}
       <div className="px-5 pt-7 pb-6 border-b border-white/[0.06]">
         <p
-          className="text-[20px] text-[var(--text-1)] leading-none tracking-tight"
-          style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}
+          className="text-[20px] font-bold text-[var(--text-1)] leading-none tracking-tight"
         >
           Clip Studio
         </p>

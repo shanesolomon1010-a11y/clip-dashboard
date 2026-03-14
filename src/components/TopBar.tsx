@@ -15,8 +15,7 @@ export default function TopBar({ title, postCount }: Props) {
     <header className="h-14 shrink-0 bg-[var(--bg-base)] border-b border-white/[0.06] flex items-center gap-5 px-6">
       {/* Page title — Instrument Serif italic */}
       <h1
-        className="text-[17px] text-[var(--text-1)] leading-none tracking-tight shrink-0"
-        style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}
+        className="text-[17px] font-semibold text-[var(--text-1)] leading-none tracking-tight shrink-0"
       >
         {title}
       </h1>

@@ -9,6 +9,7 @@ import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types
 interface Props {
   posts: UnifiedPost[];
   activePlatforms: Platform[];
+  rangeLabel?: string;
 }
 
 function formatViews(n: number): string {
@@ -17,7 +18,7 @@ function formatViews(n: number): string {
   return String(n);
 }
 
-export default function ViewsLineChart({ posts, activePlatforms }: Props) {
+export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: Props) {
   const dateMap: Record<string, Record<Platform, number>> = {};
 
   for (const p of posts) {
@@ -66,15 +67,14 @@ export default function ViewsLineChart({ posts, activePlatforms }: Props) {
   return (
     <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-5">
-        <h2
-          className="text-[15px] text-[var(--text-1)] leading-none"
-          style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}
-        >
+        <h2 className="text-[15px] font-semibold text-[var(--text-1)] leading-none">
           Views Over Time
         </h2>
-        <span className="text-[10px] tracking-[0.12em] text-[var(--text-3)] uppercase" style={{ fontFamily: 'var(--font-mono)' }}>
-          90-day window
-        </span>
+        {rangeLabel && (
+          <span className="text-[10px] tracking-[0.12em] text-[var(--text-3)] uppercase" style={{ fontFamily: 'var(--font-mono)' }}>
+            {rangeLabel}
+          </span>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={260}>
         <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
@@ -119,10 +119,10 @@ export default function ViewsLineChart({ posts, activePlatforms }: Props) {
               type="monotone"
               dataKey={platform}
               stroke={PLATFORM_COLORS[platform]}
-              strokeWidth={1.5}
+              strokeWidth={2}
               fill={`url(#grad-${platform})`}
-              dot={false}
-              activeDot={{ r: 3, strokeWidth: 0 }}
+              dot={{ r: 2.5, fill: PLATFORM_COLORS[platform], strokeWidth: 0 }}
+              activeDot={{ r: 5, strokeWidth: 0, fill: PLATFORM_COLORS[platform] }}
             />
           ))}
         </AreaChart>

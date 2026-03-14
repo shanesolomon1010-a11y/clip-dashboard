@@ -233,7 +233,7 @@ function InsightCard({
     <div className="bg-[var(--bg-card)] rounded-2xl overflow-hidden border border-white/[0.05]">
       <div className="px-5 py-4 flex items-center gap-3" style={{ background: `${accent}0d`, borderBottom: `1px solid ${accent}18` }}>
         <span className="text-xl">{icon}</span>
-        <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>{title}</h3>
+        <h3 className="text-[15px] font-semibold text-[var(--text-1)]">{title}</h3>
       </div>
       <div className="px-5 py-4 space-y-2">
         {lines.map((line, i) => (
@@ -507,7 +507,7 @@ export default function AIInsightsView({ posts }: Props) {
           <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
               <div>
-                <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Anthropic API Key</h3>
+                <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Anthropic API Key</h3>
                 <p className="text-xs text-[var(--text-3)] mt-0.5">
                   Configured by the admin at build-time. Users can&apos;t edit it.
                 </p>
@@ -601,7 +601,7 @@ export default function AIInsightsView({ posts }: Props) {
             <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
               <div className="px-5 py-4 border-b border-white/[0.04] flex items-center gap-2">
                 <IconSparkles className="w-4 h-4 text-[var(--gold)]" />
-                <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>AI Analysis</h3>
+                <h3 className="text-[15px] font-semibold text-[var(--text-1)]">AI Analysis</h3>
               </div>
               <div className="px-5 py-4 space-y-2">
                 {rawFallback.split('\n').map((line, i) => (
@@ -618,7 +618,7 @@ export default function AIInsightsView({ posts }: Props) {
               className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
             >
               <div className="flex items-center gap-2.5">
-                <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Insight History</h3>
+                <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Insight History</h3>
                 {insightHistory.length > 0 && (
                   <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/[0.06] text-[var(--text-2)] tabular-nums">
                     {insightHistory.length}
@@ -698,7 +698,7 @@ export default function AIInsightsView({ posts }: Props) {
               <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Ask a Follow-up</h3>
+                  <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Ask a Follow-up</h3>
                 </div>
                 <span className="text-[11px] text-[var(--text-3)]">
                   {chatLog.length > 0

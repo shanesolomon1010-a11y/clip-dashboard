@@ -104,7 +104,7 @@ export default function DashboardView({ posts }: Props) {
         <div className="flex items-end justify-between">
           <div>
             <p className="text-[10px] text-[var(--text-3)] mb-1" style={{ fontFamily: 'var(--font-mono)' }}>{now}</p>
-            <h2 className="text-[22px] text-[var(--text-1)] leading-tight tracking-tight" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Welcome back, Creator</h2>
+            <h2 className="text-[22px] font-bold text-[var(--text-1)] leading-tight tracking-tight">Welcome back, Creator</h2>
           </div>
 
           {/* Date range dropdown */}
@@ -179,12 +179,12 @@ export default function DashboardView({ posts }: Props) {
         </div>
 
         {/* Views line chart */}
-        <ViewsLineChart posts={filteredPosts} activePlatforms={activePlatforms} />
+        <ViewsLineChart posts={filteredPosts} activePlatforms={activePlatforms} rangeLabel={selectedRange.label} />
 
         {/* Top content */}
         <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
-            <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Top Content</h3>
+            <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Top Content</h3>
             <span className="text-[11px] text-[var(--text-2)]">{selectedRange.label}</span>
           </div>
           <div className="divide-y divide-white/[0.03]">
@@ -226,7 +226,7 @@ export default function DashboardView({ posts }: Props) {
             <p className="text-[11px] text-[var(--text-2)] mb-1 flex items-center gap-1.5">
               <IconEye className="w-3 h-3" /> Total Views
             </p>
-            <p className="text-4xl leading-none tracking-tight" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--text-1)' }}>{formatNum(totalViews)}</p>
+            <p className="text-4xl font-bold leading-none tracking-tight text-[var(--text-1)]">{formatNum(totalViews)}</p>
             <p className="text-[11px] text-[var(--text-2)] mt-1">{selectedRange.label.toLowerCase()}</p>
 
             <div className="h-px bg-white/[0.05] my-4" />
