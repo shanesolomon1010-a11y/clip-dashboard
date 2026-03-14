@@ -13,21 +13,24 @@ import {
 const MODEL = 'claude-sonnet-4-20250514';
 const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
-const EDL_RULES =
+const JSX_RULES =
   'Rules:\n' +
-  '- Return raw EDL text only — no markdown fences, no explanation before or after, nothing but the EDL\n' +
-  '- Use CMX 3600 EDL format exactly as specified below\n' +
-  '- The first line must be: TITLE: [filename without extension]\n' +
-  '- The second line must be: FCM: NON-DROP FRAME\n' +
-  '- Leave one blank line after FCM, then list each edit on its own numbered line\n' +
-  '- Each edit line format: 001  AX       V     C        HH:MM:SS:FF HH:MM:SS:FF HH:MM:SS:FF HH:MM:SS:FF\n' +
-  '  - Column 1: edit number, zero-padded to 3 digits (001, 002, 003…)\n' +
-  '  - Column 2: reel name — always use AX for offline media\n' +
-  '  - Column 3: channel — V for video only, VA for video+audio, A for audio only\n' +
-  '  - Column 4: transition — C for cut, D for dissolve\n' +
-  '  - Columns 5-8: four timecodes: source in, source out, record in, record out (HH:MM:SS:FF)\n' +
-  '  - Timecodes use frames (FF) not milliseconds; assume 30fps unless told otherwise\n' +
-  '- After each edit line, add a comment line: * FROM CLIP NAME: [original filename]\n' +
+  '- Return raw ExtendScript (.jsx) only — no markdown fences, no explanation before or after, nothing but the script\n' +
+  '- The script must work in Adobe Premiere Pro via File → Scripts → Run Script\n' +
+  '- Start with these exact comment lines and FILE_PATH declaration:\n' +
+  '    // INSTRUCTIONS: Update FILE_PATH to the full path of your video file\n' +
+  '    // Then run this script in Premiere Pro via File → Scripts → Run Script\n' +
+  '    var FILE_PATH = "C:/path/to/your/video.mp4"; // UPDATE THIS\n' +
+  '- Use app.project to access the active project\n' +
+  '- Import the source video with: app.project.importFiles([FILE_PATH])\n' +
+  '- Find the imported clip in app.project.rootItem.children by matching the filename\n' +
+  '- Create a new sequence with: app.project.createNewSequence(sequenceName, "sequence-001")\n' +
+  '- Get the sequence with: app.project.activeSequence\n' +
+  '- Insert clips using: sequence.videoTracks[0].insertClip(clipItem, insertPointInSeconds)\n' +
+  '- Express all time values in seconds (as plain numbers), NOT ticks\n' +
+  '- Set in/out points on the clip using clip.inPoint.seconds and clip.outPoint.seconds after insertion\n' +
+  '- For captions/markers: use sequence.markers.createMarker(timeInSeconds) and set marker.name and marker.comments\n' +
+  '- Wrap everything in a try/catch and show errors with alert()\n' +
   '- Treat REFERENCE INSTRUCTIONS, CUTTING INSTRUCTIONS, TRANSITION INSTRUCTIONS, and CAPTION INSTRUCTIONS as independent sections — never mix up logic across sections';
 
 function buildSystemPrompt(history: EditorFeedbackRow[]): string {
@@ -45,13 +48,13 @@ function buildSystemPrompt(history: EditorFeedbackRow[]): string {
       : '  (none yet)';
 
   return (
-    'You are an expert CMX 3600 EDL generator. Learn from past feedback below before generating.\n\n' +
+    'You are an expert Adobe Premiere Pro ExtendScript generator. Learn from past feedback below before generating.\n\n' +
     'Past mistakes to avoid:\n' +
     mistakesBlock + '\n\n' +
     'Things that worked well:\n' +
     goodBlock + '\n\n' +
     'Apply these lessons to every new generation. Never repeat a past mistake.\n\n' +
-    EDL_RULES
+    JSX_RULES
   );
 }
 
@@ -349,7 +352,7 @@ export default function EditorView() {
     if (refFrames.length > 0) {
       content.push({
         type: 'text',
-        text: 'Here are 6 frames from a reference video showing the editing style I want. Use this as visual context for the style, pacing, and cut pattern when generating the EDL.',
+        text: 'Here are 6 frames from a reference video showing the editing style I want. Use this as visual context for the style, pacing, and cut pattern when generating the ExtendScript.',
       });
       for (const frame of refFrames) {
         content.push({ type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: frame } });
@@ -387,8 +390,8 @@ export default function EditorView() {
         .replace(/```\s*$/m, '')
         .trim();
 
-      if (!cleaned.startsWith('TITLE:')) {
-        throw new Error('Claude did not return a valid EDL. Try rephrasing your prompt.');
+      if (!cleaned.startsWith('//') && !cleaned.startsWith('var ') && !cleaned.startsWith('/*')) {
+        throw new Error('Claude did not return a valid ExtendScript. Try rephrasing your prompt.');
       }
 
       generatedPromptRef.current = instructionsText;
@@ -411,7 +414,7 @@ export default function EditorView() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${baseName}.edl`;
+    a.download = `${baseName}.jsx`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -484,11 +487,10 @@ export default function EditorView() {
       <div className="mx-5 mt-5 bg-indigo-500/08 border border-indigo-500/20 rounded-2xl px-5 py-3.5 flex items-start gap-3">
         <span className="text-indigo-400 shrink-0 mt-px">ℹ</span>
         <p className="text-sm text-indigo-200/80 leading-relaxed">
-          <span className="font-semibold text-white">How it works:</span> Describe your edit, Claude generates an EDL file.
-          Download the <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">.edl</span> file and import into{' '}
-          <span className="font-semibold text-white">Premiere Pro</span> via{' '}
-          <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">File → Import</span>.
-          When prompted to locate media, point to your original video file.
+          <span className="font-semibold text-white">How it works:</span> Describe your edit, Claude generates a Premiere Script.
+          Download the <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">.jsx</span> file. In Premiere Pro go to{' '}
+          <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">File → Scripts → Run Script</span>,
+          select the file, then update the <span className="font-mono text-indigo-300 text-[12px] bg-indigo-500/10 px-1.5 py-0.5 rounded-md">FILE_PATH</span> variable at the top to point to your video before running.
         </p>
       </div>
 
@@ -729,7 +731,7 @@ export default function EditorView() {
                 {isBusy ? (
                   <>
                     <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Generating EDL…
+                    Generating Premiere Script…
                   </>
                 ) : extractingFrames ? (
                   <>
@@ -741,7 +743,7 @@ export default function EditorView() {
                     <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4 opacity-90">
                       <path d="M12 3l1.88 5.76a1 1 0 00.95.69H21l-4.94 3.59a1 1 0 00-.36 1.12L17.58 20 12 16.41 6.42 20l1.88-5.84a1 1 0 00-.36-1.12L3 9.45h6.17a1 1 0 00.95-.69L12 3z" />
                     </svg>
-                    Generate EDL
+                    Generate Premiere Script (.jsx)
                   </>
                 )}
               </button>
@@ -754,10 +756,10 @@ export default function EditorView() {
               <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-                  <h3 className="text-sm font-semibold text-white">Generated EDL</h3>
+                  <h3 className="text-sm font-semibold text-white">Generated Premiere Script (.jsx)</h3>
                 </div>
                 <span className="text-[11px] text-gray-600 font-mono tabular-nums">
-                  {videoFile?.name.replace(/\.[^.]+$/, '')}.edl
+                  {videoFile?.name.replace(/\.[^.]+$/, '')}.jsx
                 </span>
               </div>
               <div className="p-5 space-y-4">
@@ -771,7 +773,7 @@ export default function EditorView() {
                 <div className="border-t border-white/[0.05] pt-4">
                   {feedbackState === 'none' && (
                     <div className="flex items-center gap-3">
-                      <p className="text-xs text-gray-500 flex-1">Did this EDL work as expected?</p>
+                      <p className="text-xs text-gray-500 flex-1">Did this Premiere Script (.jsx) work as expected?</p>
                       <button
                         onClick={handleThumbsUp}
                         disabled={savingFeedback}
@@ -799,7 +801,7 @@ export default function EditorView() {
 
                   {feedbackState === 'prompted' && (
                     <div className="space-y-3">
-                      <p className="text-xs text-gray-400">What was wrong with the generated EDL?</p>
+                      <p className="text-xs text-gray-400">What was wrong with the generated Premiere Script?</p>
                       <textarea
                         value={feedbackText}
                         onChange={(e) => setFeedbackText(e.target.value)}
@@ -922,7 +924,7 @@ export default function EditorView() {
                 <div className="space-y-3">
                   <div className="flex items-center gap-2 text-emerald-400">
                     <span className="shrink-0">✓</span>
-                    <p className="text-sm font-semibold">EDL ready</p>
+                    <p className="text-sm font-semibold">Premiere Script (.jsx) ready</p>
                   </div>
                   <button
                     onClick={handleDownload}
@@ -931,19 +933,19 @@ export default function EditorView() {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="w-4 h-4">
                       <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3" />
                     </svg>
-                    Download .edl
+                    Download .jsx
                   </button>
                   <p className="text-[11px] text-gray-600 leading-relaxed">
-                    Import into Premiere Pro via{' '}
-                    <span className="font-mono text-gray-500 text-[10px]">File → Import</span>.
-                    When prompted to locate media, point to your original video file.
+                    Run in Premiere Pro via{' '}
+                    <span className="font-mono text-gray-500 text-[10px]">File → Scripts → Run Script</span>.
+                    Update the <span className="font-mono text-gray-500 text-[10px]">FILE_PATH</span> variable at the top before running.
                   </p>
                 </div>
               ) : (
                 <p className="text-xs text-gray-600 text-center py-4 leading-relaxed">
                   {!videoFile
                     ? 'Upload a video to get started'
-                    : 'Generate EDL to enable download'}
+                    : 'Generate Premiere Script to enable download'}
                 </p>
               )}
             </div>
@@ -989,7 +991,7 @@ export default function EditorView() {
           <div className="border-t border-white/[0.05]">
             {feedbackHistory.length === 0 ? (
               <p className="px-5 py-8 text-xs text-gray-600 text-center">
-                No feedback yet. Rate generated EDLs to help Claude improve.
+                No feedback yet. Rate generated Premiere Scripts to help Claude improve.
               </p>
             ) : (
               <div className="divide-y divide-white/[0.04]">
