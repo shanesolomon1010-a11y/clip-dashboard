@@ -1,26 +1,34 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --bg-base:      #020408;
-  --bg-elevated:  #07101c;
-  --bg-card:      #0c1828;
-  --bg-subtle:    #101f30;
-  --border:       rgba(255, 255, 255, 0.05);
-  --border-md:    rgba(255, 255, 255, 0.08);
-  --border-hi:    rgba(255, 255, 255, 0.12);
-  --accent:       #0ea5e9;
-  --accent-hover: #38bdf8;
-  --accent-dim:   rgba(14, 165, 233, 0.08);
-  --accent-border:rgba(14, 165, 233, 0.2);
-  --text-1:       #e8f0f8;
-  --text-2:       #6b8099;
-  --text-3:       #3a5069;
-  --font-space:   'Space Grotesk', system-ui, sans-serif;
-  --font-mono:    'JetBrains Mono', monospace;
+  /* Surfaces — warm near-black, not cold blue */
+  --bg-base:       #0a0a0a;
+  --bg-elevated:   #111111;
+  --bg-card:       #161616;
+  --bg-hover:      #1d1d1d;
+
+  /* Borders */
+  --border:        rgba(255, 255, 255, 0.06);
+  --border-md:     rgba(255, 255, 255, 0.09);
+  --border-hi:     rgba(255, 255, 255, 0.14);
+
+  /* Gold accent — the signature */
+  --gold:          #d4922a;
+  --gold-hi:       #e8a838;
+  --gold-dim:      rgba(212, 146, 42, 0.07);
+  --gold-border:   rgba(212, 146, 42, 0.20);
+
+  /* Text — slightly warm whites */
+  --text-1:        #f2ede6;
+  --text-2:        #7a7068;
+  --text-3:        #47403a;
+
+  /* Font families */
+  --font-serif:    'Instrument Serif', Georgia, serif;
+  --font-space:    'Space Grotesk', system-ui, sans-serif;
+  --font-mono:     'JetBrains Mono', 'Geist Mono', monospace;
 }
 
 body {
@@ -35,24 +43,25 @@ body {
   box-sizing: border-box;
 }
 
-/* Premium thin scrollbar */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
+/* Hair-thin scrollbar — barely visible */
+::-webkit-scrollbar       { width: 3px; height: 3px; }
+::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.14);
 }
 
-/* Smooth focus rings */
+/* Focus ring — gold */
 :focus-visible {
-  outline: 2px solid rgba(14, 165, 233, 0.7);
+  outline: 1.5px solid rgba(212, 146, 42, 0.6);
   outline-offset: 2px;
+}
+
+/* Instrument Serif italic utility */
+.font-serif-italic {
+  font-family: var(--font-serif);
+  font-style: italic;
 }

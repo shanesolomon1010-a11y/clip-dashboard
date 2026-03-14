@@ -50,7 +50,7 @@ export default function PlatformsView({ posts }: Props) {
           return (
             <div
               key={platform}
-              className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden hover:border-white/[0.09] transition-all"
+              className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/[0.09] transition-all"
             >
               {/* Header */}
               <div
@@ -93,7 +93,7 @@ export default function PlatformsView({ posts }: Props) {
                         { label: 'Shares',   value: formatNum(shares) },
                       ].map(({ label, value }) => (
                         <div key={label} className="bg-white/[0.02] border border-white/[0.04] rounded-xl px-3 py-2.5">
-                          <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-2)] mb-1">{label}</p>
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-1">{label}</p>
                           <p className="text-sm font-bold text-[var(--text-1)] font-['JetBrains_Mono'] tabular-nums">{value}</p>
                         </div>
                       ))}
@@ -102,23 +102,23 @@ export default function PlatformsView({ posts }: Props) {
                     {/* Interactions bar */}
                     <div className="mb-4">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] uppercase tracking-widest text-[var(--text-2)] font-medium">Interactions / Views</span>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)]">Interactions / Views</span>
                         <span className="text-xs font-bold font-['JetBrains_Mono'] tabular-nums text-[var(--text-1)]">
                           {formatNum(interactions)} / {formatNum(views)}
                         </span>
                       </div>
-                      <div className="h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${views > 0 ? Math.min((interactions / views) * 100 * 10, 100) : 0}%`, background: color, opacity: 0.8 }}
+                          style={{ width: `${views > 0 ? Math.min((interactions / views) * 100 * 10, 100) : 0}%`, background: color, opacity: 0.65 }}
                         />
                       </div>
                     </div>
 
                     {/* Best post */}
                     {best && (
-                      <div className="bg-white/[0.02] border border-white/[0.04] rounded-xl p-3.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-2)] mb-2">Best Post</p>
+                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-2">Best Post</p>
                         <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.title}</p>
                         <div className="flex gap-4 text-[11px]">
                           <span className="text-[var(--text-2)]">Views: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.views)}</span></span>
@@ -130,7 +130,7 @@ export default function PlatformsView({ posts }: Props) {
                 )}
 
                 {/* Export hint */}
-                <p className="text-[11px] text-[var(--text-3)] mt-3 leading-relaxed">{PLATFORM_META[platform].exportNote}</p>
+                <p className="text-[10px] text-[var(--text-3)] mt-3 leading-relaxed" style={{ fontFamily: 'var(--font-mono)' }}>{PLATFORM_META[platform].exportNote}</p>
               </div>
             </div>
           );

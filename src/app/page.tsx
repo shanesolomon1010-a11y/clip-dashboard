@@ -69,7 +69,7 @@ export default function App() {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-base)]">
         <div className="flex flex-col items-center gap-4">
-          <div className="w-8 h-8 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
           <p className="text-sm text-[var(--text-2)]">Loading your data…</p>
         </div>
       </div>

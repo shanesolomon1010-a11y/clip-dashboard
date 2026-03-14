@@ -230,14 +230,14 @@ function InsightCard({
 }) {
   const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
   return (
-    <div className="bg-[var(--bg-card)] rounded-2xl overflow-hidden border" style={{ borderColor: `${accent}25` }}>
+    <div className="bg-[var(--bg-card)] rounded-2xl overflow-hidden border border-white/[0.05]">
       <div className="px-5 py-4 flex items-center gap-3" style={{ background: `${accent}0d`, borderBottom: `1px solid ${accent}18` }}>
         <span className="text-xl">{icon}</span>
-        <h3 className="text-sm font-semibold text-white">{title}</h3>
+        <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>{title}</h3>
       </div>
       <div className="px-5 py-4 space-y-2">
         {lines.map((line, i) => (
-          <p key={i} className="text-[13px] text-gray-300 leading-relaxed">{line}</p>
+          <p key={i} className="text-[13px] text-[var(--text-1)] leading-relaxed">{line}</p>
         ))}
       </div>
     </div>
@@ -249,11 +249,11 @@ function Spinner() {
     <div className="flex flex-col items-center justify-center py-16 gap-4">
       <div className="relative w-10 h-10">
         <div className="absolute inset-0 rounded-full border-2 border-white/[0.06]" />
-        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-violet-400 animate-spin" />
+        <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[var(--gold)] animate-spin" />
       </div>
       <div className="text-center">
-        <p className="text-sm text-gray-300 font-medium">Analyzing your performance data…</p>
-        <p className="text-xs text-gray-600 mt-1">This usually takes 5–10 seconds</p>
+        <p className="text-sm text-[var(--text-1)] font-medium">Analyzing your performance data…</p>
+        <p className="text-xs text-[var(--text-3)] mt-1">This usually takes 5–10 seconds</p>
       </div>
     </div>
   );
@@ -265,15 +265,15 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
     <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
       <div className={`w-7 h-7 rounded-xl shrink-0 flex items-center justify-center text-[10px] font-bold ${
         isUser
-          ? 'bg-gradient-to-br from-violet-500 to-indigo-600 text-white'
+          ? 'bg-[var(--gold-dim)] text-[var(--gold)]'
           : 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white'
       }`}>
         {isUser ? 'You' : 'AI'}
       </div>
       <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
         isUser
-          ? 'bg-indigo-500/12 border border-indigo-500/20 text-gray-200'
-          : 'bg-white/[0.04] border border-white/[0.07] text-gray-200'
+          ? 'bg-[var(--gold-dim)] border border-[var(--gold-border)] text-[var(--text-1)]'
+          : 'bg-white/[0.03] border border-white/[0.05] text-[var(--text-1)]'
       }`}>
         {msg.text.split('\n').map((line, i) => (
           <p key={i} className={line === '' ? 'mt-2' : ''}>{line}</p>
@@ -287,7 +287,7 @@ function ChevronIcon({ open }: { open: boolean }) {
   return (
     <svg
       viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}
-      className={`w-4 h-4 text-gray-500 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+      className={`w-4 h-4 text-[var(--text-2)] transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
     >
       <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
@@ -473,20 +473,20 @@ export default function AIInsightsView({ posts }: Props) {
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2.5 mb-1">
-                <div className="w-8 h-8 rounded-xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center">
-                  <IconSparkles className="w-4 h-4 text-violet-400" />
+                <div className="w-8 h-8 rounded-xl bg-[var(--gold-dim)] border border-[var(--gold-border)] flex items-center justify-center">
+                  <IconSparkles className="w-4 h-4 text-[var(--gold)]" />
                 </div>
-                <h2 className="text-base font-bold text-white tracking-tight">AI Insights</h2>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-violet-500/15 text-violet-400 border border-violet-500/20">
+                <h2 className="text-base font-bold text-[var(--text-1)] tracking-tight">AI Insights</h2>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-lg bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)]">
                   Powered by Claude
                 </span>
                 {insightHistory.length > 0 && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-white/[0.05] text-gray-500 border border-white/[0.06]">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-white/[0.05] text-[var(--text-2)] border border-white/[0.06]">
                     {insightHistory.length} saved
                   </span>
                 )}
               </div>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--text-2)]">
                 Get AI-generated analysis and recommendations based on your {posts.length} imported posts.
                 {insightHistory.length > 0 && ' Claude has memory of your past analyses.'}
               </p>
@@ -495,7 +495,7 @@ export default function AIInsightsView({ posts }: Props) {
               <button
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-gray-500 border border-white/[0.08] rounded-xl hover:text-white hover:border-white/[0.15] transition-all disabled:opacity-40 shrink-0"
+                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--text-2)] border border-white/[0.08] rounded-xl hover:text-[var(--text-1)] hover:border-white/[0.15] transition-all disabled:opacity-40 shrink-0"
               >
                 <IconRefresh className="w-3.5 h-3.5" />
                 Regenerate
@@ -504,11 +504,11 @@ export default function AIInsightsView({ posts }: Props) {
           </div>
 
           {/* API key status */}
-          <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+          <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
               <div>
-                <h3 className="text-sm font-semibold text-white">Anthropic API Key</h3>
-                <p className="text-xs text-gray-600 mt-0.5">
+                <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Anthropic API Key</h3>
+                <p className="text-xs text-[var(--text-3)] mt-0.5">
                   Configured by the admin at build-time. Users can&apos;t edit it.
                 </p>
               </div>
@@ -525,9 +525,9 @@ export default function AIInsightsView({ posts }: Props) {
             <div className="p-5">
               {ADMIN_API_KEY.trim() ? (
                 <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-[var(--text-2)]">
                     Key present (hidden). Set via environment variable{' '}
-                    <span className="text-gray-300 font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span>.
+                    <span className="text-[var(--text-1)] font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span>.
                   </p>
                 </div>
               ) : (
@@ -543,16 +543,16 @@ export default function AIInsightsView({ posts }: Props) {
 
           {/* Generate CTA */}
           {!hasInsights && !loading && (
-            <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-8 flex flex-col items-center text-center gap-4">
+            <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl p-8 flex flex-col items-center text-center gap-4">
               <div className="relative">
-                <div className="w-16 h-16 rounded-2xl bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
-                  <IconSparkles className="w-7 h-7 text-violet-400" />
+                <div className="w-16 h-16 rounded-2xl bg-[var(--gold-dim)] border border-[var(--gold-border)] flex items-center justify-center">
+                  <IconSparkles className="w-7 h-7 text-[var(--gold)]" />
                 </div>
-                <div className="absolute -inset-2 rounded-2xl bg-violet-500/05 blur-xl" />
+                <div className="absolute -inset-2 rounded-2xl bg-[var(--gold-dim)] blur-xl" />
               </div>
               <div>
-                <p className="text-white font-semibold mb-1.5">Ready to analyze {posts.length} posts</p>
-                <p className="text-sm text-gray-500 max-w-sm leading-relaxed">
+                <p className="text-[var(--text-1)] font-semibold mb-1.5">Ready to analyze {posts.length} posts</p>
+                <p className="text-sm text-[var(--text-2)] max-w-sm leading-relaxed">
                   {insightHistory.length > 0
                     ? `Claude will analyze your data and compare against ${insightHistory.length} previous ${insightHistory.length === 1 ? 'analysis' : 'analyses'} to track trends and follow up on past recommendations.`
                     : 'Claude will identify patterns across your TikTok, Instagram, LinkedIn, X, and YouTube content and give you specific, data-backed recommendations.'}
@@ -561,7 +561,7 @@ export default function AIInsightsView({ posts }: Props) {
               <button
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold bg-violet-500 hover:bg-violet-400 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-violet-900/30"
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold bg-[var(--gold)] hover:bg-[var(--gold-hi)] text-[var(--bg-base)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-lg"
               >
                 <IconSparkles className="w-4 h-4" />
                 Generate Insights
@@ -591,36 +591,36 @@ export default function AIInsightsView({ posts }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InsightCard title="What's Working"     content={insights.whatsWorking}  accent="#22c55e" icon="✅" />
               <InsightCard title="What to Improve"    content={insights.whatToImprove} accent="#f59e0b" icon="🎯" />
-              <InsightCard title="Your Next 3 Clips"  content={insights.nextClips}     accent="#8b5cf6" icon="🎬" />
-              <InsightCard title="Best Times to Post" content={insights.bestTimes}     accent="#38bdf8" icon="🕐" />
+              <InsightCard title="Your Next 3 Clips"  content={insights.nextClips}     accent="#d4922a" icon="🎬" />
+              <InsightCard title="Best Times to Post" content={insights.bestTimes}     accent="#d4922a" icon="🕐" />
             </div>
           )}
 
           {/* Raw fallback */}
           {rawFallback && (
-            <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/[0.05] flex items-center gap-2">
-                <IconSparkles className="w-4 h-4 text-violet-400" />
-                <h3 className="text-sm font-semibold text-white">AI Analysis</h3>
+            <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/[0.04] flex items-center gap-2">
+                <IconSparkles className="w-4 h-4 text-[var(--gold)]" />
+                <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>AI Analysis</h3>
               </div>
               <div className="px-5 py-4 space-y-2">
                 {rawFallback.split('\n').map((line, i) => (
-                  <p key={i} className="text-sm text-gray-300 leading-relaxed">{line}</p>
+                  <p key={i} className="text-sm text-[var(--text-1)] leading-relaxed">{line}</p>
                 ))}
               </div>
             </div>
           )}
 
           {/* ── Insight History ──────────────────────────────────────────── */}
-          <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+          <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
             <button
               onClick={() => setHistoryOpen((v) => !v)}
               className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
             >
               <div className="flex items-center gap-2.5">
-                <h3 className="text-sm font-semibold text-white">Insight History</h3>
+                <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Insight History</h3>
                 {insightHistory.length > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/[0.06] text-gray-400 tabular-nums">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/[0.06] text-[var(--text-2)] tabular-nums">
                     {insightHistory.length}
                   </span>
                 )}
@@ -632,7 +632,7 @@ export default function AIInsightsView({ posts }: Props) {
                     onClick={(e) => { e.stopPropagation(); handleClearHistory(); }}
                     className={`text-xs font-medium transition-colors ${
                       clearingHistory
-                        ? 'text-gray-600 pointer-events-none'
+                        ? 'text-[var(--text-3)] pointer-events-none'
                         : 'text-red-400/60 hover:text-red-400 cursor-pointer'
                     }`}
                   >
@@ -644,9 +644,9 @@ export default function AIInsightsView({ posts }: Props) {
             </button>
 
             {historyOpen && (
-              <div className="border-t border-white/[0.05]">
+              <div className="border-t border-white/[0.04]">
                 {insightHistory.length === 0 ? (
-                  <p className="px-5 py-8 text-xs text-gray-600 text-center">
+                  <p className="px-5 py-8 text-xs text-[var(--text-3)] text-center">
                     No analyses saved yet — generate your first insight above.
                   </p>
                 ) : (
@@ -668,10 +668,10 @@ export default function AIInsightsView({ posts }: Props) {
                         <div key={row.id} className="px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2">
-                              <span className="text-[11px] font-semibold text-gray-400">{date}</span>
-                              <span className="text-[10px] text-gray-600">{time}</span>
+                              <span className="text-[11px] font-semibold text-[var(--text-1)]">{date}</span>
+                              <span className="text-[10px] text-[var(--text-3)]">{time}</span>
                             </div>
-                            <div className="flex items-center gap-3 text-[10px] text-gray-600">
+                            <div className="flex items-center gap-3 text-[10px] text-[var(--text-3)]">
                               <span className="tabular-nums">{row.post_count} posts</span>
                               <span
                                 className="px-1.5 py-0.5 rounded-md bg-white/[0.04] font-medium"
@@ -682,7 +682,7 @@ export default function AIInsightsView({ posts }: Props) {
                               <span className="tabular-nums">~{row.avg_views.toLocaleString()} avg views</span>
                             </div>
                           </div>
-                          <p className="text-[12px] text-gray-500 leading-relaxed line-clamp-2">{preview}</p>
+                          <p className="text-[12px] text-[var(--text-2)] leading-relaxed line-clamp-2">{preview}</p>
                         </div>
                       );
                     })}
@@ -694,13 +694,13 @@ export default function AIInsightsView({ posts }: Props) {
 
           {/* Follow-up chat */}
           {hasInsights && (
-            <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+            <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                  <h3 className="text-sm font-semibold text-white">Ask a Follow-up</h3>
+                  <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Ask a Follow-up</h3>
                 </div>
-                <span className="text-[11px] text-gray-600">
+                <span className="text-[11px] text-[var(--text-3)]">
                   {chatLog.length > 0
                     ? `${Math.ceil(chatLog.length / 2)} exchange${chatLog.length / 2 !== 1 ? 's' : ''}`
                     : 'Full context included'}
@@ -708,7 +708,7 @@ export default function AIInsightsView({ posts }: Props) {
               </div>
 
               {!insightsAreForCurrentData && (
-                <div className="px-5 py-3 border-b border-white/[0.05] bg-amber-500/08">
+                <div className="px-5 py-3 border-b border-white/[0.04] bg-amber-500/08">
                   <p className="text-xs text-amber-200/80">
                     These insights were generated for a previous dataset. Import new data and click Regenerate to update them.
                   </p>
@@ -716,7 +716,7 @@ export default function AIInsightsView({ posts }: Props) {
               )}
 
               {chatLog.length > 0 && (
-                <div className="px-5 py-4 space-y-4 border-b border-white/[0.05] max-h-96 overflow-y-auto">
+                <div className="px-5 py-4 space-y-4 border-b border-white/[0.04] max-h-96 overflow-y-auto">
                   {chatLog.map((msg, i) => (
                     <ChatBubble key={i} msg={msg} />
                   ))}
@@ -725,10 +725,10 @@ export default function AIInsightsView({ posts }: Props) {
                       <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
                         AI
                       </div>
-                      <div className="bg-white/[0.04] border border-white/[0.07] rounded-2xl px-4 py-3 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '0ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '150ms' }} />
-                        <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl px-4 py-3 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-3)] animate-bounce" style={{ animationDelay: '0ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-3)] animate-bounce" style={{ animationDelay: '150ms' }} />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-3)] animate-bounce" style={{ animationDelay: '300ms' }} />
                       </div>
                     </div>
                   )}
@@ -747,7 +747,7 @@ export default function AIInsightsView({ posts }: Props) {
                     <button
                       key={p}
                       onClick={() => setChatInput(p)}
-                      className="text-xs text-gray-500 border border-white/[0.07] hover:border-white/[0.15] hover:text-gray-200 rounded-xl px-3 py-1.5 transition-all"
+                      className="text-xs text-[var(--text-2)] border border-white/[0.07] hover:border-white/[0.15] hover:text-[var(--text-1)] rounded-xl px-3 py-1.5 transition-all"
                     >
                       {p}
                     </button>
@@ -763,12 +763,12 @@ export default function AIInsightsView({ posts }: Props) {
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleFollowUp()}
                   placeholder="Ask anything about your content performance…"
                   disabled={chatLoading || !ADMIN_API_KEY.trim()}
-                  className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all disabled:opacity-50"
+                  className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] transition-all disabled:opacity-50"
                 />
                 <button
                   onClick={handleFollowUp}
                   disabled={!chatInput.trim() || chatLoading || !ADMIN_API_KEY.trim()}
-                  className="w-10 h-10 rounded-xl bg-violet-500 hover:bg-violet-400 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-white transition-colors shadow-lg shadow-violet-900/20"
+                  className="w-10 h-10 rounded-xl bg-[var(--gold)] hover:bg-[var(--gold-hi)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-[var(--bg-base)] transition-colors shadow-lg"
                 >
                   <IconSend className="w-4 h-4" />
                 </button>

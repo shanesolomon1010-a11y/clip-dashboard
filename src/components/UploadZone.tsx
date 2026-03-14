@@ -64,7 +64,7 @@ export default function UploadZone({ onUpload }: Props) {
       <label
         className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-10 px-6 cursor-pointer transition-all duration-200 ${
           isDragging
-            ? 'border-sky-400/60 bg-sky-500/[0.08]'
+            ? 'border-[var(--gold-border)] bg-[var(--gold-dim)]'
             : 'border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.02]'
         }`}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
@@ -73,11 +73,11 @@ export default function UploadZone({ onUpload }: Props) {
       >
         <input type="file" accept=".csv" className="hidden" onChange={onInputChange} />
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-          isDragging ? 'bg-sky-500/20' : 'bg-white/[0.04] border border-white/[0.06]'
+          isDragging ? 'bg-[var(--gold-dim)] border border-[var(--gold-border)]' : 'bg-white/[0.04] border border-white/[0.06]'
         }`}>
           {processing
-            ? <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-sky-400 animate-spin" />
-            : <IconUpload className={`w-5 h-5 ${isDragging ? 'text-sky-400' : 'text-[var(--text-2)]'}`} />
+            ? <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-[var(--gold)] animate-spin" />
+            : <IconUpload className={`w-5 h-5 ${isDragging ? 'text-[var(--gold)]' : 'text-[var(--text-2)]'}`} />
           }
         </div>
         <div className="text-center">
@@ -89,7 +89,7 @@ export default function UploadZone({ onUpload }: Props) {
           </p>
         </div>
         {!processing && (
-          <span className="text-xs text-sky-400 border border-sky-500/25 rounded-lg px-3 py-1.5 hover:bg-sky-500/10 hover:border-sky-500/40 transition-colors font-medium">
+          <span className="text-xs text-[var(--gold)] border border-[var(--gold-border)] rounded-lg px-3 py-1.5 hover:bg-[var(--gold-dim)] transition-colors font-medium">
             Browse file
           </span>
         )}

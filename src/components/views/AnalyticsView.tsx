@@ -50,11 +50,11 @@ export default function AnalyticsView({ posts }: Props) {
   const totalInteractions  = filtered.reduce((s, p) => s + p.likes + p.comments + p.shares + p.saves, 0);
 
   const stats = [
-    { label: 'Views',        value: formatNum(totalViews),         accent: '#6366f1' },
+    { label: 'Views',        value: formatNum(totalViews),         accent: '#d4922a' },
     { label: 'Likes',        value: formatNum(totalLikes),         accent: '#e1306c' },
     { label: 'Comments',     value: formatNum(totalComments),      accent: '#f59e0b' },
     { label: 'Shares',       value: formatNum(totalShares),        accent: '#10b981' },
-    { label: 'Interactions', value: formatNum(totalInteractions),  accent: '#8b5cf6' },
+    { label: 'Interactions', value: formatNum(totalInteractions),  accent: '#d4922a' },
   ];
 
   return (
@@ -62,15 +62,15 @@ export default function AnalyticsView({ posts }: Props) {
       {/* Controls bar */}
       <div className="flex items-center gap-3 flex-wrap">
         {/* Date range pills */}
-        <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.05] rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1">
           {(['1d', '7d', '30d', '90d', 'all'] as DateRange[]).map((r) => (
             <button
               key={r}
               onClick={() => setDateRange(r)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-3 py-1.5 text-xs transition-all ${
                 dateRange === r
-                  ? 'bg-sky-500 text-white shadow-sm'
-                  : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04]'
+                  ? 'bg-[var(--gold)] text-[var(--bg-base)] font-semibold shadow-sm rounded-lg'
+                  : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04] rounded-lg'
               }`}
             >
               {r === 'all' ? 'All time' : r.toUpperCase()}
@@ -118,9 +118,9 @@ export default function AnalyticsView({ posts }: Props) {
       {/* Stat strip */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {stats.map(({ label, value, accent }) => (
-          <div key={label} className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl px-4 py-4 hover:border-white/[0.09] transition-colors">
-            <p className="text-[11px] text-[var(--text-2)] uppercase tracking-widest mb-2 font-medium">{label}</p>
-            <p className="text-2xl font-bold leading-none tabular-nums font-['JetBrains_Mono']" style={{ color: accent }}>{value}</p>
+          <div key={label} className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl px-4 py-4 hover:border-white/[0.09] transition-colors">
+            <p className="text-[10px] tracking-[0.16em] uppercase text-[var(--text-3)] mb-2 font-semibold">{label}</p>
+            <p className="text-2xl font-bold leading-none tabular-nums" style={{ color: accent, fontFamily: 'var(--font-mono)' }}>{value}</p>
           </div>
         ))}
       </div>
@@ -134,16 +134,16 @@ export default function AnalyticsView({ posts }: Props) {
       </div>
 
       {/* Engagement breakdown table */}
-      <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+      <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-[var(--text-1)]">Engagement by Platform</h3>
+          <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Engagement by Platform</h3>
           <span className="text-[11px] text-[var(--text-2)]">{dateRange === 'all' ? 'All time' : dateRange.toUpperCase()} window</span>
         </div>
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left border-b border-white/[0.04]">
               {['Platform', 'Posts', 'Total Views', 'Total Likes', 'Comments', 'Shares', 'Interactions / Views'].map((h) => (
-                <th key={h} className="px-5 py-3 text-[10px] font-medium text-[var(--text-3)] uppercase tracking-widest">{h}</th>
+                <th key={h} className="px-5 py-3 text-[10px] font-medium text-[var(--text-3)] uppercase tracking-[0.12em]">{h}</th>
               ))}
             </tr>
           </thead>
@@ -161,13 +161,13 @@ export default function AnalyticsView({ posts }: Props) {
                       <span className="text-[var(--text-1)] font-medium text-[13px]">{PLATFORM_LABELS[pl]}</span>
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums font-['JetBrains_Mono'] text-[13px]">{pp.length}</td>
-                  <td className="px-5 py-3.5 text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono'] text-[13px]">{formatNum(plViews)}</td>
-                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums font-['JetBrains_Mono'] text-[13px]">{formatNum(pp.reduce((s, p) => s + p.likes, 0))}</td>
-                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums font-['JetBrains_Mono'] text-[13px]">{formatNum(pp.reduce((s, p) => s + p.comments, 0))}</td>
-                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums font-['JetBrains_Mono'] text-[13px]">{formatNum(pp.reduce((s, p) => s + p.shares, 0))}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums text-[13px]" style={{ fontFamily: 'var(--font-mono)' }}>{pp.length}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-1)] font-semibold tabular-nums text-[13px]" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(plViews)}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums text-[13px]" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(pp.reduce((s, p) => s + p.likes, 0))}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums text-[13px]" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(pp.reduce((s, p) => s + p.comments, 0))}</td>
+                  <td className="px-5 py-3.5 text-[var(--text-2)] tabular-nums text-[13px]" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(pp.reduce((s, p) => s + p.shares, 0))}</td>
                   <td className="px-5 py-3.5">
-                    <span className="text-[var(--text-2)] font-['JetBrains_Mono'] text-[11px] tabular-nums">
+                    <span className="text-[var(--text-2)] text-[11px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>
                       {formatNum(plInteractions)} / {formatNum(plViews)}
                     </span>
                   </td>

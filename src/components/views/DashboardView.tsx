@@ -77,10 +77,10 @@ export default function DashboardView({ posts }: Props) {
         {/* Greeting */}
         <div className="flex items-end justify-between">
           <div>
-            <p className="text-[11px] text-[var(--text-3)] mb-1 font-['JetBrains_Mono']">{now}</p>
-            <h2 className="text-xl font-bold text-[var(--text-1)] tracking-tight font-['Space_Grotesk']">Welcome back, Creator</h2>
+            <p className="text-[10px] text-[var(--text-3)] mb-1" style={{ fontFamily: 'var(--font-mono)' }}>{now}</p>
+            <h2 className="text-[22px] text-[var(--text-1)] leading-tight tracking-tight" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Welcome back, Creator</h2>
           </div>
-          <span className="text-[11px] text-[var(--text-2)] bg-white/[0.03] border border-white/[0.05] px-2.5 py-1 rounded-lg font-['JetBrains_Mono']">
+          <span className="text-[10px] text-[var(--text-3)] border border-white/[0.06] px-2.5 py-1 rounded-lg" style={{ fontFamily: 'var(--font-mono)' }}>
             Last 30 days
           </span>
         </div>
@@ -92,14 +92,14 @@ export default function DashboardView({ posts }: Props) {
             value={formatNum(totalViews)}
             sub="all-time across platforms"
             icon={<IconEye className="w-4 h-4" />}
-            accent="#0ea5e9"
+            accent="#d4922a"
           />
           <MetricCard
             label="Posts (30d)"
             value={String(m30.posts)}
             sub={`${posts.length} total all-time`}
             icon={<IconStar className="w-4 h-4" />}
-            accent="#0ea5e9"
+            accent="#d4922a"
           />
           <MetricCard
             label="Total Interactions"
@@ -123,15 +123,15 @@ export default function DashboardView({ posts }: Props) {
         <ViewsLineChart posts={last90} activePlatforms={activePlatforms} />
 
         {/* Top content */}
-        <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+        <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-[var(--text-1)]">Top Content</h3>
+            <h3 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Top Content</h3>
             <span className="text-[11px] text-[var(--text-2)]">Last 30 days</span>
           </div>
           <div className="divide-y divide-white/[0.03]">
             {topPosts.map((post, i) => (
               <div key={post.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors group">
-                <span className="text-[var(--text-3)] font-['JetBrains_Mono'] w-4 shrink-0 tabular-nums text-xs font-bold">{i + 1}</span>
+                <span className="text-[var(--text-3)] w-4 shrink-0 tabular-nums text-xs font-bold" style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
                 <span
                   className="text-[10px] font-semibold px-2 py-1 rounded-lg shrink-0"
                   style={{
@@ -143,8 +143,8 @@ export default function DashboardView({ posts }: Props) {
                 </span>
                 <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{post.title}</span>
                 <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-[var(--text-1)] font-['JetBrains_Mono'] tabular-nums">{formatNum(post.views)}</p>
-                  <p className="text-[10px] text-[var(--text-3)] font-['JetBrains_Mono'] tabular-nums">{formatNum(postInteractions(post))} interactions</p>
+                  <p className="text-sm font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(post.views)}</p>
+                  <p className="text-[10px] text-[var(--text-3)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(postInteractions(post))} interactions</p>
                 </div>
               </div>
             ))}
@@ -159,36 +159,36 @@ export default function DashboardView({ posts }: Props) {
       <div className="w-[260px] shrink-0 space-y-4">
 
         {/* Channel summary */}
-        <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+        <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-4 py-3.5 border-b border-white/[0.05]">
-            <h3 className="text-[10px] font-semibold text-[var(--text-2)] uppercase tracking-widest">Channel Summary</h3>
+            <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Channel Summary</h3>
           </div>
           <div className="p-5">
             <p className="text-[11px] text-[var(--text-2)] mb-1 flex items-center gap-1.5">
               <IconEye className="w-3 h-3" /> Total Views
             </p>
-            <p className="text-4xl font-bold text-[var(--text-1)] leading-none tracking-tight font-['JetBrains_Mono'] tabular-nums">{formatNum(totalViews)}</p>
+            <p className="text-4xl leading-none tracking-tight" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', color: 'var(--text-1)' }}>{formatNum(totalViews)}</p>
             <p className="text-[11px] text-[var(--text-2)] mt-1">across all platforms</p>
 
             <div className="h-px bg-white/[0.05] my-4" />
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-2)] mb-1">Total Posts</p>
-                <p className="text-xl font-bold text-[var(--text-1)] font-['JetBrains_Mono']">{posts.length}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-1">Total Posts</p>
+                <p className="text-xl font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{posts.length}</p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--text-2)] mb-1">Interactions</p>
-                <p className="text-xl font-bold text-[var(--text-1)] font-['JetBrains_Mono']">{formatNum(totalInteractions)}</p>
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-1">Interactions</p>
+                <p className="text-xl font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(totalInteractions)}</p>
               </div>
             </div>
           </div>
         </div>
 
         {/* Platform breakdown */}
-        <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+        <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-4 py-3.5 border-b border-white/[0.05]">
-            <h3 className="text-[10px] font-semibold text-[var(--text-2)] uppercase tracking-widest">Platforms</h3>
+            <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Platforms</h3>
           </div>
           <div className="p-3 space-y-1">
             {platformTotals.map(({ platform, views, count }) => {
@@ -201,7 +201,7 @@ export default function DashboardView({ posts }: Props) {
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
                       <span className="text-xs text-[var(--text-2)] font-medium">{PLATFORM_LABELS[platform]}</span>
                     </div>
-                    <span className="text-xs text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono']">{formatNum(views)}</span>
+                    <span className="text-xs text-[var(--text-1)] font-semibold tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(views)}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
@@ -210,7 +210,7 @@ export default function DashboardView({ posts }: Props) {
                         style={{ width: `${pct}%`, background: color, opacity: 0.6 }}
                       />
                     </div>
-                    <span className="text-[10px] text-[var(--text-3)] w-8 text-right tabular-nums font-['JetBrains_Mono']">{count}p</span>
+                    <span className="text-[10px] text-[var(--text-3)] w-8 text-right tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{count}p</span>
                   </div>
                 </div>
               );
@@ -219,10 +219,10 @@ export default function DashboardView({ posts }: Props) {
         </div>
 
         {/* Creator Tips */}
-        <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+        <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
           <div className="px-4 py-3.5 border-b border-white/[0.05] flex items-center gap-2">
             <IconLightning className="w-3.5 h-3.5 text-amber-400" />
-            <h3 className="text-[10px] font-semibold text-[var(--text-2)] uppercase tracking-widest">Creator Tips</h3>
+            <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Creator Tips</h3>
           </div>
           <div className="divide-y divide-white/[0.03]">
             {TIPS.map((tip) => (

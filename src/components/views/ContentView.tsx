@@ -23,14 +23,14 @@ export default function ContentView({ posts, onUpload }: Props) {
       {/* Recently added */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-[11px] font-medium text-[var(--text-2)] uppercase tracking-widest">Recently Added</h2>
+          <h2 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Recently Added</h2>
           <span className="text-[11px] text-[var(--text-2)]">{posts.length} total posts</span>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {recent.map((post) => (
             <div
               key={post.id}
-              className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl p-4 hover:border-white/[0.09] hover:bg-white/[0.02] transition-all group"
+              className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-4 hover:bg-[var(--bg-hover)] hover:border-white/[0.09] transition-all group"
             >
               <div className="flex items-center gap-2 mb-3">
                 <span
@@ -60,7 +60,7 @@ export default function ContentView({ posts, onUpload }: Props) {
             </div>
           ))}
           {recent.length === 0 && (
-            <div className="col-span-4 bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl p-8 text-center text-[var(--text-2)] text-sm">
+            <div className="col-span-4 bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-8 text-center text-[var(--text-2)] text-sm">
               No posts yet — upload a CSV to get started
             </div>
           )}

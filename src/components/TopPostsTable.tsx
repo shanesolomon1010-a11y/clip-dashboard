@@ -16,20 +16,20 @@ export default function TopPostsTable({ posts }: Props) {
   const sorted = [...posts].sort((a, b) => b.views - a.views).slice(0, 10);
 
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[var(--text-1)]">Top Posts</h2>
+    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+        <h2 className="text-[15px] text-[var(--text-1)]" style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>Top Posts</h2>
         <span className="text-[11px] text-[var(--text-2)]">by views</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="text-left border-b border-white/[0.04]">
-              <th className="px-5 py-3 text-[10px] font-medium text-[var(--text-3)] uppercase tracking-widest">Platform</th>
-              <th className="px-5 py-3 text-[10px] font-medium text-[var(--text-3)] uppercase tracking-widest">Title</th>
-              <th className="px-5 py-3 text-[10px] font-medium text-[var(--text-3)] uppercase tracking-widest text-right">Views</th>
-              <th className="px-5 py-3 text-[10px] font-medium text-[var(--text-3)] uppercase tracking-widest text-right">Likes</th>
-              <th className="px-5 py-3 text-[10px] font-medium text-[var(--text-3)] uppercase tracking-widest text-right">Interactions</th>
+              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Platform</th>
+              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Title</th>
+              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">Views</th>
+              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">Likes</th>
+              <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">Interactions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-white/[0.04]">
