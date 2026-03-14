@@ -10,10 +10,54 @@ import { IconEye, IconTrendUp, IconStar, IconLightning } from '@/components/Icon
 const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
 
 const TIPS = [
-  { icon: '🎯', title: 'Hook within 1 second', body: 'Viewers decide in the first frame. Open on action, not on text cards.' },
-  { icon: '🔁', title: 'Repurpose across platforms', body: 'A top TikTok clip can earn 3–5× more reach when posted natively to Reels and Shorts.' },
-  { icon: '📊', title: 'Post time matters less', body: 'Algorithm reach now outweighs publish time. Focus on retention over scheduling.' },
-  { icon: '💬', title: 'Reply to early comments', body: 'Engaging in the first 30 min signals content quality and boosts distribution.' },
+  {
+    icon: '🎯',
+    title: 'Hook within 1 second',
+    body: 'Viewers decide in the first frame. Open on action, not on text cards.',
+    details: [
+      'The first frame is your entire pitch. If it looks like a title card or slow intro, 60–80% of viewers swipe before second 2.',
+      'Best hooks: mid-action clips, a bold visual contrast, someone mid-sentence saying something surprising, or a text overlay that creates immediate curiosity ("I lost $10k doing this…").',
+      'Avoid: logos, intros, "hey guys welcome back", slow zooms, black fades.',
+      'Pro move: shoot your hook last — once you know the full story, it\'s easier to write the best entry point.',
+      'Benchmark: aim for a 3-second retention rate above 70% in your analytics.',
+    ],
+  },
+  {
+    icon: '🔄',
+    title: 'Repurpose across platforms',
+    body: 'A top TikTok clip can earn 3–5× more reach when posted natively to Reels and Shorts.',
+    details: [
+      'Native uploads always outperform cross-posted links — each algorithm rewards content uploaded directly.',
+      'Adjust aspect ratio and text safe zones per platform: TikTok and Reels favor 9:16 full bleed, Shorts wants text kept center-screen.',
+      'Swap platform-specific audio when needed (trending sounds differ per platform).',
+      'Post within 24–48 hrs of your original for maximum overlap momentum.',
+      'Tools: CapCut, Descript, and ClipStudio (this app) can help batch your exports.',
+      'Warning: remove TikTok watermarks before posting to Reels/Shorts — both algorithms suppress watermarked content.',
+    ],
+  },
+  {
+    icon: '📊',
+    title: 'Post time matters less',
+    body: 'Algorithm reach now outweighs publish time. Focus on retention over scheduling.',
+    details: [
+      'Pre-2022 advice said post at peak hours. That\'s largely obsolete — TikTok, Reels, and Shorts now distribute content over days or weeks based on engagement signals, not timestamps.',
+      'What actually moves the needle: watch time %, like-to-view ratio, comment velocity in the first hour, and share rate.',
+      'That said: posting when your core audience is awake still helps seed that first-hour signal. Use your platform analytics to find your audience\'s active window.',
+      'Don\'t delay a great piece of content waiting for a "perfect" time. Consistency > timing.',
+    ],
+  },
+  {
+    icon: '💬',
+    title: 'Reply to early comments',
+    body: 'Engaging in the first 30 min signals content quality and boosts distribution.',
+    details: [
+      'Comments in the first 30 minutes are a strong quality signal to TikTok and Instagram\'s algorithms.',
+      'Reply to every comment in that window if possible — even a single emoji reply counts as engagement and re-surfaces your post in commenter feeds.',
+      'Ask a question in your caption or on-screen to seed the comment section before you post.',
+      'Pin a comment yourself to set the tone — either a hot take, a follow-up detail, or a funny response.',
+      'Video replies to comments (TikTok feature) consistently outperform text replies in reach.',
+    ],
+  },
 ];
 
 type RangeKey = '1d' | '7d' | '30d' | '90d' | 'all';
@@ -42,6 +86,69 @@ function filterByDays(posts: UnifiedPost[], days: number | null): UnifiedPost[] 
 
 function postInteractions(p: UnifiedPost): number {
   return p.likes + p.comments + p.shares + p.saves;
+}
+
+function CreatorTips() {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  function toggle(i: number) {
+    setOpenIndex((prev) => (prev === i ? null : i));
+  }
+
+  return (
+    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="px-4 py-3.5 border-b border-white/[0.05] flex items-center gap-2">
+        <IconLightning className="w-3.5 h-3.5 text-amber-400" />
+        <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Creator Tips</h3>
+      </div>
+      <div className="divide-y divide-white/[0.03]">
+        {TIPS.map((tip, i) => {
+          const isOpen = openIndex === i;
+          return (
+            <div key={tip.title}>
+              <button
+                onClick={() => toggle(i)}
+                className="w-full px-4 py-3.5 hover:bg-white/[0.02] transition-colors text-left"
+              >
+                <div className="flex items-start gap-2.5">
+                  <span className="text-base mt-px shrink-0">{tip.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12px] font-semibold text-[var(--text-1)] mb-0.5">{tip.title}</p>
+                    <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{tip.body}</p>
+                  </div>
+                  <svg
+                    className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--text-3)] transition-transform duration-300"
+                    style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 6l4 4 4-4" />
+                  </svg>
+                </div>
+              </button>
+              <div
+                className="overflow-hidden transition-all duration-300 ease-in-out"
+                style={{ maxHeight: isOpen ? '600px' : '0px', opacity: isOpen ? 1 : 0 }}
+              >
+                <ul className="px-4 pb-4 pt-1 space-y-2" style={{ paddingLeft: '2.75rem' }}>
+                  {tip.details.map((point, j) => (
+                    <li key={j} className="flex items-start gap-2">
+                      <span className="mt-[5px] w-1 h-1 rounded-full bg-[var(--text-3)] shrink-0" />
+                      <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{point}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 interface Props {
@@ -282,25 +389,7 @@ export default function DashboardView({ posts }: Props) {
         </div>
 
         {/* Creator Tips */}
-        <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-white/[0.05] flex items-center gap-2">
-            <IconLightning className="w-3.5 h-3.5 text-amber-400" />
-            <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Creator Tips</h3>
-          </div>
-          <div className="divide-y divide-white/[0.03]">
-            {TIPS.map((tip) => (
-              <div key={tip.title} className="px-4 py-3.5 hover:bg-white/[0.02] transition-colors">
-                <div className="flex items-start gap-2.5">
-                  <span className="text-base mt-px shrink-0">{tip.icon}</span>
-                  <div>
-                    <p className="text-[12px] font-semibold text-[var(--text-1)] mb-0.5">{tip.title}</p>
-                    <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{tip.body}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+        <CreatorTips />
       </div>
     </div>
   );
