@@ -96,7 +96,7 @@ export default function BestTimeCard({ posts }: Props) {
                         {isBest && (
                           <div
                             className="absolute inset-0 rounded-md ring-1 ring-inset"
-                            style={{ ringColor: color, outlineColor: color, boxShadow: `inset 0 0 0 1px ${color}` }}
+                            style={{ boxShadow: `inset 0 0 0 1px ${color}` }}
                           />
                         )}
                         {rate > 0 && (
