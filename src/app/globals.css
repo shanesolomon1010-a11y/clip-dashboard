@@ -2,6 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
 :root {
   /* Surfaces — warm near-black, not cold blue */
   --bg-base:       #0a0a0a;

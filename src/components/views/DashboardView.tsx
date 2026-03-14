@@ -89,65 +89,84 @@ function postInteractions(p: UnifiedPost): number {
 }
 
 function CreatorTips() {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
-
-  function toggle(i: number) {
-    setOpenIndex((prev) => (prev === i ? null : i));
-  }
+  const [activeTip, setActiveTip] = useState<typeof TIPS[0] | null>(null);
 
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="px-4 py-3.5 border-b border-white/[0.05] flex items-center gap-2">
-        <IconLightning className="w-3.5 h-3.5 text-amber-400" />
-        <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Creator Tips</h3>
-      </div>
-      <div className="divide-y divide-white/[0.03]">
-        {TIPS.map((tip, i) => {
-          const isOpen = openIndex === i;
-          return (
-            <div key={tip.title}>
-              <button
-                onClick={() => toggle(i)}
-                className="w-full px-4 py-3.5 hover:bg-white/[0.02] transition-colors text-left"
-              >
-                <div className="flex items-start gap-2.5">
-                  <span className="text-base mt-px shrink-0">{tip.icon}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[12px] font-semibold text-[var(--text-1)] mb-0.5">{tip.title}</p>
-                    <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{tip.body}</p>
-                  </div>
-                  <svg
-                    className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--text-3)] transition-transform duration-300"
-                    style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 6l4 4 4-4" />
-                  </svg>
+    <>
+      <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-white/[0.05] flex items-center gap-2">
+          <IconLightning className="w-3.5 h-3.5 text-amber-400" />
+          <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Creator Tips</h3>
+        </div>
+        <div className="divide-y divide-white/[0.03]">
+          {TIPS.map((tip) => (
+            <button
+              key={tip.title}
+              onClick={() => setActiveTip(tip)}
+              className="w-full px-4 py-3.5 hover:bg-white/[0.02] transition-colors text-left"
+            >
+              <div className="flex items-start gap-2.5">
+                <span className="text-base mt-px shrink-0">{tip.icon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold text-[var(--text-1)] mb-0.5">{tip.title}</p>
+                  <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{tip.body}</p>
                 </div>
-              </button>
-              <div
-                className="overflow-hidden transition-all duration-300 ease-in-out"
-                style={{ maxHeight: isOpen ? '600px' : '0px', opacity: isOpen ? 1 : 0 }}
-              >
-                <ul className="px-4 pb-4 pt-1 space-y-2" style={{ paddingLeft: '2.75rem' }}>
-                  {tip.details.map((point, j) => (
-                    <li key={j} className="flex items-start gap-2">
-                      <span className="mt-[5px] w-1 h-1 rounded-full bg-[var(--text-3)] shrink-0" />
-                      <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{point}</p>
-                    </li>
-                  ))}
-                </ul>
+                <svg
+                  className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--text-3)]"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M6 4l4 4-4 4" />
+                </svg>
               </div>
-            </div>
-          );
-        })}
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
+
+      {activeTip && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{
+            backgroundColor: 'rgba(0,0,0,0.6)',
+            backdropFilter: 'blur(4px)',
+            animation: 'fadeIn 200ms ease',
+          }}
+          onClick={() => setActiveTip(null)}
+        >
+          <div
+            className="relative bg-[var(--bg-card)] border border-white/[0.08] rounded-2xl w-full max-w-md p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setActiveTip(null)}
+              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/[0.1] transition-colors text-[var(--text-3)]"
+            >
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="w-3.5 h-3.5">
+                <path d="M4 4l8 8M12 4l-8 8" />
+              </svg>
+            </button>
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-2xl">{activeTip.icon}</span>
+              <h2 className="text-[15px] font-semibold text-[var(--text-1)]">{activeTip.title}</h2>
+            </div>
+            <p className="text-[12px] text-[var(--text-2)] leading-relaxed mb-4">{activeTip.body}</p>
+            <ul className="space-y-3">
+              {activeTip.details.map((point, j) => (
+                <li key={j} className="flex items-start gap-2.5">
+                  <span className="mt-[5px] w-1.5 h-1.5 rounded-full bg-amber-400/60 shrink-0" />
+                  <p className="text-[12px] text-[var(--text-2)] leading-relaxed">{point}</p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
