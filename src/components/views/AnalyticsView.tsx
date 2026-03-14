@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { DateRange, Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import ViewsLineChart from '@/components/ViewsLineChart';
 import PlatformBarChart from '@/components/PlatformBarChart';
+import BestTimeCard from '@/components/BestTimeCard';
 
 const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
 
@@ -132,6 +133,9 @@ export default function AnalyticsView({ posts }: Props) {
         </div>
         <PlatformBarChart posts={byDate} activePlatforms={activePlatforms} />
       </div>
+
+      {/* Best time to post */}
+      <BestTimeCard posts={filtered} />
 
       {/* Engagement breakdown table */}
       <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">

@@ -4,6 +4,7 @@ import { useMemo, useState, useRef, useEffect } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import MetricCard from '@/components/MetricCard';
 import ViewsLineChart from '@/components/ViewsLineChart';
+import GoalsSection from '@/components/GoalsSection';
 import { IconEye, IconTrendUp, IconStar, IconLightning } from '@/components/Icons';
 
 const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
@@ -177,6 +178,9 @@ export default function DashboardView({ posts }: Props) {
             accent={topPlatform ? PLATFORM_COLORS[topPlatform.platform] : '#6b7280'}
           />
         </div>
+
+        {/* Goals */}
+        <GoalsSection posts={filteredPosts} />
 
         {/* Views line chart */}
         <ViewsLineChart posts={filteredPosts} activePlatforms={activePlatforms} rangeLabel={selectedRange.label} />
