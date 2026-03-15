@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { toBlobURL } from '@ffmpeg/util';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -115,12 +115,82 @@ export default function EditorView() {
     }
   }, [logLines]);
 
+  // ── Upload & probe ─────────────────────────────────────────────────────────
+
+  /** Probe duration via native video element — avoids FFmpeg round-trip */
+  const probeDuration = (file: File): Promise<number> =>
+    new Promise((resolve) => {
+      const url = URL.createObjectURL(file);
+      const vid = document.createElement('video');
+      vid.src = url;
+      vid.onloadedmetadata = () => {
+        resolve(vid.duration);
+        URL.revokeObjectURL(url);
+      };
+      vid.onerror = () => { resolve(0); URL.revokeObjectURL(url); };
+    });
+
+  /** Extract frame 1 as a blob URL using FFmpeg.wasm */
+  const extractThumbnail = useCallback(async (file: File, id: string): Promise<string> => {
+    const ff = ffmpegRef.current;
+    if (!ff) return '';
+    const inName  = `input_${id}.mp4`;
+    const outName = `thumb_${id}.jpg`;
+    try {
+      await ff.writeFile(inName, await fetchFile(file));
+      await ff.exec(['-i', inName, '-frames:v', '1', '-q:v', '2', outName]);
+      const data = await ff.readFile(outName);
+      // readFile returns FileData (Uint8Array | string); copy into a plain ArrayBuffer for Blob
+      const raw = data instanceof Uint8Array ? data : new TextEncoder().encode(data as string);
+      const buf = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as unknown as ArrayBuffer;
+      const blob = new Blob([buf], { type: 'image/jpeg' });
+      return URL.createObjectURL(blob);
+    } catch {
+      return '';
+    } finally {
+      try { await ff.deleteFile(inName); } catch { /* ignore */ }
+      try { await ff.deleteFile(outName); } catch { /* ignore */ }
+    }
+  }, []);
+
   // ── Placeholder handlers (implemented in later tasks) ──────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleFiles = useCallback((_files: FileList | File[]) => {
-    // Task 2
-  }, []);
+  const handleFiles = useCallback(async (files: FileList | File[]) => {
+    if (!ffmpegLoaded) return;
+    const arr = Array.from(files).filter(
+      (f) => f.type.startsWith('video/') || /\.(mp4|mov|m4v)$/i.test(f.name)
+    );
+    if (arr.length === 0) return;
+
+    // Generate stable IDs outside the state updater so we can reference them in the serial loop
+    const ids = arr.map((_, i) => `${Date.now()}-${i}`);
+
+    // Add skeleton clips inside the updater so `order` uses real prev.length (no stale closure)
+    setClips((prev) => [
+      ...prev,
+      ...arr.map((file, i) => ({
+        id: ids[i],
+        file,
+        filename: file.name,
+        duration: 0,
+        thumbnailUrl: '',
+        order: prev.length + i,
+        keepSegments: [],
+        captions: [],
+        analyzed: false,
+      })),
+    ]);
+
+    // Fill in duration + thumbnail serially (avoids FFmpeg virtual FS collisions)
+    for (let i = 0; i < arr.length; i++) {
+      const id       = ids[i];
+      const duration = await probeDuration(arr[i]);
+      const thumbUrl = await extractThumbnail(arr[i], id);
+      setClips((prev) =>
+        prev.map((c) => c.id === id ? { ...c, duration, thumbnailUrl: thumbUrl } : c)
+      );
+    }
+  }, [ffmpegLoaded, extractThumbnail]);
 
   const handleGenerate = useCallback(async () => {
     // Tasks 3–7
