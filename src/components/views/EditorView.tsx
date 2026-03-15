@@ -273,9 +273,13 @@ export default function EditorView() {
 
     // Strip markdown code fences if Claude wraps the JSON
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
-    const parsed  = JSON.parse(cleaned);
-    if (!Array.isArray(parsed)) throw new Error('Claude returned non-array JSON');
-    return parsed as Caption[];
+    try {
+      const parsed = JSON.parse(cleaned);
+      if (!Array.isArray(parsed)) throw new Error('Claude returned non-array JSON');
+      return parsed as Caption[];
+    } catch {
+      throw new Error(`JSON parse failure: ${cleaned.slice(0, 80)}`);
+    }
   }, []);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
