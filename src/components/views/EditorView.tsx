@@ -122,6 +122,7 @@ function buildFcpxml(orderedClips: Clip[]): string {
     `  <effect id="r_title" name="Basic Title" uid="${FCP_BASIC_TITLE_UID}"/>`,
     ...orderedClips.map((clip, i) => {
       const totalFrames = Math.round(clip.duration * 30);
+      // Note: src uses bare filename — FCP will need to relink media (browser File API cannot expose absolute paths)
       return `  <asset id="r${i + 2}" name="${escapeXml(clip.filename)}" src="file:///${escapeXml(clip.filename)}" start="0s" duration="${totalFrames}/30s" hasVideo="1" hasAudio="1" format="r1"/>`;
     }),
   ].join('\n');
@@ -190,6 +191,72 @@ function buildFcpxml(orderedClips: Clip[]): string {
     `  </library>`,
     `</fcpxml>`,
   ].join('\n');
+}
+
+// ── EDL generation helpers (module-level) ─────────────────────────────────
+
+/** Seconds → CMX 3600 non-drop-frame timecode HH:MM:SS:FF */
+function toTimecode(seconds: number): string {
+  const totalFrames = Math.round(seconds * 30);
+  const ff          = totalFrames % 30;
+  const totalSecs   = Math.floor(totalFrames / 30);
+  const ss          = totalSecs % 60;
+  const mm          = Math.floor(totalSecs / 60) % 60;
+  const hh          = Math.floor(totalSecs / 3600);
+  return [hh, mm, ss, ff].map((n) => String(n).padStart(2, '0')).join(':');
+}
+
+/**
+ * Build unique 8-char CMX reel names for all clips.
+ * Uses a per-prefix counter so names stay unique regardless of how many clips collide.
+ */
+function buildReelNames(clips: Clip[]): string[] {
+  const counters = new Map<string, number>();
+  return clips.map((clip) => {
+    const base = clip.filename
+      .replace(/\.[^.]+$/, '')   // strip extension
+      .replace(/\s+/g, '_')      // spaces → underscores
+      .toUpperCase()
+      .slice(0, 8);
+    const count = counters.get(base) ?? 0;
+    counters.set(base, count + 1);
+    if (count === 0) return base;                          // first occurrence: use base as-is
+    return base.slice(0, 7) + String(count % 10);         // subsequent: append counter digit
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function buildEdl(orderedClips: Clip[]): string {
+  const lines: string[] = [
+    'TITLE: Export',
+    'FCM: NON-DROP FRAME',
+    '',
+  ];
+
+  const reelNames   = buildReelNames(orderedClips);
+  let eventNum      = 1;
+  let recordSeconds = 0;
+
+  for (let ci = 0; ci < orderedClips.length; ci++) {
+    const clip     = orderedClips[ci];
+    const reelName = reelNames[ci].padEnd(8);
+
+    for (const seg of clip.keepSegments) {
+      const srcIn  = toTimecode(seg.start);
+      const srcOut = toTimecode(seg.end);
+      const recIn  = toTimecode(recordSeconds);
+      const segDur = seg.end - seg.start;
+      recordSeconds += segDur;
+      const recOut = toTimecode(recordSeconds);
+
+      lines.push(
+        `${String(eventNum).padStart(3, '0')}  ${reelName} V     C        ${srcIn} ${srcOut} ${recIn} ${recOut}`
+      );
+      eventNum++;
+    }
+  }
+
+  return lines.join('\n');
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
