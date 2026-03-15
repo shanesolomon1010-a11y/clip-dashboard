@@ -24,6 +24,11 @@ interface ProviderProps {
 export function VideoModalProvider({ children, onUrlSaved }: ProviderProps) {
   const [selectedPost, setSelectedPost] = useState<UnifiedPost | null>(null);
 
+  async function handleUrlSaved(platform: string, title: string, date: string, url: string) {
+    await onUrlSaved(platform, title, date, url);
+    setSelectedPost((prev) => (prev ? { ...prev, url } : null));
+  }
+
   return (
     <VideoModalContext.Provider value={{ open: setSelectedPost }}>
       {children}
@@ -31,7 +36,7 @@ export function VideoModalProvider({ children, onUrlSaved }: ProviderProps) {
         <VideoPreviewModal
           post={selectedPost}
           onClose={() => setSelectedPost(null)}
-          onUrlSaved={onUrlSaved}
+          onUrlSaved={handleUrlSaved}
         />
       )}
     </VideoModalContext.Provider>

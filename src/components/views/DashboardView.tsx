@@ -328,6 +328,11 @@ export default function DashboardView({ posts }: Props) {
                   {PLATFORM_LABELS[post.platform]}
                 </span>
                 <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{post.title}</span>
+                {post.url && (
+                  <svg className="w-3 h-3 shrink-0 text-amber-400/70" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4 3l10 5-10 5V3z" />
+                  </svg>
+                )}
                 <div className="text-right shrink-0">
                   <p className="text-sm font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(post.views)}</p>
                   <p className="text-[10px] text-[var(--text-3)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(postInteractions(post))} interactions</p>

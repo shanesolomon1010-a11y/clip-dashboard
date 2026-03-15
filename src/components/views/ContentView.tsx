@@ -41,6 +41,11 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
                 >
                   {PLATFORM_LABELS[post.platform]}
                 </span>
+                {post.url && (
+                  <svg className="w-3 h-3 text-amber-400/70" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M4 3l10 5-10 5V3z" />
+                  </svg>
+                )}
                 <span className="text-[10px] text-[var(--text-2)] ml-auto font-medium">{post.date}</span>
               </div>
               <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-white transition-colors">{post.title}</p>

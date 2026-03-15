@@ -116,7 +116,14 @@ export default function PlatformsView({ posts }: Props) {
                     {/* Best post */}
                     {best && (
                       <div onClick={() => open(best)} className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5 cursor-pointer hover:bg-white/[0.05] transition-colors">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-2">Best Post</p>
+                        <div className="flex items-center gap-1.5 mb-2">
+                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)]">Best Post</p>
+                          {best.url && (
+                            <svg className="w-3 h-3 text-amber-400/70" viewBox="0 0 16 16" fill="currentColor">
+                              <path d="M4 3l10 5-10 5V3z" />
+                            </svg>
+                          )}
+                        </div>
                         <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.title}</p>
                         <div className="flex gap-4 text-[11px]">
                           <span className="text-[var(--text-2)]">Views: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.views)}</span></span>
