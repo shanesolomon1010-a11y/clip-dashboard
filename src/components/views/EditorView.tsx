@@ -67,7 +67,7 @@ const probeDuration = (file: File): Promise<number> =>
 // ── Silence detection helpers (module-level — no state dependencies) ────────
 
 /** Parse FFmpeg silencedetect log lines into silence intervals */
-function parseSilences(lines: string[]): Segment[] {
+function parseSilences(lines: string[], duration?: number): Segment[] {
   const silences: Segment[] = [];
   let currentStart: number | null = null;
   for (const line of lines) {
@@ -79,19 +79,23 @@ function parseSilences(lines: string[]): Segment[] {
       currentStart = null;
     }
   }
+  if (currentStart !== null && duration !== undefined) {
+    silences.push({ start: currentStart, end: duration });
+  }
   return silences;
 }
 
 /** Invert silence gaps into keep segments */
 function invertSilences(silences: Segment[], duration: number): Segment[] {
+  const MIN_SEG = 0.01; // suppress keep segments shorter than 10 ms
   if (silences.length === 0) return [{ start: 0, end: duration }];
   const keeps: Segment[] = [];
   let cursor = 0;
   for (const s of silences) {
-    if (s.start > cursor + 0.01) keeps.push({ start: cursor, end: s.start });
+    if (s.start > cursor + MIN_SEG) keeps.push({ start: cursor, end: s.start });
     cursor = s.end;
   }
-  if (cursor < duration - 0.01) keeps.push({ start: cursor, end: duration });
+  if (cursor < duration - MIN_SEG) keeps.push({ start: cursor, end: duration });
   return keeps.length > 0 ? keeps : [{ start: 0, end: duration }];
 }
 
@@ -210,7 +214,7 @@ export default function EditorView() {
           '-af', 'silencedetect=noise=-30dB:d=0.5',
           '-f', 'null', '-',
         ]);
-        const silences   = parseSilences(collected);
+        const silences   = parseSilences(collected, clip.duration);
         const keepSegs   = invertSilences(silences, clip.duration);
         results.set(clip.id, keepSegs);
         addLog(`  → ${silences.length} silence(s), ${keepSegs.length} keep segment(s)`);
