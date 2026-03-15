@@ -230,6 +230,75 @@ export default function EditorView() {
     return results;
   }, [addLog]);
 
+  // ── Caption generation ─────────────────────────────────────────────────────
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const generateCaptionsForClip = useCallback(async (
+    clip: Clip,
+    instr: Instructions,
+  ): Promise<Caption[]> => {
+    const userContent = [
+      `Generate captions for a video called "${clip.filename}" (${clip.duration.toFixed(1)}s long).`,
+      `Active segments (silence removed): ${JSON.stringify(clip.keepSegments)}`,
+      '',
+      'Instructions context:',
+      `Reference: ${instr.reference || '(none)'}`,
+      `Cutting: ${instr.cutting || '(none)'}`,
+      `Transitions: ${instr.transitions || '(none)'}`,
+      `Captions: ${instr.captions || '(none)'}`,
+      '',
+      'Make captions punchy, social-media style, max 6 words each.',
+    ].join('\n');
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'x-api-key': API_KEY,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 2048,
+        system: 'You are a caption writer. Return ONLY a JSON array of {startTime, endTime, text} objects. No markdown, no explanation.',
+        messages: [{ role: 'user', content: userContent }],
+      }),
+    });
+
+    if (!res.ok) throw new Error(`Claude API error ${res.status}`);
+
+    const json = await res.json();
+    const raw  = (json.content?.[0] as { type: string; text: string } | undefined)?.text ?? '';
+
+    // Strip markdown code fences if Claude wraps the JSON
+    const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
+    const parsed  = JSON.parse(cleaned);
+    if (!Array.isArray(parsed)) throw new Error('Claude returned non-array JSON');
+    return parsed as Caption[];
+  }, []);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const generateAllCaptions = useCallback(async (
+    clipsWithSegments: Clip[],
+    instr: Instructions,
+  ): Promise<Map<string, Caption[]>> => {
+    const results = await Promise.all(
+      clipsWithSegments.map(async (clip) => {
+        addLog(`── Generating captions: ${clip.filename}`);
+        try {
+          const captions = await generateCaptionsForClip(clip, instr);
+          addLog(`  → ${captions.length} caption(s) generated`);
+          return { id: clip.id, captions };
+        } catch (e) {
+          addLog(`  ⚠ Caption generation failed for ${clip.filename}: ${e instanceof Error ? e.message : 'unknown error'}`);
+          return { id: clip.id, captions: [] };
+        }
+      })
+    );
+    return new Map(results.map(({ id, captions }) => [id, captions]));
+  }, [addLog, generateCaptionsForClip]);
+
   // ── Placeholder handlers (implemented in later tasks) ──────────────────────
 
   const handleFiles = useCallback(async (files: FileList | File[]) => {
