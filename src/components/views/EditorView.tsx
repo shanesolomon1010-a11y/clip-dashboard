@@ -133,7 +133,8 @@ function buildFcpxml(orderedClips: Clip[]): string {
     const clip     = orderedClips[ci];
     const assetRef = `r${ci + 2}`;
 
-    for (const seg of clip.keepSegments) {
+    for (let si = 0; si < clip.keepSegments.length; si++) {
+      const seg = clip.keepSegments[si];
       const segStartFrames    = Math.round(seg.start * 30);
       const segDurationFrames = Math.round((seg.end - seg.start) * 30);
       const offsetStr   = `${timelineFrames}/30s`;
@@ -144,7 +145,7 @@ function buildFcpxml(orderedClips: Clip[]): string {
       const titleEls = clip.captions
         .filter((cap) => cap.startTime >= seg.start && cap.startTime < seg.end)
         .map((cap, ti) => {
-          const tsId              = `ts_${ci}_${ti}`;
+          const tsId              = `ts_${ci}_${si}_${ti}`;
           const capOffsetFrames   = Math.round((cap.startTime - seg.start) * 30);
           const capDurationFrames = Math.max(1, Math.round((cap.endTime - cap.startTime) * 30));
           return [
