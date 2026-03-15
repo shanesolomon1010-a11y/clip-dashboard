@@ -104,6 +104,7 @@ export default function AnalyticsView({ posts }: Props) {
         <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
           <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Engagement by Platform</h3>
           <button
+            data-testid="csv-export-btn"
             onClick={() => exportToCSV(filtered)}
             disabled={filtered.length === 0}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-white/[0.08] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-white/[0.15] disabled:opacity-40 disabled:cursor-not-allowed transition-all"

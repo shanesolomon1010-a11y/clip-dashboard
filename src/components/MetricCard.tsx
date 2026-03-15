@@ -11,7 +11,7 @@ interface MetricCardProps {
 
 export default function MetricCard({ label, value, sub, delta, icon, accent = '#d4922a' }: MetricCardProps) {
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5 flex flex-col gap-4 hover:bg-[var(--bg-hover)] hover:border-white/[0.09] transition-all duration-200 group">
+    <div data-testid="metric-card" className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5 flex flex-col gap-4 hover:bg-[var(--bg-hover)] hover:border-white/[0.09] transition-all duration-200 group">
       {/* Label + icon */}
       <div className="flex items-start justify-between gap-2">
         <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-[var(--text-3)] leading-none mt-0.5">

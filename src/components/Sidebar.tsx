@@ -57,6 +57,7 @@ export default function Sidebar({ active, onNavigate }: Props) {
                   return (
                     <button
                       key={id}
+                      data-testid={`nav-${id}`}
                       onClick={() => onNavigate(id)}
                       className={`relative w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-100 group ${
                         isActive

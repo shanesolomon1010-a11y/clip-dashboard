@@ -121,6 +121,7 @@ export default function CaptionView() {
             Clip Description
           </label>
           <textarea
+            data-testid="caption-description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe your clip — what happens, the vibe, key moments"
@@ -138,6 +139,7 @@ export default function CaptionView() {
             {PLATFORMS.map((p) => (
               <button
                 key={p}
+                data-testid={`caption-platform-${p}`}
                 onClick={() => setPlatform(p)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                   platform === p
@@ -160,6 +162,7 @@ export default function CaptionView() {
             {TONES.map((t) => (
               <button
                 key={t}
+                data-testid={`caption-tone-${t}`}
                 onClick={() => setTone(t)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                   tone === t
@@ -175,6 +178,7 @@ export default function CaptionView() {
 
         {/* Generate button */}
         <button
+          data-testid="generate-caption-btn"
           onClick={generate}
           disabled={generating || !description.trim() || noKey}
           className="px-4 py-2 rounded-xl text-sm font-semibold bg-[var(--gold)] text-[var(--bg-base)] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
@@ -190,7 +194,7 @@ export default function CaptionView() {
         {caption && (
           <div className="space-y-2">
             <div className="relative">
-              <pre className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-3 text-sm text-[var(--text-1)] whitespace-pre-wrap font-sans leading-relaxed pr-16">
+              <pre data-testid="caption-output" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-3 text-sm text-[var(--text-1)] whitespace-pre-wrap font-sans leading-relaxed pr-16">
                 {caption}
               </pre>
               <button

@@ -33,6 +33,8 @@ export default function TopBar({ title, postCount }: Props) {
         {DATE_OPTIONS.map(({ label, value }) => (
           <button
             key={value}
+            data-testid={`date-btn-${value}`}
+            data-active={dateRange === value ? 'true' : undefined}
             onClick={() => setDateRange(value)}
             className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
               dateRange === value
@@ -47,6 +49,7 @@ export default function TopBar({ title, postCount }: Props) {
 
       {/* Platform filter */}
       <select
+        data-testid="platform-select"
         value={platform}
         onChange={(e) => setPlatform(e.target.value as Platform | 'all')}
         className="bg-white/[0.04] border border-white/[0.08] rounded-lg text-[11px] text-[var(--text-2)] px-2.5 py-1 outline-none hover:border-white/[0.14] focus:border-white/[0.18] transition-colors cursor-pointer"

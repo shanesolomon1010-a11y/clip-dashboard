@@ -264,7 +264,7 @@ export default function DashboardView({ posts }: Props) {
           </div>
           <div className="divide-y divide-white/[0.03]">
             {topPosts.map((post, i) => (
-              <div key={post.id} onClick={() => openVideoModal(post)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors group cursor-pointer">
+              <div key={post.id} data-testid="post-row" onClick={() => openVideoModal(post)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors group cursor-pointer">
                 <span className="text-[var(--text-3)] w-4 shrink-0 tabular-nums text-xs font-bold" style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
                 <span
                   className="text-[10px] font-semibold px-2 py-1 rounded-lg shrink-0"

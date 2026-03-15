@@ -119,6 +119,7 @@ function VideoPlayer({
       </p>
       <div className="flex gap-2">
         <input
+          data-testid="url-input"
           type="url"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
@@ -126,6 +127,7 @@ function VideoPlayer({
           className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-3)] outline-none focus:border-white/[0.16] transition-colors"
         />
         <button
+          data-testid="save-url-btn"
           onClick={handleSave}
           disabled={saving || !urlInput.trim()}
           className="px-4 py-2 bg-white/[0.08] hover:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-[12px] font-medium text-[var(--text-1)] transition-colors"
@@ -157,11 +159,13 @@ export default function VideoPreviewModal({ post, onClose, onUrlSaved }: Props) 
       onClick={onClose}
     >
       <div
+        data-testid="video-modal"
         className="relative bg-[var(--bg-card)] border border-white/[0.08] rounded-2xl w-full max-w-xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* X button */}
         <button
+          data-testid="modal-close"
           onClick={onClose}
           className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/[0.1] transition-colors text-[var(--text-3)]"
         >
