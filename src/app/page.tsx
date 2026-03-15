@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { UnifiedPost } from '@/types';
 import { SAMPLE_POSTS } from '@/lib/sampleData';
-import { fetchAllPosts, upsertPosts } from '@/lib/db';
+import { fetchAllPosts, upsertPosts, updatePostUrl } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import DashboardView from '@/components/views/DashboardView';
@@ -15,6 +15,7 @@ import EditorView from '@/components/views/EditorView';
 import SettingsView from '@/components/views/SettingsView';
 import ComparisonView from '@/components/views/ComparisonView';
 import CaptionView from '@/components/views/CaptionView';
+import { VideoModalProvider } from '@/context/VideoModalContext';
 
 const NAV_TITLES: Record<NavSection, string> = {
   dashboard:   'Dashboard',
@@ -75,6 +76,17 @@ export default function App() {
     );
   };
 
+  const handleUrlSaved = async (platform: string, title: string, date: string, url: string) => {
+    await updatePostUrl(platform, title, date, url);
+    setPosts((prev) =>
+      prev.map((p) =>
+        p.platform === platform && p.title === title && p.date === date
+          ? { ...p, url }
+          : p
+      )
+    );
+  };
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-base)]">
@@ -87,24 +99,26 @@ export default function App() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[var(--bg-base)] text-white">
-      <Sidebar active={activeNav} onNavigate={setActiveNav} />
+    <VideoModalProvider onUrlSaved={handleUrlSaved}>
+      <div className="flex h-screen overflow-hidden bg-[var(--bg-base)] text-white">
+        <Sidebar active={activeNav} onNavigate={setActiveNav} />
 
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TopBar title={NAV_TITLES[activeNav]} postCount={posts.length} />
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+          <TopBar title={NAV_TITLES[activeNav]} postCount={posts.length} />
 
-        <main className="flex-1 overflow-y-auto">
-          {activeNav === 'dashboard'  && <DashboardView posts={posts} />}
-          {activeNav === 'content'    && <ContentView posts={posts} onUpload={handleUpload} onPostUpdate={handlePostUpdate} />}
-          {activeNav === 'analytics'  && <AnalyticsView posts={posts} />}
-          {activeNav === 'platforms'  && <PlatformsView posts={posts} />}
-          {activeNav === 'comparison' && <ComparisonView posts={posts} />}
-          {activeNav === 'captions'   && <CaptionView />}
-          {activeNav === 'insights'   && <AIInsightsView posts={posts} />}
-          {activeNav === 'editor'     && <EditorView />}
-          {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}
-        </main>
+          <main className="flex-1 overflow-y-auto">
+            {activeNav === 'dashboard'  && <DashboardView posts={posts} />}
+            {activeNav === 'content'    && <ContentView posts={posts} onUpload={handleUpload} onPostUpdate={handlePostUpdate} />}
+            {activeNav === 'analytics'  && <AnalyticsView posts={posts} />}
+            {activeNav === 'platforms'  && <PlatformsView posts={posts} />}
+            {activeNav === 'comparison' && <ComparisonView posts={posts} />}
+            {activeNav === 'captions'   && <CaptionView />}
+            {activeNav === 'insights'   && <AIInsightsView posts={posts} />}
+            {activeNav === 'editor'     && <EditorView />}
+            {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}
+          </main>
+        </div>
       </div>
-    </div>
+    </VideoModalProvider>
   );
 }
