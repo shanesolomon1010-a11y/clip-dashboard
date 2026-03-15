@@ -99,6 +99,99 @@ function invertSilences(silences: Segment[], duration: number): Segment[] {
   return keeps.length > 0 ? keeps : [{ start: 0, end: duration }];
 }
 
+// ── FCPXML generation helpers (module-level) ──────────────────────────────
+
+function escapeXml(str: string): string {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+// FCP's built-in Basic Title effect UID (resolves on any FCP 10.4+ installation)
+const FCP_BASIC_TITLE_UID =
+  '.../Titles.localized/Build In:Build Out.localized/Basic Title.localized/Basic Title.moti';
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function buildFcpxml(orderedClips: Clip[]): string {
+  // <resources> block
+  const resourceEls = [
+    `  <format id="r1" name="FFVideoFormat1080x1920at30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)"/>`,
+    `  <effect id="r_title" name="Basic Title" uid="${FCP_BASIC_TITLE_UID}"/>`,
+    ...orderedClips.map((clip, i) => {
+      const totalFrames = Math.round(clip.duration * 30);
+      return `  <asset id="r${i + 2}" name="${escapeXml(clip.filename)}" src="file:///${escapeXml(clip.filename)}" start="0s" duration="${totalFrames}/30s" hasVideo="1" hasAudio="1" format="r1"/>`;
+    }),
+  ].join('\n');
+
+  // <spine> — one <asset-clip> per keepSegment
+  let timelineFrames = 0;
+  const spineItems: string[] = [];
+
+  for (let ci = 0; ci < orderedClips.length; ci++) {
+    const clip     = orderedClips[ci];
+    const assetRef = `r${ci + 2}`;
+
+    for (const seg of clip.keepSegments) {
+      const segStartFrames    = Math.round(seg.start * 30);
+      const segDurationFrames = Math.round((seg.end - seg.start) * 30);
+      const offsetStr   = `${timelineFrames}/30s`;
+      const startStr    = `${segStartFrames}/30s`;
+      const durationStr = `${segDurationFrames}/30s`;
+
+      // Captions within this segment become connected <title> clips on lane 1
+      const titleEls = clip.captions
+        .filter((cap) => cap.startTime >= seg.start && cap.startTime < seg.end)
+        .map((cap, ti) => {
+          const tsId              = `ts_${ci}_${ti}`;
+          const capOffsetFrames   = Math.round((cap.startTime - seg.start) * 30);
+          const capDurationFrames = Math.max(1, Math.round((cap.endTime - cap.startTime) * 30));
+          return [
+            `          <title ref="r_title" lane="1" offset="${capOffsetFrames}/30s" duration="${capDurationFrames}/30s" name="${escapeXml(cap.text)}">`,
+            `            <text>`,
+            `              <text-style ref="${tsId}">${escapeXml(cap.text)}</text-style>`,
+            `            </text>`,
+            `            <text-style-def id="${tsId}">`,
+            `              <text-style font="Helvetica Neue" fontSize="48" fontFace="Bold" fontColor="1 1 1 1" bold="1" alignment="center"/>`,
+            `            </text-style-def>`,
+            `          </title>`,
+          ].join('\n');
+        }).join('\n');
+
+      spineItems.push([
+        `        <asset-clip ref="${assetRef}" offset="${offsetStr}" name="${escapeXml(clip.filename)}" start="${startStr}" duration="${durationStr}" format="r1">`,
+        titleEls || null,
+        `        </asset-clip>`,
+      ].filter(Boolean).join('\n'));
+
+      timelineFrames += segDurationFrames;
+    }
+  }
+
+  return [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<!DOCTYPE fcpxml>`,
+    `<fcpxml version="1.10">`,
+    `  <resources>`,
+    resourceEls,
+    `  </resources>`,
+    `  <library>`,
+    `    <event name="Exported">`,
+    `      <project name="Export">`,
+    `        <sequence format="r1" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">`,
+    `          <spine>`,
+    spineItems.join('\n'),
+    `          </spine>`,
+    `        </sequence>`,
+    `      </project>`,
+    `    </event>`,
+    `  </library>`,
+    `</fcpxml>`,
+  ].join('\n');
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function EditorView() {
