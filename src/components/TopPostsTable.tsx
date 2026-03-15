@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { CONTENT_TYPES, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { updatePostContentType } from '@/lib/db';
+import { formatNum } from '@/lib/utils';
+import { useVideoModal } from '@/context/VideoModalContext';
 
 const CONTENT_TYPE_COLORS: Record<string, string> = {
   'Hook Video':   '#d4922a',
@@ -20,15 +22,11 @@ interface Props {
   onContentTypeChange?: (postId: string, contentType: string | undefined) => void;
 }
 
-function formatNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
 
 export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
+  const { open } = useVideoModal();
 
   const handleTypeSelect = async (post: UnifiedPost, type: string) => {
     setOpenDropdown(null);
@@ -88,7 +86,7 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
                     {PLATFORM_LABELS[post.platform]}
                   </span>
                 </td>
-                <td className="px-5 py-3.5 max-w-[220px]">
+                <td className="px-5 py-3.5 max-w-[220px] cursor-pointer" onClick={() => open(post)}>
                   <span className="text-[var(--text-1)] truncate block text-[13px] group-hover:text-white transition-colors" title={post.title}>
                     {post.title.length > 44 ? post.title.slice(0, 44) + '…' : post.title}
                   </span>
