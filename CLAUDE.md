@@ -1,12 +1,28 @@
 # CLAUDE.md
 
 ## Session memory
-At the start of every session, read all three files in `/memory/`:
+
+### Start of every session — read these files before touching any code:
 - `memory/project.md` — project identity, env vars, Supabase tables, key files
 - `memory/decisions.md` — architectural decisions and their rationale
 - `memory/preferences.md` — UI patterns and code style rules in use
+- `memory/primer.md` — status from the last session: what was completed, in progress, and blocked
+- `memory/cloudmemory.md` — full commit history (auto-generated); scan to understand recent changes
+- `tasks/lessons.md` — corrections from Shane; apply every rule listed here before writing any code
 
-After making significant changes (new feature, schema change, architectural shift, format change), update the relevant memory file to keep it current.
+### During the session:
+After making significant changes (new feature, schema change, architectural shift, format change), update the relevant file in `memory/`.
+
+After any correction from Shane, append an entry to `tasks/lessons.md`:
+```
+[YYYY-MM-DD] | what went wrong | rule for next time
+```
+
+### End of every session — rewrite `memory/primer.md` with:
+- **Status** — overall project health
+- **Just completed** — what was built or fixed this session
+- **In progress** — anything partially done or mid-PR
+- **Blocked / next** — known blockers or the logical next task
 
 ---
 
