@@ -237,6 +237,7 @@ export default function EditorView() {
     clip: Clip,
     instr: Instructions,
   ): Promise<Caption[]> => {
+    interface AnthropicContent { type: string; text: string }
     const userContent = [
       `Generate captions for a video called "${clip.filename}" (${clip.duration.toFixed(1)}s long).`,
       `Active segments (silence removed): ${JSON.stringify(clip.keepSegments)}`,
@@ -266,10 +267,13 @@ export default function EditorView() {
       }),
     });
 
-    if (!res.ok) throw new Error(`Claude API error ${res.status}`);
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`Claude API error ${res.status}${errText ? `: ${errText.slice(0, 120)}` : ''}`);
+    }
 
     const json = await res.json();
-    const raw  = (json.content?.[0] as { type: string; text: string } | undefined)?.text ?? '';
+    const raw  = (json.content?.[0] as AnthropicContent | undefined)?.text ?? '';
 
     // Strip markdown code fences if Claude wraps the JSON
     const cleaned = raw.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
@@ -300,6 +304,8 @@ export default function EditorView() {
         }
       })
     );
+    const succeeded = results.filter((r) => r.captions.length > 0).length;
+    addLog(`── Captions complete: ${succeeded}/${results.length} clip(s) succeeded`);
     return new Map(results.map(({ id, captions }) => [id, captions]));
   }, [addLog, generateCaptionsForClip]);
 
