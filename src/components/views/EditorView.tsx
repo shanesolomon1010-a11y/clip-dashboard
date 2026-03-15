@@ -3,14 +3,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
+import { saveEditorFeedback } from '@/lib/db';
 
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const MODEL   = 'claude-sonnet-4-20250514'; // used in Task 4 caption generation
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? ''; // used in Task 4
+const MODEL   = 'claude-sonnet-4-20250514';
+const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
 const FFMPEG_CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js';
 const FFMPEG_WASM_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm';
@@ -114,7 +113,6 @@ function escapeXml(str: string): string {
 const FCP_BASIC_TITLE_UID =
   '.../Titles.localized/Build In:Build Out.localized/Basic Title.localized/Basic Title.moti';
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildFcpxml(orderedClips: Clip[]): string {
   // <resources> block
   const resourceEls = [
@@ -225,7 +223,6 @@ function buildReelNames(clips: Clip[]): string[] {
   });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildEdl(orderedClips: Clip[]): string {
   const lines: string[] = [
     'TITLE: Export',
@@ -277,10 +274,10 @@ export default function EditorView() {
   });
 
   // Pipeline state
-  const [status,    setStatus]    = useState<Status>('idle');    // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [status,    setStatus]    = useState<Status>('idle');
   const [logLines,  setLogLines]  = useState<string[]>([]);
-  const [fcpxmlBlob, setFcpxmlBlob] = useState<Blob | null>(null); // eslint-disable-line @typescript-eslint/no-unused-vars
-  const [edlBlob,    setEdlBlob]    = useState<Blob | null>(null);  // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [fcpxmlBlob, setFcpxmlBlob] = useState<Blob | null>(null);
+  const [edlBlob,    setEdlBlob]    = useState<Blob | null>(null);
 
   // Drag state for clip reorder
   const dragIndexRef = useRef<number | null>(null);
@@ -350,7 +347,6 @@ export default function EditorView() {
   // ffmpegRef is a stable ref object — excluded from deps intentionally
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const runSilenceDetection = useCallback(async (clipsToAnalyze: Clip[]): Promise<Map<string, Segment[]>> => {
     const ff = ffmpegRef.current;
     if (!ff) return new Map();
@@ -392,7 +388,6 @@ export default function EditorView() {
 
   // ── Caption generation ─────────────────────────────────────────────────────
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const generateCaptionsForClip = useCallback(async (
     clip: Clip,
     instr: Instructions,
@@ -446,7 +441,6 @@ export default function EditorView() {
     }
   }, []);
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const generateAllCaptions = useCallback(async (
     clipsWithSegments: Clip[],
     instr: Instructions,
@@ -509,8 +503,81 @@ export default function EditorView() {
   }, [ffmpegLoaded, extractThumbnail]);
 
   const handleGenerate = useCallback(async () => {
-    // Tasks 3–7
-  }, []);
+    if (clips.length === 0 || !ffmpegLoaded) return;
+
+    // Reset previous results and all analyzed flags
+    setFcpxmlBlob(null);
+    setEdlBlob(null);
+    setLogLines([]);
+    setClips((prev) => prev.map((c) => ({ ...c, analyzed: false, keepSegments: [], captions: [] })));
+    setStatus('analyzing');
+
+    try {
+      const sortedByOrder = [...clips].sort((a, b) => a.order - b.order);
+
+      // Guard: skip clips whose duration probe hasn't resolved yet (duration === 0)
+      const validClips = sortedByOrder.filter((c) => c.duration > 0);
+      if (validClips.length === 0) {
+        addLog('⚠ No clips with known duration. Wait for thumbnail probing to finish, then retry.');
+        setStatus('idle');
+        return;
+      }
+
+      // Stage 2 — Silence detection (serial)
+      addLog('=== Stage 1/3: Silence Detection ===');
+      const segmentMap = await runSilenceDetection(validClips);
+
+      // Apply keepSegments back to clip state
+      const clipsWithSegs: Clip[] = validClips.map((clip) => ({
+        ...clip,
+        keepSegments: segmentMap.get(clip.id) ?? [{ start: 0, end: clip.duration }],
+        analyzed: true,
+      }));
+      setClips((prev) =>
+        prev.map((c) => {
+          const updated = clipsWithSegs.find((x) => x.id === c.id);
+          return updated ? { ...c, keepSegments: updated.keepSegments, analyzed: true } : c;
+        })
+      );
+
+      // Stage 3 — Caption generation (parallel)
+      setStatus('generating');
+      addLog('=== Stage 2/3: Caption Generation ===');
+      const captionMap = await generateAllCaptions(clipsWithSegs, instructions);
+
+      const clipsWithCaptions: Clip[] = clipsWithSegs.map((clip) => ({
+        ...clip,
+        captions: captionMap.get(clip.id) ?? [],
+      }));
+
+      // Stage 4 — FCPXML
+      addLog('=== Stage 3/3: Building FCPXML & EDL ===');
+      const fcpxmlStr = buildFcpxml(clipsWithCaptions);
+      const edlStr    = buildEdl(clipsWithCaptions);
+
+      const newFcpxmlBlob = new Blob([fcpxmlStr], { type: 'application/xml' });
+      const newEdlBlob    = new Blob([edlStr],    { type: 'text/plain' });
+      setFcpxmlBlob(newFcpxmlBlob);
+      setEdlBlob(newEdlBlob);
+
+      addLog('✓ Done. Click Download FCPXML or Download EDL to export.');
+      setStatus('done');
+
+      // Stage 6 — Supabase save (non-blocking)
+      saveEditorFeedback({
+        prompt: JSON.stringify(instructions),
+        ffmpeg_commands_generated: 'fcpxml_export',
+        feedback: '',
+        feedback_type: 'good',
+      }).catch((e: unknown) => console.error('Supabase save failed:', e));
+
+    } catch (e) {
+      addLog(`✗ Error: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      setStatus('error');
+    }
+  // buildFcpxml and buildEdl are module-level pure functions — not state closures,
+  // so they are NOT in the dependency array (no exhaustive-deps warning).
+  }, [clips, ffmpegLoaded, instructions, addLog, runSilenceDetection, generateAllCaptions]);
 
   // ── Drag-drop reorder ──────────────────────────────────────────────────────
 
@@ -540,7 +607,7 @@ export default function EditorView() {
   // ── Render ─────────────────────────────────────────────────────────────────
 
   const sortedClips = [...clips].sort((a, b) => a.order - b.order);
-  const canGenerate = clips.length > 0 && ffmpegLoaded && status === 'idle';
+  const canGenerate = clips.length > 0 && ffmpegLoaded && status !== 'analyzing' && status !== 'generating';
 
   return (
     <div className="flex flex-col h-full min-h-0">
