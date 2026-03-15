@@ -8,9 +8,9 @@ import { toBlobURL } from '@ffmpeg/util';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const MODEL   = 'claude-sonnet-4-20250514';
+const MODEL   = 'claude-sonnet-4-20250514'; // used in Task 4 caption generation
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
+const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? ''; // used in Task 4
 
 const FFMPEG_CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js';
 const FFMPEG_WASM_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm';
@@ -105,6 +105,7 @@ export default function EditorView() {
     }
   }, [ffmpegLoading, addLog]);
 
+  // Mount-only: loadFFmpeg omitted intentionally — singleton guard (ffmpegRef.current) prevents re-entrancy
   useEffect(() => { loadFFmpeg(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Auto-scroll log
