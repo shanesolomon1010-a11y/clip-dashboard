@@ -98,7 +98,7 @@ function invertSilences(silences: Segment[], duration: number): Segment[] {
   return keeps.length > 0 ? keeps : [{ start: 0, end: duration }];
 }
 
-// ── FCPXML generation helpers (module-level) ──────────────────────────────
+// ── Premiere XML generation helpers (module-level) ────────────────────────
 
 function escapeXml(str: string): string {
   return str
@@ -109,86 +109,62 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-// FCP's built-in Basic Title effect UID (resolves on any FCP 10.4+ installation)
-const FCP_BASIC_TITLE_UID =
-  '.../Titles.localized/Build In:Build Out.localized/Basic Title.localized/Basic Title.moti';
+// Adobe Premiere Pro ticks per second
+const PREMIERE_TICKS_PER_SECOND = 254016000000;
 
-function buildFcpxml(orderedClips: Clip[]): string {
-  // <resources> block
-  const resourceEls = [
-    `  <format id="r1" name="FFVideoFormat1080x1920at30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)"/>`,
-    `  <effect id="r_title" name="Basic Title" uid="${FCP_BASIC_TITLE_UID}"/>`,
-    ...orderedClips.map((clip, i) => {
-      const totalFrames = Math.round(clip.duration * 30);
-      // Note: src uses bare filename — FCP will need to relink media (browser File API cannot expose absolute paths)
-      return `  <asset id="r${i + 2}" name="${escapeXml(clip.filename)}" src="file:///${escapeXml(clip.filename)}" start="0s" duration="${totalFrames}/30s" hasVideo="1" hasAudio="1" format="r1"/>`;
-    }),
-  ].join('\n');
+function toTicks(seconds: number): number {
+  return Math.round(seconds * PREMIERE_TICKS_PER_SECOND);
+}
 
-  // <spine> — one <asset-clip> per keepSegment
-  let timelineFrames = 0;
-  const spineItems: string[] = [];
+function buildPremiereXml(orderedClips: Clip[]): string {
+  // Build unique file ObjectIDs per clip
+  const segments: string[] = [];
+  let objectId = 10;
+  let timelineTicks = 0;
 
   for (let ci = 0; ci < orderedClips.length; ci++) {
-    const clip     = orderedClips[ci];
-    const assetRef = `r${ci + 2}`;
+    const clip = orderedClips[ci];
+    const fileObjId = `file_${ci}`;
+    const totalTicks = toTicks(clip.duration);
 
-    for (let si = 0; si < clip.keepSegments.length; si++) {
-      const seg = clip.keepSegments[si];
-      const segStartFrames    = Math.round(seg.start * 30);
-      const segDurationFrames = Math.round((seg.end - seg.start) * 30);
-      const offsetStr   = `${timelineFrames}/30s`;
-      const startStr    = `${segStartFrames}/30s`;
-      const durationStr = `${segDurationFrames}/30s`;
+    for (const seg of clip.keepSegments) {
+      const inTicks  = toTicks(seg.start);
+      const outTicks = toTicks(seg.end);
+      const durTicks = outTicks - inTicks;
+      const startTicks = timelineTicks;
+      timelineTicks += durTicks;
 
-      // Captions within this segment become connected <title> clips on lane 1
-      const titleEls = clip.captions
-        .filter((cap) => cap.startTime >= seg.start && cap.startTime < seg.end)
-        .map((cap, ti) => {
-          const tsId              = `ts_${ci}_${si}_${ti}`;
-          const capOffsetFrames   = Math.round((cap.startTime - seg.start) * 30);
-          const capDurationFrames = Math.max(1, Math.round((cap.endTime - cap.startTime) * 30));
-          return [
-            `          <title ref="r_title" lane="1" offset="${capOffsetFrames}/30s" duration="${capDurationFrames}/30s" name="${escapeXml(cap.text)}">`,
-            `            <text>`,
-            `              <text-style ref="${tsId}">${escapeXml(cap.text)}</text-style>`,
-            `            </text>`,
-            `            <text-style-def id="${tsId}">`,
-            `              <text-style font="Helvetica Neue" fontSize="48" fontFace="Bold" fontColor="1 1 1 1" bold="1" alignment="center"/>`,
-            `            </text-style-def>`,
-            `          </title>`,
-          ].join('\n');
-        }).join('\n');
-
-      spineItems.push([
-        `        <asset-clip ref="${assetRef}" offset="${offsetStr}" name="${escapeXml(clip.filename)}" start="${startStr}" duration="${durationStr}" format="r1">`,
-        titleEls || null,
-        `        </asset-clip>`,
-      ].filter(Boolean).join('\n'));
-
-      timelineFrames += segDurationFrames;
+      const segXml = [
+        `    <Segment ObjectID="${objectId++}">`,
+        `      <File ObjectID="${fileObjId}">`,
+        // Note: bare filename — Premiere will need to relink media (browser File API cannot expose absolute paths)
+        `        <PathURL>file:///${escapeXml(clip.filename)}</PathURL>`,
+        `        <Duration>${totalTicks}</Duration>`,
+        `      </File>`,
+        `      <InPoint>${inTicks}</InPoint>`,
+        `      <OutPoint>${outTicks}</OutPoint>`,
+        `      <StartTime>${startTicks}</StartTime>`,
+        `    </Segment>`,
+      ].join('\n');
+      segments.push(segXml);
     }
   }
 
+  const segmentsXml = segments.join('\n');
+
   return [
     `<?xml version="1.0" encoding="UTF-8"?>`,
-    `<!DOCTYPE fcpxml>`,
-    `<fcpxml version="1.10">`,
-    `  <resources>`,
-    resourceEls,
-    `  </resources>`,
-    `  <library>`,
-    `    <event name="Exported">`,
-    `      <project name="Export">`,
-    `        <sequence format="r1" tcStart="0s" tcFormat="NDF" audioLayout="stereo" audioRate="48k">`,
-    `          <spine>`,
-    spineItems.join('\n'),
-    `          </spine>`,
-    `        </sequence>`,
-    `      </project>`,
-    `    </event>`,
-    `  </library>`,
-    `</fcpxml>`,
+    `<PremiereData Version="3">`,
+    `  <Sequence ObjectID="1">`,
+    `    <Name>Export</Name>`,
+    `    <VideoSegments>`,
+    segmentsXml,
+    `    </VideoSegments>`,
+    `    <AudioSegments>`,
+    segmentsXml,
+    `    </AudioSegments>`,
+    `  </Sequence>`,
+    `</PremiereData>`,
   ].join('\n');
 }
 
@@ -277,7 +253,7 @@ export default function EditorView() {
   // Pipeline state
   const [status,    setStatus]    = useState<Status>('idle');
   const [logLines,  setLogLines]  = useState<string[]>([]);
-  const [fcpxmlBlob, setFcpxmlBlob] = useState<Blob | null>(null);
+  const [premiereXmlBlob, setPremiereXmlBlob] = useState<Blob | null>(null);
   const [edlBlob,    setEdlBlob]    = useState<Blob | null>(null);
 
   // Drag state for clip reorder
@@ -507,7 +483,7 @@ export default function EditorView() {
     if (clips.length === 0 || !ffmpegLoaded) return;
 
     // Reset previous results and all analyzed flags
-    setFcpxmlBlob(null);
+    setPremiereXmlBlob(null);
     setEdlBlob(null);
     setLogLines([]);
     setClips((prev) => prev.map((c) => ({ ...c, analyzed: false, keepSegments: [], captions: [] })));
@@ -551,23 +527,23 @@ export default function EditorView() {
         captions: captionMap.get(clip.id) ?? [],
       }));
 
-      // Stage 4 — FCPXML
-      addLog('=== Stage 3/3: Building FCPXML & EDL ===');
-      const fcpxmlStr = buildFcpxml(clipsWithCaptions);
-      const edlStr    = buildEdl(clipsWithCaptions);
+      // Stage 4 — Premiere XML & EDL
+      addLog('=== Stage 3/3: Building Premiere XML & EDL ===');
+      const premiereXmlStr = buildPremiereXml(clipsWithCaptions);
+      const edlStr         = buildEdl(clipsWithCaptions);
 
-      const newFcpxmlBlob = new Blob([fcpxmlStr], { type: 'application/xml' });
-      const newEdlBlob    = new Blob([edlStr],    { type: 'text/plain' });
-      setFcpxmlBlob(newFcpxmlBlob);
+      const newPremiereXmlBlob = new Blob([premiereXmlStr], { type: 'application/xml' });
+      const newEdlBlob         = new Blob([edlStr],         { type: 'text/plain' });
+      setPremiereXmlBlob(newPremiereXmlBlob);
       setEdlBlob(newEdlBlob);
 
-      addLog('✓ Done. Click Download FCPXML or Download EDL to export.');
+      addLog('✓ Done. Click Download Premiere XML or Download EDL to export.');
       setStatus('done');
 
       // Stage 6 — Supabase save (non-blocking)
       saveEditorFeedback({
         prompt: JSON.stringify(instructions),
-        ffmpeg_commands_generated: 'fcpxml_export',
+        ffmpeg_commands_generated: 'premiere_xml_export',
         feedback: '',
         feedback_type: 'good',
       }).catch((e: unknown) => console.error('Supabase save failed:', e));
@@ -772,12 +748,12 @@ export default function EditorView() {
           ) : 'Analyze & Generate'}
         </button>
 
-        {fcpxmlBlob && (
+        {premiereXmlBlob && (
           <button
-            onClick={() => downloadBlob(fcpxmlBlob, 'export.fcpxml')}
+            onClick={() => downloadBlob(premiereXmlBlob, 'export.xml')}
             className="px-4 py-3 border border-white/[0.07] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04] text-sm font-medium rounded-xl transition-colors"
           >
-            Download FCPXML
+            Download Premiere XML
           </button>
         )}
         {edlBlob && (
