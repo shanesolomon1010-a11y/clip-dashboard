@@ -12,6 +12,7 @@ export interface UnifiedPost {
   engagementRate: number; // percentage 0-100
   title: string;
   content_type?: string;
+  url?: string;
 }
 
 export type DateRange = '1d' | '7d' | '30d' | '90d' | 'all';
