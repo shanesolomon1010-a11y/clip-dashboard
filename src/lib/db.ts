@@ -126,6 +126,7 @@ export async function fetchAllPosts(): Promise<UnifiedPost[]> {
       Number(row.saves)
     ),
     content_type: row.content_type as string | undefined,
+    url: row.url as string | undefined,
   }));
 }
 
@@ -160,6 +161,23 @@ export async function updatePostContentType(
     .update({ content_type })
     .match({ platform, title, date });
   if (error) throw error;
+}
+
+export async function updatePostUrl(
+  platform: string,
+  title: string,
+  date: string,
+  url: string
+): Promise<void> {
+  // Errors are silently swallowed — consistent with save-URL UX
+  try {
+    await supabase
+      .from('posts')
+      .update({ url })
+      .match({ platform, title, date });
+  } catch {
+    // no-op
+  }
 }
 
 // ── Goals ─────────────────────────────────────────────────────────────────────
