@@ -1,5 +1,15 @@
 # CLAUDE.md
 
+## Session memory
+At the start of every session, read all three files in `/memory/`:
+- `memory/project.md` — project identity, env vars, Supabase tables, key files
+- `memory/decisions.md` — architectural decisions and their rationale
+- `memory/preferences.md` — UI patterns and code style rules in use
+
+After making significant changes (new feature, schema change, architectural shift, format change), update the relevant memory file to keep it current.
+
+---
+
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Commands
