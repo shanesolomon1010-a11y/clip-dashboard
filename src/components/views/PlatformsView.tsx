@@ -2,6 +2,8 @@
 
 import { useMemo } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
+import { formatNum } from '@/lib/utils';
+import { useVideoModal } from '@/context/VideoModalContext';
 
 const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
 
@@ -13,15 +15,11 @@ const PLATFORM_META: Record<Platform, { description: string; exportNote: string 
   youtube:   { description: 'Long-form and Shorts with watch-time signals', exportNote: 'YouTube Studio → Analytics → Export' },
 };
 
-function formatNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
 
 interface Props { posts: UnifiedPost[] }
 
 export default function PlatformsView({ posts }: Props) {
+  const { open } = useVideoModal();
   const platformData = useMemo(() =>
     ALL_PLATFORMS.map((pl) => {
       const pp = posts.filter((p) => p.platform === pl);
@@ -117,7 +115,7 @@ export default function PlatformsView({ posts }: Props) {
 
                     {/* Best post */}
                     {best && (
-                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5">
+                      <div onClick={() => open(best)} className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5 cursor-pointer hover:bg-white/[0.05] transition-colors">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-2">Best Post</p>
                         <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.title}</p>
                         <div className="flex gap-4 text-[11px]">
