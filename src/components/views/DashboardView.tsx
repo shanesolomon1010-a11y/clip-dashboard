@@ -6,6 +6,8 @@ import MetricCard from '@/components/MetricCard';
 import ViewsLineChart from '@/components/ViewsLineChart';
 import GoalsSection from '@/components/GoalsSection';
 import { IconEye, IconTrendUp, IconStar, IconLightning } from '@/components/Icons';
+import { formatNum } from '@/lib/utils';
+import { useVideoModal } from '@/context/VideoModalContext';
 
 const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
 
@@ -69,12 +71,6 @@ const RANGES: { key: RangeKey; label: string; days: number | null }[] = [
   { key: '90d', label: 'Last 90 days',  days: 90  },
   { key: 'all', label: 'All time',      days: null },
 ];
-
-function formatNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
 
 function filterByDays(posts: UnifiedPost[], days: number | null): UnifiedPost[] {
   if (days === null) return posts;
@@ -179,6 +175,7 @@ export default function DashboardView({ posts }: Props) {
 
   const [range, setRange] = useState<RangeKey>('30d');
   const [open, setOpen] = useState(false);
+  const { open: openVideoModal } = useVideoModal();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -319,7 +316,7 @@ export default function DashboardView({ posts }: Props) {
           </div>
           <div className="divide-y divide-white/[0.03]">
             {topPosts.map((post, i) => (
-              <div key={post.id} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors group">
+              <div key={post.id} onClick={() => openVideoModal(post)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors group cursor-pointer">
                 <span className="text-[var(--text-3)] w-4 shrink-0 tabular-nums text-xs font-bold" style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
                 <span
                   className="text-[10px] font-semibold px-2 py-1 rounded-lg shrink-0"
