@@ -49,6 +49,21 @@ type Instructions = {
 
 type Status = 'idle' | 'analyzing' | 'generating' | 'done' | 'error';
 
+// ── Module-level pure helpers ─────────────────────────────────────────────
+
+/** Probe duration via native video element — avoids FFmpeg round-trip */
+const probeDuration = (file: File): Promise<number> =>
+  new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const vid = document.createElement('video');
+    vid.src = url;
+    vid.onloadedmetadata = () => {
+      resolve(vid.duration);
+      URL.revokeObjectURL(url);
+    };
+    vid.onerror = () => { resolve(0); URL.revokeObjectURL(url); };
+  });
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function EditorView() {
@@ -117,19 +132,6 @@ export default function EditorView() {
 
   // ── Upload & probe ─────────────────────────────────────────────────────────
 
-  /** Probe duration via native video element — avoids FFmpeg round-trip */
-  const probeDuration = (file: File): Promise<number> =>
-    new Promise((resolve) => {
-      const url = URL.createObjectURL(file);
-      const vid = document.createElement('video');
-      vid.src = url;
-      vid.onloadedmetadata = () => {
-        resolve(vid.duration);
-        URL.revokeObjectURL(url);
-      };
-      vid.onerror = () => { resolve(0); URL.revokeObjectURL(url); };
-    });
-
   /** Extract frame 1 as a blob URL using FFmpeg.wasm */
   const extractThumbnail = useCallback(async (file: File, id: string): Promise<string> => {
     const ff = ffmpegRef.current;
@@ -140,10 +142,9 @@ export default function EditorView() {
       await ff.writeFile(inName, await fetchFile(file));
       await ff.exec(['-i', inName, '-frames:v', '1', '-q:v', '2', outName]);
       const data = await ff.readFile(outName);
-      // readFile returns FileData (Uint8Array | string); copy into a plain ArrayBuffer for Blob
+      // readFile returns FileData (Uint8Array | string); Blob accepts Uint8Array directly via cast
       const raw = data instanceof Uint8Array ? data : new TextEncoder().encode(data as string);
-      const buf = raw.buffer.slice(raw.byteOffset, raw.byteOffset + raw.byteLength) as unknown as ArrayBuffer;
-      const blob = new Blob([buf], { type: 'image/jpeg' });
+      const blob = new Blob([raw as unknown as Uint8Array<ArrayBuffer>], { type: 'image/jpeg' });
       return URL.createObjectURL(blob);
     } catch {
       return '';
@@ -151,6 +152,7 @@ export default function EditorView() {
       try { await ff.deleteFile(inName); } catch { /* ignore */ }
       try { await ff.deleteFile(outName); } catch { /* ignore */ }
     }
+  // ffmpegRef is a stable ref object — excluded from deps intentionally
   }, []);
 
   // ── Placeholder handlers (implemented in later tasks) ──────────────────────
