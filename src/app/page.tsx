@@ -16,6 +16,7 @@ import SettingsView from '@/components/views/SettingsView';
 import ComparisonView from '@/components/views/ComparisonView';
 import CaptionView from '@/components/views/CaptionView';
 import { VideoModalProvider } from '@/context/VideoModalContext';
+import { FilterProvider } from '@/context/FilterContext';
 
 const NAV_TITLES: Record<NavSection, string> = {
   dashboard:   'Dashboard',
@@ -99,6 +100,7 @@ export default function App() {
   }
 
   return (
+    <FilterProvider>
     <VideoModalProvider onUrlSaved={handleUrlSaved}>
       <div className="flex h-screen overflow-hidden bg-[var(--bg-base)] text-white">
         <Sidebar active={activeNav} onNavigate={setActiveNav} />
@@ -120,5 +122,6 @@ export default function App() {
         </div>
       </div>
     </VideoModalProvider>
+    </FilterProvider>
   );
 }

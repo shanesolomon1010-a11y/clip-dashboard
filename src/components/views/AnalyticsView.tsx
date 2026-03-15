@@ -1,20 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { DateRange, Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
+import { useMemo } from 'react';
+import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import ViewsLineChart from '@/components/ViewsLineChart';
 import PlatformBarChart from '@/components/PlatformBarChart';
 import BestTimeCard from '@/components/BestTimeCard';
+import { formatNum } from '@/lib/utils';
+import { useFilter } from '@/context/FilterContext';
 
 const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
 
-function formatNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
-}
-
-function filterByDateRange(posts: UnifiedPost[], range: DateRange): UnifiedPost[] {
+function filterByDateRange(posts: UnifiedPost[], range: string): UnifiedPost[] {
   if (range === 'all') return posts;
   const cutoff = new Date();
   if (range === '1d') {
@@ -52,19 +48,18 @@ function exportToCSV(posts: UnifiedPost[]): void {
 interface Props { posts: UnifiedPost[] }
 
 export default function AnalyticsView({ posts }: Props) {
-  const [dateRange, setDateRange] = useState<DateRange>('30d');
-  const [activePlatform, setActivePlatform] = useState<Platform | 'all'>('all');
+  const { dateRange, platform } = useFilter();
 
   const byDate = useMemo(() => filterByDateRange(posts, dateRange), [posts, dateRange]);
   const filtered = useMemo(() =>
-    activePlatform === 'all' ? byDate : byDate.filter((p) => p.platform === activePlatform),
-    [byDate, activePlatform]
+    platform === 'all' ? byDate : byDate.filter((p) => p.platform === platform),
+    [byDate, platform]
   );
-  const activePlatforms = useMemo<Platform[]>(() =>
-    activePlatform === 'all'
+  const chartPlatforms = useMemo<Platform[]>(() =>
+    platform === 'all'
       ? ALL_PLATFORMS.filter((pl) => byDate.some((p) => p.platform === pl))
-      : [activePlatform],
-    [byDate, activePlatform]
+      : [platform],
+    [byDate, platform]
   );
 
   const totalViews         = filtered.reduce((s, p) => s + p.views, 0);
@@ -83,74 +78,6 @@ export default function AnalyticsView({ posts }: Props) {
 
   return (
     <div className="p-5 space-y-5">
-      {/* Controls bar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        {/* Date range pills */}
-        <div className="flex items-center gap-1 bg-white/[0.03] border border-white/[0.06] rounded-xl p-1">
-          {(['1d', '7d', '30d', '90d', 'all'] as DateRange[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setDateRange(r)}
-              className={`px-3 py-1.5 text-xs transition-all ${
-                dateRange === r
-                  ? 'bg-[var(--gold)] text-[var(--bg-base)] font-semibold shadow-sm rounded-lg'
-                  : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04] rounded-lg'
-              }`}
-            >
-              {r === 'all' ? 'All time' : r.toUpperCase()}
-            </button>
-          ))}
-        </div>
-
-        {/* Platform filter */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <button
-            onClick={() => setActivePlatform('all')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-              activePlatform === 'all'
-                ? 'bg-[var(--text-1)] text-[var(--bg-base)] border-[var(--text-1)]'
-                : 'text-[var(--text-2)] border-white/[0.08] hover:text-[var(--text-1)] hover:border-white/[0.15]'
-            }`}
-          >
-            All
-          </button>
-          {ALL_PLATFORMS.map((pl) => {
-            const isActive = activePlatform === pl;
-            return (
-              <button
-                key={pl}
-                onClick={() => setActivePlatform(isActive ? 'all' : pl)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
-                style={
-                  isActive
-                    ? {
-                        background: `${PLATFORM_COLORS[pl]}20`,
-                        borderColor: `${PLATFORM_COLORS[pl]}50`,
-                        color: PLATFORM_COLORS[pl],
-                      }
-                    : { color: 'var(--text-2)', borderColor: 'rgba(255,255,255,0.08)' }
-                }
-              >
-                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: PLATFORM_COLORS[pl] }} />
-                {PLATFORM_LABELS[pl]}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Export */}
-        <button
-          onClick={() => exportToCSV(filtered)}
-          disabled={filtered.length === 0}
-          className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-white/[0.08] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-white/[0.15] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          Export CSV
-        </button>
-      </div>
-
       {/* Stat strip */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         {stats.map(({ label, value, accent }) => (
@@ -164,9 +91,9 @@ export default function AnalyticsView({ posts }: Props) {
       {/* Charts */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
         <div className="xl:col-span-2">
-          <ViewsLineChart posts={byDate} activePlatforms={activePlatforms} />
+          <ViewsLineChart posts={byDate} activePlatforms={chartPlatforms} />
         </div>
-        <PlatformBarChart posts={byDate} activePlatforms={activePlatforms} />
+        <PlatformBarChart posts={byDate} activePlatforms={chartPlatforms} />
       </div>
 
       {/* Best time to post */}
@@ -176,7 +103,16 @@ export default function AnalyticsView({ posts }: Props) {
       <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
           <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Engagement by Platform</h3>
-          <span className="text-[11px] text-[var(--text-2)]">{dateRange === 'all' ? 'All time' : dateRange.toUpperCase()} window</span>
+          <button
+            onClick={() => exportToCSV(filtered)}
+            disabled={filtered.length === 0}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-white/[0.08] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-white/[0.15] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+          </button>
         </div>
         <table className="w-full text-sm">
           <thead>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useRef, useEffect } from 'react';
+import { useMemo, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import MetricCard from '@/components/MetricCard';
 import ViewsLineChart from '@/components/ViewsLineChart';
@@ -8,6 +8,7 @@ import GoalsSection from '@/components/GoalsSection';
 import { IconEye, IconTrendUp, IconStar, IconLightning } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
+import { useFilter } from '@/context/FilterContext';
 
 const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
 
@@ -62,9 +63,7 @@ const TIPS = [
   },
 ];
 
-type RangeKey = '1d' | '7d' | '30d' | '90d' | 'all';
-
-const RANGES: { key: RangeKey; label: string; days: number | null }[] = [
+const RANGES: { key: string; label: string; days: number | null }[] = [
   { key: '1d',  label: 'Last 24 hours', days: 1   },
   { key: '7d',  label: 'Last 7 days',   days: 7   },
   { key: '30d', label: 'Last 30 days',  days: 30  },
@@ -172,28 +171,15 @@ interface Props {
 
 export default function DashboardView({ posts }: Props) {
   const now = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-
-  const [range, setRange] = useState<RangeKey>('30d');
-  const [open, setOpen] = useState(false);
   const { open: openVideoModal } = useVideoModal();
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const { dateRange, platform } = useFilter();
 
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    if (open) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
+  const selectedRange = RANGES.find((r) => r.key === dateRange) ?? RANGES[2];
 
-  const selectedRange = RANGES.find((r) => r.key === range)!;
-
-  const filteredPosts = useMemo(
-    () => filterByDays(posts, selectedRange.days),
-    [posts, selectedRange.days]
-  );
+  const filteredPosts = useMemo(() => {
+    const byDate = filterByDays(posts, selectedRange.days);
+    return platform === 'all' ? byDate : byDate.filter((p) => p.platform === platform);
+  }, [posts, selectedRange.days, platform]);
 
   const topPosts = useMemo(
     () => [...filteredPosts].sort((a, b) => b.views - a.views).slice(0, 6),
@@ -225,47 +211,9 @@ export default function DashboardView({ posts }: Props) {
       <div className="flex-1 min-w-0 space-y-6">
 
         {/* Greeting */}
-        <div className="flex items-end justify-between">
-          <div>
-            <p className="text-[10px] text-[var(--text-3)] mb-1" style={{ fontFamily: 'var(--font-mono)' }}>{now}</p>
-            <h2 className="text-[22px] font-bold text-[var(--text-1)] leading-tight tracking-tight">Welcome back, Creator</h2>
-          </div>
-
-          {/* Date range dropdown */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setOpen((o) => !o)}
-              className="flex items-center gap-1.5 text-[10px] text-[var(--text-2)] border border-white/[0.06] px-2.5 py-1 rounded-lg hover:border-white/[0.12] hover:text-[var(--text-1)] transition-all"
-              style={{ fontFamily: 'var(--font-mono)' }}
-            >
-              {selectedRange.label}
-              <svg
-                className={`w-3 h-3 transition-transform duration-150 ${open ? 'rotate-180' : ''}`}
-                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {open && (
-              <div className="absolute right-0 top-full mt-1.5 w-40 bg-[var(--bg-elevated)] border border-white/[0.08] rounded-xl shadow-xl z-50 overflow-hidden py-1">
-                {RANGES.map((r) => (
-                  <button
-                    key={r.key}
-                    onClick={() => { setRange(r.key); setOpen(false); }}
-                    className={`w-full text-left px-3.5 py-2 text-[11px] transition-colors ${
-                      r.key === range
-                        ? 'text-[var(--gold)] bg-[var(--gold-dim)]'
-                        : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04]'
-                    }`}
-                    style={{ fontFamily: 'var(--font-mono)' }}
-                  >
-                    {r.key === range && <span className="mr-1.5">✓</span>}{r.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+        <div>
+          <p className="text-[10px] text-[var(--text-3)] mb-1" style={{ fontFamily: 'var(--font-mono)' }}>{now}</p>
+          <h2 className="text-[22px] font-bold text-[var(--text-1)] leading-tight tracking-tight">Welcome back, Creator</h2>
         </div>
 
         {/* Metric cards strip */}
@@ -382,15 +330,15 @@ export default function DashboardView({ posts }: Props) {
             <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Platforms</h3>
           </div>
           <div className="p-3 space-y-1">
-            {platformTotals.map(({ platform, views, count }) => {
+            {platformTotals.map(({ platform: pl, views, count }) => {
               const pct = totalViews > 0 ? (views / totalViews) * 100 : 0;
-              const color = PLATFORM_COLORS[platform];
+              const color = PLATFORM_COLORS[pl];
               return (
-                <div key={platform} className="rounded-xl px-3 py-2.5 hover:bg-white/[0.03] transition-colors">
+                <div key={pl} className="rounded-xl px-3 py-2.5 hover:bg-white/[0.03] transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
-                      <span className="text-xs text-[var(--text-2)] font-medium">{PLATFORM_LABELS[platform]}</span>
+                      <span className="text-xs text-[var(--text-2)] font-medium">{PLATFORM_LABELS[pl]}</span>
                     </div>
                     <span className="text-xs text-[var(--text-1)] font-semibold tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(views)}</span>
                   </div>

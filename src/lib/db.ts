@@ -140,12 +140,11 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
     comments: p.comments,
     shares: p.shares,
     saves: p.saves,
-    content_type: p.content_type,
   }));
 
   const { error } = await supabase
     .from('posts')
-    .upsert(rows, { onConflict: 'platform,title,date', ignoreDuplicates: true });
+    .upsert(rows, { onConflict: 'platform,title,date' });
 
   if (error) throw error;
 }
