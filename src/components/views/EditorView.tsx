@@ -64,6 +64,37 @@ const probeDuration = (file: File): Promise<number> =>
     vid.onerror = () => { resolve(0); URL.revokeObjectURL(url); };
   });
 
+// ── Silence detection helpers (module-level — no state dependencies) ────────
+
+/** Parse FFmpeg silencedetect log lines into silence intervals */
+function parseSilences(lines: string[]): Segment[] {
+  const silences: Segment[] = [];
+  let currentStart: number | null = null;
+  for (const line of lines) {
+    const startMatch = line.match(/silence_start:\s*([\d.]+)/);
+    const endMatch   = line.match(/silence_end:\s*([\d.]+)/);
+    if (startMatch) currentStart = parseFloat(startMatch[1]);
+    if (endMatch && currentStart !== null) {
+      silences.push({ start: currentStart, end: parseFloat(endMatch[1]) });
+      currentStart = null;
+    }
+  }
+  return silences;
+}
+
+/** Invert silence gaps into keep segments */
+function invertSilences(silences: Segment[], duration: number): Segment[] {
+  if (silences.length === 0) return [{ start: 0, end: duration }];
+  const keeps: Segment[] = [];
+  let cursor = 0;
+  for (const s of silences) {
+    if (s.start > cursor + 0.01) keeps.push({ start: cursor, end: s.start });
+    cursor = s.end;
+  }
+  if (cursor < duration - 0.01) keeps.push({ start: cursor, end: duration });
+  return keeps.length > 0 ? keeps : [{ start: 0, end: duration }];
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function EditorView() {
@@ -154,6 +185,46 @@ export default function EditorView() {
     }
   // ffmpegRef is a stable ref object — excluded from deps intentionally
   }, []);
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const runSilenceDetection = useCallback(async (clipsToAnalyze: Clip[]): Promise<Map<string, Segment[]>> => {
+    const ff = ffmpegRef.current;
+    if (!ff) return new Map();
+    const results = new Map<string, Segment[]>();
+
+    for (const clip of clipsToAnalyze) {
+      addLog(`── Silence detection: ${clip.filename}`);
+      const inName = `input_${clip.id}.mp4`;
+      const collected: string[] = [];
+
+      // Capture log lines for silence parsing — global handler in loadFFmpeg already calls addLog
+      const logHandler = ({ message }: { message: string }) => {
+        collected.push(message);
+      };
+      ff.on('log', logHandler);
+
+      try {
+        await ff.writeFile(inName, await fetchFile(clip.file));
+        await ff.exec([
+          '-i', inName,
+          '-af', 'silencedetect=noise=-30dB:d=0.5',
+          '-f', 'null', '-',
+        ]);
+        const silences   = parseSilences(collected);
+        const keepSegs   = invertSilences(silences, clip.duration);
+        results.set(clip.id, keepSegs);
+        addLog(`  → ${silences.length} silence(s), ${keepSegs.length} keep segment(s)`);
+      } catch {
+        addLog(`  ⚠ Detection failed for ${clip.filename} — keeping full clip`);
+        results.set(clip.id, [{ start: 0, end: clip.duration }]);
+      } finally {
+        ff.off('log', logHandler);
+        try { await ff.deleteFile(inName); } catch { /* ignore */ }
+      }
+    }
+
+    return results;
+  }, [addLog]);
 
   // ── Placeholder handlers (implemented in later tasks) ──────────────────────
 
