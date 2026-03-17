@@ -40,10 +40,12 @@ export default function CaptionView() {
   const [apiKey, setApiKey] = useState('');
 
   useEffect(() => {
+    // Prefer the admin env var; fall back to any key stored manually in localStorage
     const key =
-      typeof window !== 'undefined'
+      process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ||
+      (typeof window !== 'undefined'
         ? (localStorage.getItem('clip_studio_anthropic_key') ?? '')
-        : '';
+        : '');
     setApiKey(key);
     fetchCaptions()
       .then(setHistory)
@@ -111,7 +113,7 @@ export default function CaptionView() {
 
         {noKey && (
           <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[12px] text-amber-400">
-            No API key found. Enter your Anthropic key in <strong>AI Insights</strong> first — it&apos;s shared across all AI features.
+            No API key configured. Set <strong>NEXT_PUBLIC_ANTHROPIC_API_KEY</strong> in your environment variables and redeploy.
           </div>
         )}
 
