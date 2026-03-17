@@ -1,8 +1,8 @@
 'use client';
 
-import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer } from './Icons';
+import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer, IconTranscriber } from './Icons';
 
-export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'editor' | 'settings';
+export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'transcriber' | 'editor' | 'settings';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?: string }[] = [
   { id: 'dashboard',   label: 'Dashboard',   icon: <IconDashboard  className="w-4 h-4" /> },
@@ -13,13 +13,14 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
   { id: 'captions',    label: 'Captions',    icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
   { id: 'insights',       label: 'AI Insights',     icon: <IconSparkles        className="w-4 h-4" />, badge: 'AI' },
   { id: 'scriptAnalyzer', label: 'Script Analyzer', icon: <IconScriptAnalyzer  className="w-4 h-4" />, badge: 'AI' },
+  { id: 'transcriber',    label: 'Transcriber',     icon: <IconTranscriber     className="w-4 h-4" />, badge: 'AI' },
   { id: 'editor',         label: 'Editor',          icon: <IconScissors        className="w-4 h-4" />, badge: 'AI' },
   { id: 'settings',    label: 'Settings',    icon: <IconSettings   className="w-4 h-4" /> },
 ];
 
 const NAV_GROUPS = [
   { label: 'Analytics', items: ['dashboard', 'content', 'analytics', 'platforms', 'comparison'] },
-  { label: 'Tools',     items: ['captions', 'insights', 'scriptAnalyzer', 'editor', 'settings'] },
+  { label: 'Tools',     items: ['captions', 'insights', 'scriptAnalyzer', 'transcriber', 'editor', 'settings'] },
 ];
 
 interface Props {

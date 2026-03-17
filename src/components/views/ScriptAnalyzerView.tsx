@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { ScriptAnalysis } from '@/types/scriptAnalyzer';
 import { saveScriptAnalysis } from '@/lib/db';
 import ScriptInput from '@/components/ScriptAnalyzer/ScriptInput';
-import TranscriptionUploader from '@/components/ScriptAnalyzer/TranscriptionUploader';
 import PlatformScoreCard from '@/components/ScriptAnalyzer/PlatformScoreCard';
 
 // SVG ring for overall score
@@ -117,9 +116,6 @@ export default function ScriptAnalyzerView() {
           Paste your script or upload a video to get platform-specific scores based on each algorithm.
         </p>
       </div>
-
-      {/* Transcription uploader */}
-      <TranscriptionUploader onTranscriptReady={(text) => setScriptText(text)} />
 
       {/* Script input */}
       <ScriptInput
