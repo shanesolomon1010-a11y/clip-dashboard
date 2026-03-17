@@ -12,15 +12,15 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
   { id: 'comparison',  label: 'Comparison',  icon: <IconComparison className="w-4 h-4" /> },
   { id: 'captions',    label: 'Captions',    icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
   { id: 'insights',       label: 'AI Insights',     icon: <IconSparkles        className="w-4 h-4" />, badge: 'AI' },
-  { id: 'scriptAnalyzer', label: 'Script Analyzer', icon: <IconScriptAnalyzer  className="w-4 h-4" />, badge: 'AI' },
   { id: 'transcriber',    label: 'Transcriber',     icon: <IconTranscriber     className="w-4 h-4" />, badge: 'AI' },
+  { id: 'scriptAnalyzer', label: 'Script Analyzer', icon: <IconScriptAnalyzer  className="w-4 h-4" />, badge: 'AI' },
   { id: 'editor',         label: 'Editor',          icon: <IconScissors        className="w-4 h-4" />, badge: 'AI' },
   { id: 'settings',    label: 'Settings',    icon: <IconSettings   className="w-4 h-4" /> },
 ];
 
 const NAV_GROUPS = [
   { label: 'Analytics', items: ['dashboard', 'content', 'analytics', 'platforms', 'comparison'] },
-  { label: 'Tools',     items: ['captions', 'insights', 'scriptAnalyzer', 'transcriber', 'editor', 'settings'] },
+  { label: 'Tools',     items: ['captions', 'insights', 'transcriber', 'scriptAnalyzer', 'editor', 'settings'] },
 ];
 
 interface Props {
