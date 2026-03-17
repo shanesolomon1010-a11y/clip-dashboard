@@ -29,7 +29,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
             <div
               key={post.id}
               onClick={() => open(post)}
-              className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-4 hover:bg-[var(--bg-hover)] hover:border-white/[0.09] transition-all group cursor-pointer"
+              className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-4 hover:bg-[var(--bg-hover)] hover:border-[rgba(247,231,206,0.09)] transition-all group cursor-pointer"
             >
               <div className="flex items-center gap-2 mb-3">
                 <span
@@ -42,13 +42,13 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
                   {PLATFORM_LABELS[post.platform]}
                 </span>
                 {post.url && (
-                  <svg className="w-3 h-3 text-amber-400/70" viewBox="0 0 16 16" fill="currentColor">
+                  <svg className="w-3 h-3 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M4 3l10 5-10 5V3z" />
                   </svg>
                 )}
                 <span className="text-[10px] text-[var(--text-2)] ml-auto font-medium">{post.date}</span>
               </div>
-              <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-white transition-colors">{post.title}</p>
+              <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-[var(--text-1)] transition-colors">{post.title}</p>
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px]">
                   <span className="text-[var(--text-2)]">Views</span>
@@ -64,7 +64,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
             </div>
           ))}
           {recent.length === 0 && (
-            <div className="col-span-4 bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-8 text-center text-[var(--text-2)] text-sm">
+            <div className="col-span-4 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-8 text-center text-[var(--text-2)] text-sm">
               No posts yet — upload a CSV to get started
             </div>
           )}

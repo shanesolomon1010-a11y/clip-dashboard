@@ -48,7 +48,7 @@ export default function PlatformsView({ posts }: Props) {
           return (
             <div
               key={platform}
-              className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden hover:border-white/[0.09] transition-all"
+              className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden hover:border-[rgba(247,231,206,0.09)] transition-all"
             >
               {/* Header */}
               <div
@@ -74,7 +74,7 @@ export default function PlatformsView({ posts }: Props) {
               <div className="p-5">
                 {!hasData ? (
                   <div className="text-center py-5 space-y-2">
-                    <div className="w-10 h-10 rounded-full bg-white/[0.03] border border-white/[0.05] flex items-center justify-center mx-auto mb-3">
+                    <div className="w-10 h-10 rounded-full bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.05)] flex items-center justify-center mx-auto mb-3">
                       <span className="w-3 h-3 rounded-full" style={{ background: `${color}50` }} />
                     </div>
                     <p className="text-[var(--text-2)] text-sm font-medium">No data imported yet</p>
@@ -90,7 +90,7 @@ export default function PlatformsView({ posts }: Props) {
                         { label: 'Comments', value: formatNum(comments) },
                         { label: 'Shares',   value: formatNum(shares) },
                       ].map(({ label, value }) => (
-                        <div key={label} className="bg-white/[0.02] border border-white/[0.04] rounded-xl px-3 py-2.5">
+                        <div key={label} className="bg-[rgba(247,231,206,0.02)] border border-[rgba(247,231,206,0.04)] rounded-xl px-3 py-2.5">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-1">{label}</p>
                           <p className="text-sm font-bold text-[var(--text-1)] font-['JetBrains_Mono'] tabular-nums">{value}</p>
                         </div>
@@ -105,7 +105,7 @@ export default function PlatformsView({ posts }: Props) {
                           {formatNum(interactions)} / {formatNum(views)}
                         </span>
                       </div>
-                      <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-[rgba(247,231,206,0.04)] rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700"
                           style={{ width: `${views > 0 ? Math.min((interactions / views) * 100 * 10, 100) : 0}%`, background: color, opacity: 0.65 }}
@@ -115,11 +115,11 @@ export default function PlatformsView({ posts }: Props) {
 
                     {/* Best post */}
                     {best && (
-                      <div onClick={() => open(best)} className="bg-white/[0.03] border border-white/[0.05] rounded-xl p-3.5 cursor-pointer hover:bg-white/[0.05] transition-colors">
+                      <div onClick={() => open(best)} className="bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.05)] rounded-xl p-3.5 cursor-pointer hover:bg-[rgba(247,231,206,0.05)] transition-colors">
                         <div className="flex items-center gap-1.5 mb-2">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)]">Best Post</p>
                           {best.url && (
-                            <svg className="w-3 h-3 text-amber-400/70" viewBox="0 0 16 16" fill="currentColor">
+                            <svg className="w-3 h-3 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">
                               <path d="M4 3l10 5-10 5V3z" />
                             </svg>
                           )}

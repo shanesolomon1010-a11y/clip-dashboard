@@ -45,15 +45,15 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
   const sorted = [...posts].sort((a, b) => b.views - a.views).slice(0, 10);
 
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)] flex items-center justify-between">
         <h2 className="text-[15px] font-semibold text-[var(--text-1)]">Top Posts</h2>
         <span className="text-[11px] text-[var(--text-2)]">by views</span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-left border-b border-white/[0.04]">
+            <tr className="text-left border-b border-[rgba(247,231,206,0.04)]">
               <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Platform</th>
               <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Title</th>
               <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] text-right">Views</th>
@@ -65,11 +65,11 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
               <th className="px-5 py-3 text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Type</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-white/[0.04]">
+          <tbody className="divide-y divide-[rgba(247,231,206,0.04)]">
             {sorted.map((post) => (
               <tr
                 key={post.id}
-                className="hover:bg-white/[0.02] transition-colors group"
+                className="hover:bg-[rgba(247,231,206,0.02)] transition-colors group"
               >
                 <td className="px-5 py-3.5">
                   <span
@@ -88,11 +88,11 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
                 </td>
                 <td className="px-5 py-3.5 max-w-[220px] cursor-pointer" onClick={() => open(post)}>
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[var(--text-1)] truncate text-[13px] group-hover:text-white transition-colors flex-1" title={post.title}>
+                    <span className="text-[var(--text-1)] truncate text-[13px] group-hover:text-[var(--text-1)] transition-colors flex-1" title={post.title}>
                       {post.title.length > 44 ? post.title.slice(0, 44) + '…' : post.title}
                     </span>
                     {post.url && (
-                      <svg className="w-3 h-3 shrink-0 text-amber-400/70" viewBox="0 0 16 16" fill="currentColor">
+                      <svg className="w-3 h-3 shrink-0 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">
                         <path d="M4 3l10 5-10 5V3z" />
                       </svg>
                     )}
@@ -125,18 +125,18 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
                             borderColor: `${CONTENT_TYPE_COLORS[post.content_type] ?? '#6b7280'}40`,
                             color: CONTENT_TYPE_COLORS[post.content_type] ?? '#6b7280',
                           }
-                        : { borderColor: 'rgba(255,255,255,0.06)', color: 'var(--text-3)' }
+                        : { borderColor: 'rgba(247,231,206,0.06)', color: 'var(--text-3)' }
                     }
                   >
                     {post.content_type ?? '—'}
                   </button>
                   {openDropdown === post.id && (
-                    <div className="absolute right-0 top-full mt-1 z-50 bg-[var(--bg-elevated)] border border-white/[0.08] rounded-xl shadow-xl overflow-hidden py-1 w-36">
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.08)] rounded-xl shadow-xl overflow-hidden py-1 w-36">
                       {CONTENT_TYPES.map((type) => (
                         <button
                           key={type}
                           onClick={() => handleTypeSelect(post, type)}
-                          className="w-full text-left px-3.5 py-2 text-[11px] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04] transition-colors"
+                          className="w-full text-left px-3.5 py-2 text-[11px] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-[rgba(247,231,206,0.04)] transition-colors"
                         >
                           {type}
                         </button>

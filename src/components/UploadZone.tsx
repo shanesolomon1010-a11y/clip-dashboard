@@ -55,7 +55,7 @@ export default function UploadZone({ onUpload }: Props) {
   };
 
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl p-5">
+    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-[var(--text-1)]">Import CSV Data</h2>
         <span className="text-[11px] text-[var(--text-2)]">Auto-detects platform from column headers</span>
@@ -65,7 +65,7 @@ export default function UploadZone({ onUpload }: Props) {
         className={`flex flex-col items-center justify-center gap-3 border-2 border-dashed rounded-2xl py-10 px-6 cursor-pointer transition-all duration-200 ${
           isDragging
             ? 'border-[var(--gold-border)] bg-[var(--gold-dim)]'
-            : 'border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.02]'
+            : 'border-[rgba(247,231,206,0.08)] hover:border-[rgba(247,231,206,0.15)] hover:bg-[rgba(247,231,206,0.02)]'
         }`}
         onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
         onDragLeave={() => setIsDragging(false)}
@@ -73,10 +73,10 @@ export default function UploadZone({ onUpload }: Props) {
       >
         <input type="file" accept=".csv" className="hidden" onChange={onInputChange} />
         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all ${
-          isDragging ? 'bg-[var(--gold-dim)] border border-[var(--gold-border)]' : 'bg-white/[0.04] border border-white/[0.06]'
+          isDragging ? 'bg-[var(--gold-dim)] border border-[var(--gold-border)]' : 'bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.06)]'
         }`}>
           {processing
-            ? <div className="w-5 h-5 rounded-full border-2 border-white/20 border-t-[var(--gold)] animate-spin" />
+            ? <div className="w-5 h-5 rounded-full border-2 border-[rgba(247,231,206,0.20)] border-t-[var(--gold)] animate-spin" />
             : <IconUpload className={`w-5 h-5 ${isDragging ? 'text-[var(--gold)]' : 'text-[var(--text-2)]'}`} />
           }
         </div>
@@ -99,8 +99,8 @@ export default function UploadZone({ onUpload }: Props) {
         <div
           className={`mt-3 rounded-xl px-4 py-2.5 text-xs font-medium flex items-center gap-2 ${
             status.type === 'success'
-              ? 'bg-emerald-500/[0.08] text-emerald-400 border border-emerald-500/20'
-              : 'bg-red-500/[0.08] text-red-400 border border-red-500/20'
+              ? 'bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)]'
+              : 'bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] border border-[rgba(247,231,206,0.12)]'
           }`}
         >
           <span className="text-base leading-none">{status.type === 'success' ? '✓' : '✕'}</span>
@@ -118,7 +118,7 @@ export default function UploadZone({ onUpload }: Props) {
             { label: 'YouTube',   cols: 'Views, Likes, Comments',               color: '#FF0000' },
           ] as const
         ).map(({ label, cols, color }) => (
-          <div key={label} className="bg-white/[0.02] border border-white/[0.05] rounded-xl p-2.5 text-xs hover:bg-white/[0.04] transition-colors">
+          <div key={label} className="bg-[rgba(247,231,206,0.02)] border border-[rgba(247,231,206,0.05)] rounded-xl p-2.5 text-xs hover:bg-[rgba(247,231,206,0.04)] transition-colors">
             <div className="flex items-center gap-1.5 mb-1.5">
               <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
               <span className="text-[var(--text-1)] font-semibold">{label}</span>

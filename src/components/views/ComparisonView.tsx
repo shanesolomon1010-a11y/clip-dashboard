@@ -60,10 +60,10 @@ function RadarTooltip({ active, payload, label }: RadarTooltipProps) {
   if (!active || !payload?.length) return null;
   return (
     <div
-      className="border border-white/[0.09] rounded-xl shadow-2xl px-3 py-2.5 min-w-[140px]"
+      className="border border-[rgba(247,231,206,0.09)] rounded-xl shadow-2xl px-3 py-2.5 min-w-[140px]"
       style={{ background: '#1d1d1d', fontSize: 11, fontFamily: 'var(--font-mono)' }}
     >
-      <p className="text-[var(--text-3)] mb-2 pb-1 border-b border-white/[0.06]">{label}</p>
+      <p className="text-[var(--text-3)] mb-2 pb-1 border-b border-[rgba(247,231,206,0.06)]">{label}</p>
       <div className="space-y-1">
         {payload.map((entry) => (
           <div key={entry.name} className="flex items-center justify-between gap-4">
@@ -164,12 +164,12 @@ export default function ComparisonView({ posts }: Props) {
       </div>
 
       {/* Radar chart */}
-      <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5">
+      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5">
         <h3 className="text-[15px] font-semibold text-[var(--text-1)] mb-1">Performance Radar</h3>
         <p className="text-[11px] text-[var(--text-3)] mb-5">Normalized 0–100. Each axis shows relative strength across platforms.</p>
         <ResponsiveContainer width="100%" height={300}>
           <RadarChart data={radarData} margin={{ top: 10, right: 40, bottom: 10, left: 40 }}>
-            <PolarGrid stroke="rgba(255,255,255,0.06)" />
+            <PolarGrid stroke="rgba(247,231,206,0.06)" />
             <PolarAngleAxis
               dataKey="metric"
               tick={{ fill: '#7a7068', fontSize: 11, fontFamily: 'DM Sans, sans-serif' }}
@@ -201,11 +201,11 @@ export default function ComparisonView({ posts }: Props) {
       </div>
 
       {/* Sortable table */}
-      <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
+      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.04]">
+              <tr className="border-b border-[rgba(247,231,206,0.04)]">
                 {COLUMNS.map(({ key, label }) => (
                   <th
                     key={key}
@@ -224,11 +224,11 @@ export default function ComparisonView({ posts }: Props) {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody className="divide-y divide-[rgba(247,231,206,0.04)]">
               {sorted.map((row) => {
                 const color = PLATFORM_COLORS[row.platform];
                 return (
-                  <tr key={row.platform} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={row.platform} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
                     <td className="px-5 py-3.5">
                       <span className="flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
@@ -243,7 +243,7 @@ export default function ComparisonView({ posts }: Props) {
                           className="tabular-nums text-[13px]"
                           style={{
                             fontFamily: 'var(--font-mono)',
-                            color: isTop(k, row[k]) ? '#10b981' : 'var(--text-2)',
+                            color: isTop(k, row[k]) ? '#F7E7CE' : 'var(--text-2)',
                             fontWeight: isTop(k, row[k]) ? 700 : 400,
                           }}
                         >
@@ -256,7 +256,7 @@ export default function ComparisonView({ posts }: Props) {
                         className="tabular-nums text-[13px]"
                         style={{
                           fontFamily: 'var(--font-mono)',
-                          color: isTop('avgEngRate', row.avgEngRate) ? '#10b981' : 'var(--text-2)',
+                          color: isTop('avgEngRate', row.avgEngRate) ? '#F7E7CE' : 'var(--text-2)',
                           fontWeight: isTop('avgEngRate', row.avgEngRate) ? 700 : 400,
                         }}
                       >
@@ -268,7 +268,7 @@ export default function ComparisonView({ posts }: Props) {
                         className="tabular-nums text-[13px]"
                         style={{
                           fontFamily: 'var(--font-mono)',
-                          color: isTop('postCount', row.postCount) ? '#10b981' : 'var(--text-2)',
+                          color: isTop('postCount', row.postCount) ? '#F7E7CE' : 'var(--text-2)',
                           fontWeight: isTop('postCount', row.postCount) ? 700 : 400,
                         }}
                       >
@@ -280,7 +280,7 @@ export default function ComparisonView({ posts }: Props) {
                         className="tabular-nums text-[13px]"
                         style={{
                           fontFamily: 'var(--font-mono)',
-                          color: isTop('avgViews', row.avgViews) ? '#10b981' : 'var(--text-2)',
+                          color: isTop('avgViews', row.avgViews) ? '#F7E7CE' : 'var(--text-2)',
                           fontWeight: isTop('avgViews', row.avgViews) ? 700 : 400,
                         }}
                       >

@@ -11,7 +11,7 @@ interface MetricCardProps {
 
 export default function MetricCard({ label, value, sub, delta, icon, accent = '#d4922a' }: MetricCardProps) {
   return (
-    <div data-testid="metric-card" className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5 flex flex-col gap-4 hover:bg-[var(--bg-hover)] hover:border-white/[0.09] transition-all duration-200 group">
+    <div data-testid="metric-card" className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5 flex flex-col gap-4 hover:bg-[var(--bg-hover)] hover:border-[rgba(247,231,206,0.09)] transition-all duration-200 group">
       {/* Label + icon */}
       <div className="flex items-start justify-between gap-2">
         <span className="text-[10px] font-semibold tracking-[0.18em] uppercase text-[var(--text-3)] leading-none mt-0.5">
@@ -47,8 +47,8 @@ export default function MetricCard({ label, value, sub, delta, icon, accent = '#
         <div
           className={`inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-0.5 rounded w-fit ${
             delta.positive
-              ? 'text-emerald-400 bg-emerald-500/08'
-              : 'text-red-400 bg-red-500/08'
+              ? 'text-[var(--gold)] bg-[var(--gold-dim)]'
+              : 'text-[var(--text-2)] bg-[rgba(247,231,206,0.06)]'
           }`}
           style={{ fontFamily: 'var(--font-mono)' }}
         >

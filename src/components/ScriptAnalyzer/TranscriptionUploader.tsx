@@ -49,7 +49,7 @@ export default function TranscriptionUploader({ onTranscriptReady }: Props) {
       className={`relative flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-xl px-6 py-8 cursor-pointer transition-all ${
         dragging
           ? 'border-[var(--gold)] bg-[var(--gold-dim)]'
-          : 'border-white/[0.10] bg-[var(--bg-elevated)] hover:border-white/20'
+          : 'border-[rgba(247,231,206,0.10)] bg-[var(--bg-elevated)] hover:border-[rgba(247,231,206,0.20)]'
       } ${status === 'transcribing' ? 'cursor-default' : ''}`}
     >
       <input
@@ -62,7 +62,7 @@ export default function TranscriptionUploader({ onTranscriptReady }: Props) {
 
       {status === 'transcribing' && (
         <>
-          <span className="w-5 h-5 border-2 border-white/20 border-t-[var(--gold)] rounded-full animate-spin" />
+          <span className="w-5 h-5 border-2 border-[rgba(247,231,206,0.20)] border-t-[var(--gold)] rounded-full animate-spin" />
           <p className="text-[13px] text-[var(--text-2)] font-medium">Transcribing audio…</p>
         </>
       )}
@@ -70,14 +70,14 @@ export default function TranscriptionUploader({ onTranscriptReady }: Props) {
       {status === 'done' && (
         <>
           <span className="text-lg">✓</span>
-          <p className="text-[13px] text-emerald-400 font-medium">Transcript ready — script auto-filled below</p>
+          <p className="text-[13px] text-[var(--gold)] font-medium">Transcript ready — script auto-filled below</p>
           <p className="text-[11px] text-[var(--text-3)]">Click to upload a different file</p>
         </>
       )}
 
       {status === 'error' && (
         <>
-          <p className="text-[13px] text-red-400 font-medium">{errorMsg}</p>
+          <p className="text-[13px] text-[var(--text-2)] font-medium">{errorMsg}</p>
           <p className="text-[11px] text-[var(--text-3)]">Click to try again</p>
         </>
       )}

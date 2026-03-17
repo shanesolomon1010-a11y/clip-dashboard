@@ -594,14 +594,14 @@ export default function EditorView() {
 
         {/* Left panel — Clip list */}
         <div className="xl:w-64 flex-shrink-0 flex flex-col gap-3">
-          <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden flex flex-col flex-1">
-            <div className="px-4 py-3 border-b border-white/[0.04]">
+          <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl overflow-hidden flex flex-col flex-1">
+            <div className="px-4 py-3 border-b border-[rgba(247,231,206,0.04)]">
               <p className="text-[13px] font-semibold text-[var(--text-1)]">Clips</p>
             </div>
 
             {/* Upload zone */}
             <div
-              className="mx-3 mt-3 border-2 border-dashed border-white/[0.08] rounded-xl p-4 text-center cursor-pointer hover:border-[var(--gold-border)] transition-colors"
+              className="mx-3 mt-3 border-2 border-dashed border-[rgba(247,231,206,0.08)] rounded-xl p-4 text-center cursor-pointer hover:border-[var(--gold-border)] transition-colors"
               onDragOver={(e) => e.preventDefault()}
               onDrop={(e) => { e.preventDefault(); handleFiles(e.dataTransfer.files); }}
               onClick={() => document.getElementById('clip-file-input')?.click()}
@@ -627,11 +627,11 @@ export default function EditorView() {
                   onDragStart={() => handleDragStart(index)}
                   onDragOver={handleDragOver}
                   onDrop={() => handleDrop(index)}
-                  className="flex items-center gap-2 bg-white/[0.02] border border-white/[0.05] rounded-xl p-2 cursor-grab active:cursor-grabbing"
+                  className="flex items-center gap-2 bg-[rgba(247,231,206,0.02)] border border-[rgba(247,231,206,0.05)] rounded-xl p-2 cursor-grab active:cursor-grabbing"
                 >
                   {clip.thumbnailUrl
                     ? <img src={clip.thumbnailUrl} alt="" className="w-16 h-10 object-cover rounded-lg flex-shrink-0" />
-                    : <div className="w-16 h-10 bg-white/[0.04] rounded-lg flex-shrink-0 animate-pulse" />
+                    : <div className="w-16 h-10 bg-[rgba(247,231,206,0.04)] rounded-lg flex-shrink-0 animate-pulse" />
                   }
                   <div className="flex-1 min-w-0">
                     <p className="text-[11px] text-[var(--text-1)] truncate">{clip.filename}</p>
@@ -674,8 +674,8 @@ export default function EditorView() {
 
         {/* Center panel — Instructions */}
         <div className="flex-1 min-w-0">
-          <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden h-full flex flex-col">
-            <div className="px-4 py-3 border-b border-white/[0.04]">
+          <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl overflow-hidden h-full flex flex-col">
+            <div className="px-4 py-3 border-b border-[rgba(247,231,206,0.04)]">
               <p className="text-[13px] font-semibold text-[var(--text-1)]">Instructions</p>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
@@ -689,7 +689,7 @@ export default function EditorView() {
                     onChange={(e) => setInstructions((prev) => ({ ...prev, [key]: e.target.value }))}
                     rows={3}
                     placeholder={`${key.charAt(0).toUpperCase() + key.slice(1)} instructions…`}
-                    className="w-full bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3 text-sm text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] resize-none font-[var(--font-sans)]"
+                    className="w-full bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.06)] rounded-xl px-4 py-3 text-sm text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] resize-none font-[var(--font-sans)]"
                   />
                 </div>
               ))}
@@ -699,8 +699,8 @@ export default function EditorView() {
 
         {/* Right panel — Analysis log */}
         <div className="xl:w-80 flex-shrink-0">
-          <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden h-full flex flex-col">
-            <div className="px-4 py-3 border-b border-white/[0.04]">
+          <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl overflow-hidden h-full flex flex-col">
+            <div className="px-4 py-3 border-b border-[rgba(247,231,206,0.04)]">
               <p className="text-[13px] font-semibold text-[var(--text-1)]">Analysis Log</p>
             </div>
             <div
@@ -708,7 +708,7 @@ export default function EditorView() {
               className="flex-1 overflow-y-auto p-3 space-y-0.5 font-mono text-[11px]"
             >
               {ffmpegError && (
-                <p className="text-red-400">{ffmpegError}</p>
+                <p className="text-[var(--text-2)]">{ffmpegError}</p>
               )}
               {ffmpegLoading && (
                 <p className="text-[var(--text-3)]">Loading FFmpeg.wasm…</p>
@@ -719,7 +719,7 @@ export default function EditorView() {
                 return (
                   <p key={i} className={
                     isGold ? 'text-[var(--gold)]' :
-                    isRed  ? 'text-red-400' :
+                    isRed  ? 'text-[var(--text-2)]' :
                     'text-[var(--text-3)]'
                   }>{line}</p>
                 );
@@ -751,7 +751,7 @@ export default function EditorView() {
         {premiereXmlBlob && (
           <button
             onClick={() => downloadBlob(premiereXmlBlob, 'export.xml')}
-            className="px-4 py-3 border border-white/[0.07] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04] text-sm font-medium rounded-xl transition-colors"
+            className="px-4 py-3 border border-[rgba(247,231,206,0.07)] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-[rgba(247,231,206,0.04)] text-sm font-medium rounded-xl transition-colors"
           >
             Download Premiere XML
           </button>
@@ -759,7 +759,7 @@ export default function EditorView() {
         {edlBlob && (
           <button
             onClick={() => downloadBlob(edlBlob, 'export.edl')}
-            className="px-4 py-3 border border-white/[0.07] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04] text-sm font-medium rounded-xl transition-colors"
+            className="px-4 py-3 border border-[rgba(247,231,206,0.07)] text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-[rgba(247,231,206,0.04)] text-sm font-medium rounded-xl transition-colors"
           >
             Download EDL
           </button>

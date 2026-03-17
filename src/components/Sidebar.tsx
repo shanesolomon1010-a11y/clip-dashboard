@@ -30,10 +30,10 @@ interface Props {
 
 export default function Sidebar({ active, onNavigate }: Props) {
   return (
-    <aside className="w-[192px] shrink-0 h-screen flex flex-col sticky top-0 bg-[var(--bg-elevated)] border-r border-white/[0.06]">
+    <aside className="w-[192px] shrink-0 h-screen flex flex-col sticky top-0 bg-[var(--bg-elevated)] border-r border-[rgba(247,231,206,0.06)]">
 
       {/* Wordmark — the editorial logo treatment */}
-      <div className="px-5 pt-7 pb-6 border-b border-white/[0.06]">
+      <div className="px-5 pt-7 pb-6 border-b border-[rgba(247,231,206,0.06)]">
         <p
           className="text-[20px] font-bold text-[var(--text-1)] leading-none tracking-tight"
         >
@@ -64,7 +64,7 @@ export default function Sidebar({ active, onNavigate }: Props) {
                       className={`relative w-full flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-100 group ${
                         isActive
                           ? 'text-[var(--gold)] bg-[var(--gold-dim)]'
-                          : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-white/[0.04]'
+                          : 'text-[var(--text-2)] hover:text-[var(--text-1)] hover:bg-[rgba(247,231,206,0.04)]'
                       }`}
                     >
                       {/* Gold rule for active */}
@@ -93,7 +93,7 @@ export default function Sidebar({ active, onNavigate }: Props) {
 
       {/* Import CTA — minimal, no filled button */}
       <div className="px-3 pb-5">
-        <div className="border border-white/[0.06] rounded-xl p-4">
+        <div className="border border-[rgba(247,231,206,0.06)] rounded-xl p-4">
           <div className="flex items-center gap-2 mb-2.5">
             <IconUpload className="w-3.5 h-3.5 text-[var(--text-3)]" />
             <span className="text-[11px] font-semibold text-[var(--text-2)] tracking-wide">Import Data</span>

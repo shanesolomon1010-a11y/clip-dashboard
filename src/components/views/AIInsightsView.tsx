@@ -230,7 +230,7 @@ function InsightCard({
 }) {
   const lines = content.split('\n').map((l) => l.trim()).filter(Boolean);
   return (
-    <div className="bg-[var(--bg-card)] rounded-2xl overflow-hidden border border-white/[0.05]">
+    <div className="bg-[var(--bg-card)] rounded-2xl overflow-hidden border border-[rgba(247,231,206,0.05)]">
       <div className="px-5 py-4 flex items-center gap-3" style={{ background: `${accent}0d`, borderBottom: `1px solid ${accent}18` }}>
         <span className="text-xl">{icon}</span>
         <h3 className="text-[15px] font-semibold text-[var(--text-1)]">{title}</h3>
@@ -248,7 +248,7 @@ function Spinner() {
   return (
     <div className="flex flex-col items-center justify-center py-16 gap-4">
       <div className="relative w-10 h-10">
-        <div className="absolute inset-0 rounded-full border-2 border-white/[0.06]" />
+        <div className="absolute inset-0 rounded-full border-2 border-[rgba(247,231,206,0.06)]" />
         <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-[var(--gold)] animate-spin" />
       </div>
       <div className="text-center">
@@ -266,14 +266,14 @@ function ChatBubble({ msg }: { msg: ChatMessage }) {
       <div className={`w-7 h-7 rounded-xl shrink-0 flex items-center justify-center text-[10px] font-bold ${
         isUser
           ? 'bg-[var(--gold-dim)] text-[var(--gold)]'
-          : 'bg-gradient-to-br from-emerald-600 to-teal-700 text-white'
+          : 'bg-[var(--gold-dim)] text-[var(--gold)]'
       }`}>
         {isUser ? 'You' : 'AI'}
       </div>
       <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
         isUser
           ? 'bg-[var(--gold-dim)] border border-[var(--gold-border)] text-[var(--text-1)]'
-          : 'bg-white/[0.03] border border-white/[0.05] text-[var(--text-1)]'
+          : 'bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.05)] text-[var(--text-1)]'
       }`}>
         {msg.text.split('\n').map((line, i) => (
           <p key={i} className={line === '' ? 'mt-2' : ''}>{line}</p>
@@ -481,7 +481,7 @@ export default function AIInsightsView({ posts }: Props) {
                   Powered by Claude
                 </span>
                 {insightHistory.length > 0 && (
-                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-white/[0.05] text-[var(--text-2)] border border-white/[0.06]">
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-lg bg-[rgba(247,231,206,0.05)] text-[var(--text-2)] border border-[rgba(247,231,206,0.06)]">
                     {insightHistory.length} saved
                   </span>
                 )}
@@ -495,7 +495,7 @@ export default function AIInsightsView({ posts }: Props) {
               <button
                 onClick={handleGenerate}
                 disabled={!canGenerate}
-                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--text-2)] border border-white/[0.08] rounded-xl hover:text-[var(--text-1)] hover:border-white/[0.15] transition-all disabled:opacity-40 shrink-0"
+                className="flex items-center gap-2 px-3 py-2 text-xs font-semibold text-[var(--text-2)] border border-[rgba(247,231,206,0.08)] rounded-xl hover:text-[var(--text-1)] hover:border-[rgba(247,231,206,0.15)] transition-all disabled:opacity-40 shrink-0"
               >
                 <IconRefresh className="w-3.5 h-3.5" />
                 Regenerate
@@ -504,8 +504,8 @@ export default function AIInsightsView({ posts }: Props) {
           </div>
 
           {/* API key status */}
-          <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
+          <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.04)] flex items-center justify-between">
               <div>
                 <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Anthropic API Key</h3>
                 <p className="text-xs text-[var(--text-3)] mt-0.5">
@@ -513,28 +513,28 @@ export default function AIInsightsView({ posts }: Props) {
                 </p>
               </div>
               {ADMIN_API_KEY.trim() ? (
-                <span className="text-[11px] text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-lg font-semibold">
+                <span className="text-[11px] text-[var(--gold)] bg-[var(--gold-dim)] border border-[var(--gold-border)] px-2.5 py-1 rounded-lg font-semibold">
                   ✓ Configured
                 </span>
               ) : (
-                <span className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg font-semibold">
+                <span className="text-[11px] text-[var(--gold)] bg-[var(--gold-dim)] border border-[var(--gold-border)] px-2.5 py-1 rounded-lg font-semibold">
                   Needs setup
                 </span>
               )}
             </div>
             <div className="p-5">
               {ADMIN_API_KEY.trim() ? (
-                <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-3">
+                <div className="bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.06)] rounded-xl px-4 py-3">
                   <p className="text-xs text-[var(--text-2)]">
                     Key present (hidden). Set via environment variable{' '}
                     <span className="text-[var(--text-1)] font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span>.
                   </p>
                 </div>
               ) : (
-                <div className="bg-amber-500/08 border border-amber-500/20 rounded-xl px-4 py-3">
-                  <p className="text-xs text-amber-200/90">
+                <div className="bg-[var(--gold-dim)] border border-[var(--gold-border)] rounded-xl px-4 py-3">
+                  <p className="text-xs text-[var(--text-2)]">
                     Missing admin key. Add{' '}
-                    <span className="text-amber-100 font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span> and redeploy.
+                    <span className="text-[var(--text-1)] font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span> and redeploy.
                   </p>
                 </div>
               )}
@@ -543,7 +543,7 @@ export default function AIInsightsView({ posts }: Props) {
 
           {/* Generate CTA */}
           {!hasInsights && !loading && (
-            <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl p-8 flex flex-col items-center text-center gap-4">
+            <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl p-8 flex flex-col items-center text-center gap-4">
               <div className="relative">
                 <div className="w-16 h-16 rounded-2xl bg-[var(--gold-dim)] border border-[var(--gold-border)] flex items-center justify-center">
                   <IconSparkles className="w-7 h-7 text-[var(--gold)]" />
@@ -567,7 +567,7 @@ export default function AIInsightsView({ posts }: Props) {
                 Generate Insights
               </button>
               {!ADMIN_API_KEY.trim() && (
-                <p className="text-xs text-amber-400/80">Admin setup required: configure the Anthropic API key.</p>
+                <p className="text-xs text-[var(--text-2)]">Admin setup required: configure the Anthropic API key.</p>
               )}
             </div>
           )}
@@ -577,11 +577,11 @@ export default function AIInsightsView({ posts }: Props) {
 
           {/* Error */}
           {error && (
-            <div className="bg-red-500/08 border border-red-500/25 rounded-2xl px-5 py-4 flex items-start gap-3">
-              <span className="text-red-400 text-base leading-none mt-0.5">✕</span>
+            <div className="bg-[rgba(247,231,206,0.06)] border border-[rgba(247,231,206,0.12)] rounded-2xl px-5 py-4 flex items-start gap-3">
+              <span className="text-[var(--text-2)] text-base leading-none mt-0.5">✕</span>
               <div>
-                <p className="text-sm font-semibold text-red-400">API Error</p>
-                <p className="text-xs text-red-400/60 mt-1">{error}</p>
+                <p className="text-sm font-semibold text-[var(--text-2)]">API Error</p>
+                <p className="text-xs text-[rgba(247,231,206,0.38)] mt-1">{error}</p>
               </div>
             </div>
           )}
@@ -598,8 +598,8 @@ export default function AIInsightsView({ posts }: Props) {
 
           {/* Raw fallback */}
           {rawFallback && (
-            <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/[0.04] flex items-center gap-2">
+            <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.04)] flex items-center gap-2">
                 <IconSparkles className="w-4 h-4 text-[var(--gold)]" />
                 <h3 className="text-[15px] font-semibold text-[var(--text-1)]">AI Analysis</h3>
               </div>
@@ -612,15 +612,15 @@ export default function AIInsightsView({ posts }: Props) {
           )}
 
           {/* ── Insight History ──────────────────────────────────────────── */}
-          <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
+          <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl overflow-hidden">
             <button
               onClick={() => setHistoryOpen((v) => !v)}
-              className="w-full px-5 py-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+              className="w-full px-5 py-4 flex items-center justify-between hover:bg-[rgba(247,231,206,0.02)] transition-colors"
             >
               <div className="flex items-center gap-2.5">
                 <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Insight History</h3>
                 {insightHistory.length > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-white/[0.06] text-[var(--text-2)] tabular-nums">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] tabular-nums">
                     {insightHistory.length}
                   </span>
                 )}
@@ -633,7 +633,7 @@ export default function AIInsightsView({ posts }: Props) {
                     className={`text-xs font-medium transition-colors ${
                       clearingHistory
                         ? 'text-[var(--text-3)] pointer-events-none'
-                        : 'text-red-400/60 hover:text-red-400 cursor-pointer'
+                        : 'text-[rgba(247,231,206,0.38)] hover:text-[var(--text-2)] cursor-pointer'
                     }`}
                   >
                     {clearingHistory ? 'Clearing…' : 'Clear history'}
@@ -644,13 +644,13 @@ export default function AIInsightsView({ posts }: Props) {
             </button>
 
             {historyOpen && (
-              <div className="border-t border-white/[0.04]">
+              <div className="border-t border-[rgba(247,231,206,0.04)]">
                 {insightHistory.length === 0 ? (
                   <p className="px-5 py-8 text-xs text-[var(--text-3)] text-center">
                     No analyses saved yet — generate your first insight above.
                   </p>
                 ) : (
-                  <div className="divide-y divide-white/[0.04]">
+                  <div className="divide-y divide-[rgba(247,231,206,0.04)]">
                     {insightHistory.map((row) => {
                       const preview = row.insight_text
                         .split('\n')
@@ -665,7 +665,7 @@ export default function AIInsightsView({ posts }: Props) {
                         hour: 'numeric', minute: '2-digit',
                       });
                       return (
-                        <div key={row.id} className="px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
+                        <div key={row.id} className="px-5 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors">
                           <div className="flex items-center justify-between mb-1.5">
                             <div className="flex items-center gap-2">
                               <span className="text-[11px] font-semibold text-[var(--text-1)]">{date}</span>
@@ -674,7 +674,7 @@ export default function AIInsightsView({ posts }: Props) {
                             <div className="flex items-center gap-3 text-[10px] text-[var(--text-3)]">
                               <span className="tabular-nums">{row.post_count} posts</span>
                               <span
-                                className="px-1.5 py-0.5 rounded-md bg-white/[0.04] font-medium"
+                                className="px-1.5 py-0.5 rounded-md bg-[rgba(247,231,206,0.04)] font-medium"
                                 style={{ color: '#9ca3af' }}
                               >
                                 {row.top_platform}
@@ -694,10 +694,10 @@ export default function AIInsightsView({ posts }: Props) {
 
           {/* Follow-up chat */}
           {hasInsights && (
-            <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/[0.04] flex items-center justify-between">
+            <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.04)] flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <div className="w-2 h-2 rounded-full bg-[var(--gold-dim)] animate-pulse" />
                   <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Ask a Follow-up</h3>
                 </div>
                 <span className="text-[11px] text-[var(--text-3)]">
@@ -708,24 +708,24 @@ export default function AIInsightsView({ posts }: Props) {
               </div>
 
               {!insightsAreForCurrentData && (
-                <div className="px-5 py-3 border-b border-white/[0.04] bg-amber-500/08">
-                  <p className="text-xs text-amber-200/80">
+                <div className="px-5 py-3 border-b border-[rgba(247,231,206,0.04)] bg-[var(--gold-dim)]">
+                  <p className="text-xs text-[var(--text-2)]">
                     These insights were generated for a previous dataset. Import new data and click Regenerate to update them.
                   </p>
                 </div>
               )}
 
               {chatLog.length > 0 && (
-                <div className="px-5 py-4 space-y-4 border-b border-white/[0.04] max-h-96 overflow-y-auto">
+                <div className="px-5 py-4 space-y-4 border-b border-[rgba(247,231,206,0.04)] max-h-96 overflow-y-auto">
                   {chatLog.map((msg, i) => (
                     <ChatBubble key={i} msg={msg} />
                   ))}
                   {chatLoading && (
                     <div className="flex gap-3">
-                      <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 flex items-center justify-center text-[10px] font-bold text-white shrink-0">
+                      <div className="w-7 h-7 rounded-xl bg-[var(--gold-dim)] flex items-center justify-center text-[10px] font-bold text-[var(--text-1)] shrink-0">
                         AI
                       </div>
-                      <div className="bg-white/[0.03] border border-white/[0.05] rounded-2xl px-4 py-3 flex items-center gap-1.5">
+                      <div className="bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.05)] rounded-2xl px-4 py-3 flex items-center gap-1.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-3)] animate-bounce" style={{ animationDelay: '0ms' }} />
                         <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-3)] animate-bounce" style={{ animationDelay: '150ms' }} />
                         <span className="w-1.5 h-1.5 rounded-full bg-[var(--text-3)] animate-bounce" style={{ animationDelay: '300ms' }} />
@@ -747,7 +747,7 @@ export default function AIInsightsView({ posts }: Props) {
                     <button
                       key={p}
                       onClick={() => setChatInput(p)}
-                      className="text-xs text-[var(--text-2)] border border-white/[0.07] hover:border-white/[0.15] hover:text-[var(--text-1)] rounded-xl px-3 py-1.5 transition-all"
+                      className="text-xs text-[var(--text-2)] border border-[rgba(247,231,206,0.07)] hover:border-[rgba(247,231,206,0.15)] hover:text-[var(--text-1)] rounded-xl px-3 py-1.5 transition-all"
                     >
                       {p}
                     </button>
@@ -763,7 +763,7 @@ export default function AIInsightsView({ posts }: Props) {
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleFollowUp()}
                   placeholder="Ask anything about your content performance…"
                   disabled={chatLoading || !ADMIN_API_KEY.trim()}
-                  className="flex-1 bg-white/[0.03] border border-white/[0.06] rounded-xl px-4 py-2.5 text-sm text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] transition-all disabled:opacity-50"
+                  className="flex-1 bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.06)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] transition-all disabled:opacity-50"
                 />
                 <button
                   onClick={handleFollowUp}

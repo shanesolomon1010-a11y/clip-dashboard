@@ -88,17 +88,17 @@ function CreatorTips() {
 
   return (
     <>
-      <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-        <div className="px-4 py-3.5 border-b border-white/[0.05] flex items-center gap-2">
-          <IconLightning className="w-3.5 h-3.5 text-amber-400" />
+      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-[rgba(247,231,206,0.05)] flex items-center gap-2">
+          <IconLightning className="w-3.5 h-3.5 text-[var(--gold)]" />
           <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Creator Tips</h3>
         </div>
-        <div className="divide-y divide-white/[0.03]">
+        <div className="divide-y divide-[rgba(247,231,206,0.03)]">
           {TIPS.map((tip) => (
             <button
               key={tip.title}
               onClick={() => setActiveTip(tip)}
-              className="w-full px-4 py-3.5 hover:bg-white/[0.02] transition-colors text-left"
+              className="w-full px-4 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors text-left"
             >
               <div className="flex items-start gap-2.5">
                 <span className="text-base mt-px shrink-0">{tip.icon}</span>
@@ -134,12 +134,12 @@ function CreatorTips() {
           onClick={() => setActiveTip(null)}
         >
           <div
-            className="relative bg-[var(--bg-card)] border border-white/[0.08] rounded-2xl w-full max-w-md p-6 shadow-2xl"
+            className="relative bg-[var(--bg-card)] border border-[rgba(247,231,206,0.08)] rounded-2xl w-full max-w-md p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setActiveTip(null)}
-              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/[0.1] transition-colors text-[var(--text-3)]"
+              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-[rgba(247,231,206,0.06)] hover:bg-[rgba(247,231,206,0.1)] transition-colors text-[var(--text-3)]"
             >
               <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="w-3.5 h-3.5">
                 <path d="M4 4l8 8M12 4l-8 8" />
@@ -153,7 +153,7 @@ function CreatorTips() {
             <ul className="space-y-3">
               {activeTip.details.map((point, j) => (
                 <li key={j} className="flex items-start gap-2.5">
-                  <span className="mt-[5px] w-1.5 h-1.5 rounded-full bg-amber-400/60 shrink-0" />
+                  <span className="mt-[5px] w-1.5 h-1.5 rounded-full bg-[rgba(247,231,206,0.60)] shrink-0" />
                   <p className="text-[12px] text-[var(--text-2)] leading-relaxed">{point}</p>
                 </li>
               ))}
@@ -237,7 +237,7 @@ export default function DashboardView({ posts }: Props) {
             value={formatNum(totalInteractions)}
             sub="likes, comments, shares & saves"
             icon={<IconTrendUp className="w-4 h-4" />}
-            accent="#10b981"
+            accent="#F7E7CE"
           />
           <MetricCard
             label="Top Platform"
@@ -257,14 +257,14 @@ export default function DashboardView({ posts }: Props) {
         <ViewsLineChart posts={filteredPosts} activePlatforms={activePlatforms} rangeLabel={selectedRange.label} />
 
         {/* Top content */}
-        <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-          <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+        <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)] flex items-center justify-between">
             <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Top Content</h3>
             <span className="text-[11px] text-[var(--text-2)]">{selectedRange.label}</span>
           </div>
-          <div className="divide-y divide-white/[0.03]">
+          <div className="divide-y divide-[rgba(247,231,206,0.03)]">
             {topPosts.map((post, i) => (
-              <div key={post.id} data-testid="post-row" onClick={() => openVideoModal(post)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.02] transition-colors group cursor-pointer">
+              <div key={post.id} data-testid="post-row" onClick={() => openVideoModal(post)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors group cursor-pointer">
                 <span className="text-[var(--text-3)] w-4 shrink-0 tabular-nums text-xs font-bold" style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
                 <span
                   className="text-[10px] font-semibold px-2 py-1 rounded-lg shrink-0"
@@ -277,7 +277,7 @@ export default function DashboardView({ posts }: Props) {
                 </span>
                 <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{post.title}</span>
                 {post.url && (
-                  <svg className="w-3 h-3 shrink-0 text-amber-400/70" viewBox="0 0 16 16" fill="currentColor">
+                  <svg className="w-3 h-3 shrink-0 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M4 3l10 5-10 5V3z" />
                   </svg>
                 )}
@@ -298,8 +298,8 @@ export default function DashboardView({ posts }: Props) {
       <div className="w-[260px] shrink-0 space-y-4">
 
         {/* Channel summary */}
-        <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-white/[0.05]">
+        <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-[rgba(247,231,206,0.05)]">
             <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Channel Summary</h3>
           </div>
           <div className="p-5">
@@ -309,7 +309,7 @@ export default function DashboardView({ posts }: Props) {
             <p className="text-4xl font-bold leading-none tracking-tight text-[var(--text-1)]">{formatNum(totalViews)}</p>
             <p className="text-[11px] text-[var(--text-2)] mt-1">{selectedRange.label.toLowerCase()}</p>
 
-            <div className="h-px bg-white/[0.05] my-4" />
+            <div className="h-px bg-[rgba(247,231,206,0.05)] my-4" />
 
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -325,8 +325,8 @@ export default function DashboardView({ posts }: Props) {
         </div>
 
         {/* Platform breakdown */}
-        <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-          <div className="px-4 py-3.5 border-b border-white/[0.05]">
+        <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+          <div className="px-4 py-3.5 border-b border-[rgba(247,231,206,0.05)]">
             <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Platforms</h3>
           </div>
           <div className="p-3 space-y-1">
@@ -334,7 +334,7 @@ export default function DashboardView({ posts }: Props) {
               const pct = totalViews > 0 ? (views / totalViews) * 100 : 0;
               const color = PLATFORM_COLORS[pl];
               return (
-                <div key={pl} className="rounded-xl px-3 py-2.5 hover:bg-white/[0.03] transition-colors">
+                <div key={pl} className="rounded-xl px-3 py-2.5 hover:bg-[rgba(247,231,206,0.03)] transition-colors">
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <span className="w-2 h-2 rounded-full shrink-0" style={{ background: color }} />
@@ -343,7 +343,7 @@ export default function DashboardView({ posts }: Props) {
                     <span className="text-xs text-[var(--text-1)] font-semibold tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(views)}</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1 bg-white/[0.04] rounded-full overflow-hidden">
+                    <div className="flex-1 h-1 bg-[rgba(247,231,206,0.04)] rounded-full overflow-hidden">
                       <div
                         className="h-full rounded-full transition-all duration-500"
                         style={{ width: `${pct}%`, background: color, opacity: 0.6 }}

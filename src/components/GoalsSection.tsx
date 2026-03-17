@@ -89,8 +89,8 @@ export default function GoalsSection({ posts }: Props) {
   const hasAnyGoal = goals.length > 0;
 
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/[0.05] flex items-center justify-between">
+    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)] flex items-center justify-between">
         <div>
           <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Goals</h3>
           <p className="text-[11px] text-[var(--text-3)] mt-0.5">Track progress toward your targets</p>
@@ -100,7 +100,7 @@ export default function GoalsSection({ posts }: Props) {
             <>
               <button
                 onClick={() => setEditing(false)}
-                className="text-[11px] text-[var(--text-2)] border border-white/[0.08] px-3 py-1.5 rounded-lg hover:border-white/[0.14] transition-colors"
+                className="text-[11px] text-[var(--text-2)] border border-[rgba(247,231,206,0.08)] px-3 py-1.5 rounded-lg hover:border-[rgba(247,231,206,0.14)] transition-colors"
               >
                 Cancel
               </button>
@@ -115,7 +115,7 @@ export default function GoalsSection({ posts }: Props) {
           ) : (
             <button
               onClick={openEdit}
-              className="text-[11px] text-[var(--text-2)] border border-white/[0.08] px-3 py-1.5 rounded-lg hover:text-[var(--text-1)] hover:border-white/[0.14] transition-colors"
+              className="text-[11px] text-[var(--text-2)] border border-[rgba(247,231,206,0.08)] px-3 py-1.5 rounded-lg hover:text-[var(--text-1)] hover:border-[rgba(247,231,206,0.14)] transition-colors"
             >
               {hasAnyGoal ? 'Edit Goals' : 'Set Goals'}
             </button>
@@ -141,7 +141,7 @@ export default function GoalsSection({ posts }: Props) {
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-white/[0.04]">
+            <tbody className="divide-y divide-[rgba(247,231,206,0.04)]">
               {ALL_PLATFORMS.map((pl) => (
                 <tr key={pl}>
                   <td className="py-3 pr-4">
@@ -162,7 +162,7 @@ export default function GoalsSection({ posts }: Props) {
                           setDraft((d) => ({ ...d, [pl]: { ...d[pl], [m]: e.target.value } }))
                         }
                         placeholder="—"
-                        className="w-28 bg-[var(--bg-elevated)] border border-white/[0.08] rounded-lg px-2.5 py-1.5 text-[12px] text-[var(--text-1)] focus:outline-none focus:border-[var(--gold-border)] placeholder:text-[var(--text-3)] tabular-nums"
+                        className="w-28 bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.08)] rounded-lg px-2.5 py-1.5 text-[12px] text-[var(--text-1)] focus:outline-none focus:border-[var(--gold-border)] placeholder:text-[var(--text-3)] tabular-nums"
                       />
                     </td>
                   ))}
@@ -182,7 +182,7 @@ export default function GoalsSection({ posts }: Props) {
           </p>
         </div>
       ) : (
-        <div className="divide-y divide-white/[0.04]">
+        <div className="divide-y divide-[rgba(247,231,206,0.04)]">
           {ALL_PLATFORMS.map((pl) => {
             const platformGoals = goalsMap[pl];
             if (!platformGoals || Object.keys(platformGoals).length === 0) return null;
@@ -203,7 +203,7 @@ export default function GoalsSection({ posts }: Props) {
                     const isFollowers = m === 'followers';
                     const pct = isFollowers ? 0 : Math.min((current / target) * 100, 100);
                     const barColor =
-                      pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444';
+                      pct >= 80 ? '#F7E7CE' : pct >= 50 ? 'rgba(247,231,206,0.60)' : 'rgba(247,231,206,0.38)';
                     return (
                       <div key={m}>
                         <div className="flex items-center justify-between mb-1.5 text-[11px]">
@@ -228,7 +228,7 @@ export default function GoalsSection({ posts }: Props) {
                             Follower data unavailable from CSV imports
                           </p>
                         ) : (
-                          <div className="h-1.5 bg-white/[0.04] rounded-full overflow-hidden">
+                          <div className="h-1.5 bg-[rgba(247,231,206,0.04)] rounded-full overflow-hidden">
                             <div
                               className="h-full rounded-full transition-all duration-700"
                               style={{ width: `${pct}%`, background: barColor }}

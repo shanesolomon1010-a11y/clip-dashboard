@@ -28,15 +28,15 @@ export default function TranscriberView() {
 
       {/* Transcript output */}
       {transcript && (
-        <div className="bg-[var(--bg-elevated)] border border-white/[0.06] rounded-2xl overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.05]">
+        <div className="bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(247,231,206,0.05)]">
             <div>
               <h2 className="text-[15px] font-semibold text-[var(--text-1)]">Transcript</h2>
               <p className="text-[11px] text-[var(--text-3)] mt-0.5">{transcript.split(/\s+/).filter(Boolean).length} words</p>
             </div>
             <button
               onClick={copy}
-              className="px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-white/[0.06] border border-white/[0.08] text-[var(--text-2)] hover:text-[var(--text-1)] transition-colors"
+              className="px-3 py-1.5 rounded-lg text-[12px] font-semibold bg-[rgba(247,231,206,0.06)] border border-[rgba(247,231,206,0.08)] text-[var(--text-2)] hover:text-[var(--text-1)] transition-colors"
             >
               {copied ? 'Copied!' : 'Copy'}
             </button>

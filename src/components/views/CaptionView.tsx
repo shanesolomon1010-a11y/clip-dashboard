@@ -108,11 +108,11 @@ export default function CaptionView() {
   return (
     <div className="p-5 max-w-3xl space-y-5">
       {/* Generator card */}
-      <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5 space-y-4">
+      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5 space-y-4">
         <h2 className="text-[15px] font-semibold text-[var(--text-1)]">Caption Generator</h2>
 
         {noKey && (
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[12px] text-amber-400">
+          <div className="p-3 rounded-xl bg-[var(--gold-dim)] border border-[var(--gold-border)] text-[12px] text-[var(--gold)]">
             No API key configured. Set <strong>NEXT_PUBLIC_ANTHROPIC_API_KEY</strong> in your environment variables and redeploy.
           </div>
         )}
@@ -128,7 +128,7 @@ export default function CaptionView() {
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe your clip — what happens, the vibe, key moments"
             rows={3}
-            className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-3 text-sm text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] resize-none transition-colors"
+            className="w-full bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl px-3.5 py-3 text-sm text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] resize-none transition-colors"
           />
         </div>
 
@@ -146,7 +146,7 @@ export default function CaptionView() {
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                   platform === p
                     ? 'bg-[var(--gold-dim)] border-[var(--gold-border)] text-[var(--gold)]'
-                    : 'border-white/[0.08] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-white/[0.15]'
+                    : 'border-[rgba(247,231,206,0.08)] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-[rgba(247,231,206,0.15)]'
                 }`}
               >
                 {p}
@@ -169,7 +169,7 @@ export default function CaptionView() {
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
                   tone === t
                     ? 'bg-[var(--gold-dim)] border-[var(--gold-border)] text-[var(--gold)]'
-                    : 'border-white/[0.08] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-white/[0.15]'
+                    : 'border-[rgba(247,231,206,0.08)] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-[rgba(247,231,206,0.15)]'
                 }`}
               >
                 {t}
@@ -189,33 +189,33 @@ export default function CaptionView() {
         </button>
 
         {error && (
-          <p className="text-[12px] text-red-400">{error}</p>
+          <p className="text-[12px] text-[var(--text-2)]">{error}</p>
         )}
 
         {/* Output */}
         {caption && (
           <div className="space-y-2">
             <div className="relative">
-              <pre data-testid="caption-output" className="w-full bg-white/[0.04] border border-white/[0.08] rounded-xl px-3.5 py-3 text-sm text-[var(--text-1)] whitespace-pre-wrap font-sans leading-relaxed pr-16">
+              <pre data-testid="caption-output" className="w-full bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl px-3.5 py-3 text-sm text-[var(--text-1)] whitespace-pre-wrap font-sans leading-relaxed pr-16">
                 {caption}
               </pre>
               <button
                 onClick={copy}
-                className="absolute top-2 right-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-white/[0.08] text-[var(--text-2)] hover:text-[var(--text-1)] transition-colors"
+                className="absolute top-2 right-2 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-[rgba(247,231,206,0.08)] text-[var(--text-2)] hover:text-[var(--text-1)] transition-colors"
               >
                 {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
             {saveError && (
-              <p className="text-[11px] text-red-400">{saveError}</p>
+              <p className="text-[11px] text-[var(--text-2)]">{saveError}</p>
             )}
           </div>
         )}
       </div>
 
       {/* History */}
-      <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-white/[0.05]">
+      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+        <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)]">
           <h3 className="text-[15px] font-semibold text-[var(--text-1)]">History</h3>
           <p className="text-[11px] text-[var(--text-3)] mt-0.5">Last 10 captions</p>
         </div>
@@ -228,14 +228,14 @@ export default function CaptionView() {
             No captions generated yet
           </div>
         ) : (
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-[rgba(247,231,206,0.04)]">
             {history.map((c) => (
               <div key={c.id} className="px-5 py-4 space-y-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)]">
                     {c.platform}
                   </span>
-                  <span className="text-[10px] text-[var(--text-3)] border border-white/[0.06] px-2 py-0.5 rounded-md">
+                  <span className="text-[10px] text-[var(--text-3)] border border-[rgba(247,231,206,0.06)] px-2 py-0.5 rounded-md">
                     {c.tone}
                   </span>
                   <span className="text-[10px] text-[var(--text-3)] ml-auto">

@@ -8,27 +8,27 @@
 }
 
 :root {
-  /* Surfaces — warm near-black, not cold blue */
-  --bg-base:       #0a0a0a;
-  --bg-elevated:   #111111;
-  --bg-card:       #161616;
-  --bg-hover:      #1d1d1d;
+  /* Surfaces — Deep Forest green */
+  --bg-base:       #102C26;
+  --bg-elevated:   #132e28;
+  --bg-card:       #193830;
+  --bg-hover:      #1e4038;
 
-  /* Borders */
-  --border:        rgba(255, 255, 255, 0.06);
-  --border-md:     rgba(255, 255, 255, 0.09);
-  --border-hi:     rgba(255, 255, 255, 0.14);
+  /* Borders — champagne opacity */
+  --border:        rgba(247, 231, 206, 0.07);
+  --border-md:     rgba(247, 231, 206, 0.11);
+  --border-hi:     rgba(247, 231, 206, 0.18);
 
-  /* Gold accent — the signature */
-  --gold:          #d4922a;
-  --gold-hi:       #e8a838;
-  --gold-dim:      rgba(212, 146, 42, 0.07);
-  --gold-border:   rgba(212, 146, 42, 0.20);
+  /* Champagne accent (replaces gold) */
+  --gold:          #F7E7CE;
+  --gold-hi:       #F7E7CE;
+  --gold-dim:      rgba(247, 231, 206, 0.12);
+  --gold-border:   rgba(247, 231, 206, 0.20);
 
-  /* Text — slightly warm whites */
-  --text-1:        #f2ede6;
-  --text-2:        #7a7068;
-  --text-3:        #47403a;
+  /* Text — champagne hierarchy */
+  --text-1:        #F7E7CE;
+  --text-2:        rgba(247, 231, 206, 0.65);
+  --text-3:        rgba(247, 231, 206, 0.38);
 
   /* Font families */
   --font-serif:    'Instrument Serif', Georgia, serif;
@@ -48,20 +48,20 @@ body {
   box-sizing: border-box;
 }
 
-/* Hair-thin scrollbar — barely visible */
+/* Hair-thin scrollbar */
 ::-webkit-scrollbar       { width: 3px; height: 3px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.07);
+  background: rgba(247, 231, 206, 0.07);
   border-radius: 99px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(247, 231, 206, 0.14);
 }
 
-/* Focus ring — gold */
+/* Focus ring — champagne */
 :focus-visible {
-  outline: 1.5px solid rgba(212, 146, 42, 0.6);
+  outline: 1.5px solid rgba(247, 231, 206, 0.50);
   outline-offset: 2px;
 }
 

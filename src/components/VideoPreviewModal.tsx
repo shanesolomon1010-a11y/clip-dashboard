@@ -113,7 +113,7 @@ function VideoPlayer({
   }
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4">
+    <div className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] p-5 space-y-4">
       <p className="text-[12px] text-[var(--text-2)] leading-relaxed">
         No video URL — add a direct video link to this post to enable preview
       </p>
@@ -124,13 +124,13 @@ function VideoPlayer({
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
           placeholder="Paste YouTube, TikTok, or Instagram URL…"
-          className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-lg px-3 py-2 text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-3)] outline-none focus:border-white/[0.16] transition-colors"
+          className="flex-1 bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-lg px-3 py-2 text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-3)] outline-none focus:border-[rgba(247,231,206,0.16)] transition-colors"
         />
         <button
           data-testid="save-url-btn"
           onClick={handleSave}
           disabled={saving || !urlInput.trim()}
-          className="px-4 py-2 bg-white/[0.08] hover:bg-white/[0.12] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-[12px] font-medium text-[var(--text-1)] transition-colors"
+          className="px-4 py-2 bg-[rgba(247,231,206,0.08)] hover:bg-[rgba(247,231,206,0.12)] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-[12px] font-medium text-[var(--text-1)] transition-colors"
         >
           {saving ? 'Saving…' : 'Save'}
         </button>
@@ -160,14 +160,14 @@ export default function VideoPreviewModal({ post, onClose, onUrlSaved }: Props) 
     >
       <div
         data-testid="video-modal"
-        className="relative bg-[var(--bg-card)] border border-white/[0.08] rounded-2xl w-full max-w-xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]"
+        className="relative bg-[var(--bg-card)] border border-[rgba(247,231,206,0.08)] rounded-2xl w-full max-w-xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* X button */}
         <button
           data-testid="modal-close"
           onClick={onClose}
-          className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-white/[0.06] hover:bg-white/[0.1] transition-colors text-[var(--text-3)]"
+          className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-[rgba(247,231,206,0.06)] hover:bg-[rgba(247,231,206,0.1)] transition-colors text-[var(--text-3)]"
         >
           <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="w-3.5 h-3.5">
             <path d="M4 4l8 8M12 4l-8 8" />

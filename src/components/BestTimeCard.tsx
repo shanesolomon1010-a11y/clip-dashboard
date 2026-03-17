@@ -45,8 +45,8 @@ export default function BestTimeCard({ posts }: Props) {
   const activePlatforms = ALL_PLATFORMS.filter((pl) => stats[pl].total >= 3);
 
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-white/[0.05]">
+    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)]">
         <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Best Time to Post</h3>
         <p className="text-[11px] text-[var(--text-3)] mt-0.5">Avg engagement rate by day of week</p>
       </div>
@@ -104,7 +104,7 @@ export default function BestTimeCard({ posts }: Props) {
                             className="text-[9px] tabular-nums leading-none"
                             style={{
                               fontFamily: 'var(--font-mono)',
-                              color: intensity > 0.55 ? 'rgba(255,255,255,0.9)' : 'var(--text-3)',
+                              color: intensity > 0.55 ? 'rgba(247,231,206,0.9)' : 'var(--text-3)',
                             }}
                           >
                             {rate.toFixed(1)}%
@@ -124,7 +124,7 @@ export default function BestTimeCard({ posts }: Props) {
             );
           })}
 
-          <p className="text-[10px] text-[var(--text-3)] border-t border-white/[0.04] pt-3 mt-2">
+          <p className="text-[10px] text-[var(--text-3)] border-t border-[rgba(247,231,206,0.04)] pt-3 mt-2">
             Based on day-of-week patterns. Time-of-day analysis requires platform API access.
           </p>
         </div>

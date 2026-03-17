@@ -35,7 +35,7 @@ export default function PlatformBarChart({ posts, activePlatforms }: Props) {
     const d = payload[0].payload;
     return (
       <div
-        className="border border-white/[0.09] rounded-xl shadow-2xl px-3 py-2.5"
+        className="border border-[rgba(247,231,206,0.09)] rounded-xl shadow-2xl px-3 py-2.5"
         style={{ background: '#1d1d1d', fontFamily: 'var(--font-mono)', fontSize: 11 }}
       >
         <div className="flex items-center gap-2 mb-1.5">
@@ -50,7 +50,7 @@ export default function PlatformBarChart({ posts, activePlatforms }: Props) {
   };
 
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5">
+    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-5">
         <h2
           className="text-[15px] font-semibold text-[var(--text-1)] leading-none"
@@ -64,7 +64,7 @@ export default function PlatformBarChart({ posts, activePlatforms }: Props) {
           layout="vertical"
           margin={{ top: 0, right: 8, left: 0, bottom: 0 }}
         >
-          <CartesianGrid strokeDasharray="2 6" stroke="rgba(255,255,255,0.03)" vertical={false} horizontal={true} />
+          <CartesianGrid strokeDasharray="2 6" stroke="rgba(247,231,206,0.03)" vertical={false} horizontal={true} />
           <XAxis
             type="number"
             tickFormatter={formatViews}
@@ -80,7 +80,7 @@ export default function PlatformBarChart({ posts, activePlatforms }: Props) {
             tickLine={false}
             width={76}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.02)' }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(247,231,206,0.02)' }} />
           <Bar dataKey="views" radius={[0, 3, 3, 0]} maxBarSize={20}>
             {totals.map((entry) => (
               <Cell key={entry.platform} fill={PLATFORM_COLORS[entry.platform]} fillOpacity={0.75} />

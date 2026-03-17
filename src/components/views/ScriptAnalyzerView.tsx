@@ -14,7 +14,7 @@ function ScoreRing({ score }: { score: number }) {
   return (
     <div className="relative flex items-center justify-center">
       <svg width="120" height="120" viewBox="0 0 120 120" className="-rotate-90">
-        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="8" />
+        <circle cx="60" cy="60" r={r} fill="none" stroke="rgba(247,231,206,0.06)" strokeWidth="8" />
         <circle
           cx="60" cy="60" r={r} fill="none"
           stroke="var(--gold)" strokeWidth="8"
@@ -33,16 +33,16 @@ function ScoreRing({ score }: { score: number }) {
 }
 
 const HOOK_COLORS: Record<string, string> = {
-  weak:      'bg-red-500/15 text-red-400 border-red-500/25',
-  moderate:  'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  strong:    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  excellent: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+  weak:      'bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] border-[rgba(247,231,206,0.12)]',
+  moderate:  'bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] border-[rgba(247,231,206,0.10)]',
+  strong:    'bg-[var(--gold-dim)] text-[var(--gold)] border-[var(--gold-border)]',
+  excellent: 'bg-[rgba(247,231,206,0.12)] text-[var(--gold)] border-[rgba(247,231,206,0.20)]',
 };
 
 const LENGTH_COLORS: Record<string, string> = {
-  too_short: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
-  ideal:     'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  too_long:  'bg-orange-500/10 text-orange-400 border-orange-500/20',
+  too_short: 'bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] border-[rgba(247,231,206,0.10)]',
+  ideal:     'bg-[var(--gold-dim)] text-[var(--gold)] border-[var(--gold-border)]',
+  too_long:  'bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] border-[rgba(247,231,206,0.10)]',
 };
 
 const LENGTH_LABELS: Record<string, string> = {
@@ -129,7 +129,7 @@ export default function ScriptAnalyzerView() {
       {analysis && (
         <div className="space-y-8">
           {/* Overall score */}
-          <div className="bg-[var(--bg-elevated)] border border-white/[0.06] rounded-xl p-6">
+          <div className="bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl p-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
               <ScoreRing score={analysis.overallScore} />
               <div className="flex-1 space-y-3">
@@ -145,7 +145,7 @@ export default function ScriptAnalyzerView() {
                   <span className={`text-[11px] font-semibold px-2 py-1 rounded border ${HOOK_COLORS[analysis.hookRating]}`}>
                     Hook: {analysis.hookRating.charAt(0).toUpperCase() + analysis.hookRating.slice(1)}
                   </span>
-                  <span className="text-[11px] font-semibold px-2 py-1 rounded border bg-white/[0.05] text-[var(--text-2)] border-white/10">
+                  <span className="text-[11px] font-semibold px-2 py-1 rounded border bg-[rgba(247,231,206,0.05)] text-[var(--text-2)] border-[rgba(247,231,206,0.10)]">
                     {analysis.estimatedDuration}
                   </span>
                   <span className={`text-[11px] font-semibold px-2 py-1 rounded border ${LENGTH_COLORS[analysis.scriptLength]}`}>
@@ -153,8 +153,8 @@ export default function ScriptAnalyzerView() {
                   </span>
                   <span className={`text-[11px] font-semibold px-2 py-1 rounded border ${
                     analysis.ctaPresent
-                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                      : 'bg-red-500/10 text-red-400 border-red-500/20'
+                      ? 'bg-[var(--gold-dim)] text-[var(--gold)] border-[var(--gold-border)]'
+                      : 'bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] border-[rgba(247,231,206,0.12)]'
                   }`}>
                     CTA: {analysis.ctaPresent ? 'Present' : 'Missing'}
                   </span>
@@ -190,13 +190,13 @@ export default function ScriptAnalyzerView() {
             <button
               onClick={handleSave}
               disabled={saving || saved}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-white/[0.10] bg-white/[0.04] text-[13px] font-semibold text-[var(--text-2)] hover:bg-white/[0.07] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-lg border border-[rgba(247,231,206,0.10)] bg-[rgba(247,231,206,0.04)] text-[13px] font-semibold text-[var(--text-2)] hover:bg-[rgba(247,231,206,0.07)] disabled:opacity-50 disabled:cursor-not-allowed transition-all"
             >
-              {saving && <span className="w-3.5 h-3.5 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />}
+              {saving && <span className="w-3.5 h-3.5 border-2 border-[rgba(247,231,206,0.20)] border-t-[rgba(247,231,206,0.60)] rounded-full animate-spin" />}
               {saved ? '✓ Analysis Saved' : saving ? 'Saving…' : 'Save Analysis'}
             </button>
-            {saved && <span className="text-[12px] text-emerald-400">Saved to your history.</span>}
-            {saveError && <span className="text-[12px] text-red-400">{saveError}</span>}
+            {saved && <span className="text-[12px] text-[var(--gold)]">Saved to your history.</span>}
+            {saveError && <span className="text-[12px] text-[var(--text-2)]">{saveError}</span>}
           </div>
         </div>
       )}

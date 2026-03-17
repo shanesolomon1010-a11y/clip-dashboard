@@ -45,10 +45,10 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
     if (!active || !payload?.length) return null;
     return (
       <div
-        className="border border-white/[0.09] rounded-xl shadow-2xl px-3 py-2.5 min-w-[140px]"
+        className="border border-[rgba(247,231,206,0.09)] rounded-xl shadow-2xl px-3 py-2.5 min-w-[140px]"
         style={{ background: '#1d1d1d', fontFamily: 'var(--font-mono)', fontSize: 11 }}
       >
-        <p className="text-[var(--text-3)] mb-2 pb-2 border-b border-white/[0.06]">{label}</p>
+        <p className="text-[var(--text-3)] mb-2 pb-2 border-b border-[rgba(247,231,206,0.06)]">{label}</p>
         <div className="space-y-1.5">
           {payload.map((entry) => (
             <div key={entry.dataKey} className="flex items-center justify-between gap-4">
@@ -65,7 +65,7 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
   };
 
   return (
-    <div className="bg-[var(--bg-card)] border border-white/[0.06] rounded-2xl p-5">
+    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-[15px] font-semibold text-[var(--text-1)] leading-none">
           Views Over Time
@@ -86,7 +86,7 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
               </linearGradient>
             ))}
           </defs>
-          <CartesianGrid strokeDasharray="2 6" stroke="rgba(255,255,255,0.03)" vertical={false} fill="none" />
+          <CartesianGrid strokeDasharray="2 6" stroke="rgba(247,231,206,0.03)" vertical={false} fill="none" />
           <XAxis
             dataKey="date"
             tick={{ fill: '#47403a', fontSize: 10, fontFamily: 'JetBrains Mono' }}
@@ -102,7 +102,7 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
             tickLine={false}
             width={40}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(255,255,255,0.05)', strokeWidth: 1 }} />
+          <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(247,231,206,0.05)', strokeWidth: 1 }} />
           <Legend
             iconType="circle"
             iconSize={5}

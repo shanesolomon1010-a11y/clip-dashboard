@@ -13,11 +13,11 @@ const PLATFORM_META: Record<string, { name: string; emoji: string; color: string
 };
 
 function deltaBg(delta: number): string {
-  if (delta >= 10)  return 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30';
-  if (delta >= 1)   return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20';
-  if (delta === 0)  return 'bg-white/10 text-[var(--text-3)] border-white/10';
-  if (delta >= -9)  return 'bg-orange-500/10 text-orange-400 border-orange-500/20';
-  return 'bg-red-500/15 text-red-400 border-red-500/25';
+  if (delta >= 10)  return 'bg-[rgba(247,231,206,0.12)] text-[var(--gold)] border-[rgba(247,231,206,0.20)]';
+  if (delta >= 1)   return 'bg-[var(--gold-dim)] text-[var(--gold)] border-[var(--gold-border)]';
+  if (delta === 0)  return 'bg-[rgba(247,231,206,0.10)] text-[var(--text-3)] border-[rgba(247,231,206,0.10)]';
+  if (delta >= -9)  return 'bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] border-[rgba(247,231,206,0.10)]';
+  return 'bg-[rgba(247,231,206,0.06)] text-[var(--text-2)] border-[rgba(247,231,206,0.12)]';
 }
 
 interface Props {
@@ -32,7 +32,7 @@ export default function PlatformScoreCard({ data }: Props) {
 
   return (
     <div
-      className="bg-[var(--bg-elevated)] rounded-xl overflow-hidden flex flex-col border border-white/[0.06]"
+      className="bg-[var(--bg-elevated)] rounded-xl overflow-hidden flex flex-col border border-[rgba(247,231,206,0.06)]"
       style={{ borderTop: `3px solid ${color}` }}
     >
       <div className="px-4 pt-4 pb-3 flex flex-col gap-3 flex-1">
@@ -59,7 +59,7 @@ export default function PlatformScoreCard({ data }: Props) {
             </span>
             <span className="text-[var(--text-3)] text-[13px] mb-2">/100</span>
           </div>
-          <div className="bg-white/[0.06] rounded-full h-1.5 overflow-hidden">
+          <div className="bg-[rgba(247,231,206,0.06)] rounded-full h-1.5 overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-700"
               style={{ width: `${data.score}%`, backgroundColor: color }}
@@ -73,7 +73,7 @@ export default function PlatformScoreCard({ data }: Props) {
         {/* Expand toggle */}
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="flex items-center gap-1 text-[11px] font-semibold text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors mt-auto pt-1 border-t border-white/[0.05] w-full"
+          className="flex items-center gap-1 text-[11px] font-semibold text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors mt-auto pt-1 border-t border-[rgba(247,231,206,0.05)] w-full"
           style={{ color: expanded ? color : undefined }}
         >
           {expanded ? 'Hide breakdown ↑' : 'See breakdown ↓'}
