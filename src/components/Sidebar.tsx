@@ -1,8 +1,8 @@
 'use client';
 
-import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison } from './Icons';
+import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer } from './Icons';
 
-export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'editor' | 'settings';
+export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'editor' | 'settings';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?: string }[] = [
   { id: 'dashboard',   label: 'Dashboard',   icon: <IconDashboard  className="w-4 h-4" /> },
@@ -11,14 +11,15 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
   { id: 'platforms',   label: 'Platforms',   icon: <IconPlatforms  className="w-4 h-4" /> },
   { id: 'comparison',  label: 'Comparison',  icon: <IconComparison className="w-4 h-4" /> },
   { id: 'captions',    label: 'Captions',    icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
-  { id: 'insights',    label: 'AI Insights', icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
-  { id: 'editor',      label: 'Editor',      icon: <IconScissors   className="w-4 h-4" />, badge: 'AI' },
+  { id: 'insights',       label: 'AI Insights',     icon: <IconSparkles        className="w-4 h-4" />, badge: 'AI' },
+  { id: 'scriptAnalyzer', label: 'Script Analyzer', icon: <IconScriptAnalyzer  className="w-4 h-4" />, badge: 'AI' },
+  { id: 'editor',         label: 'Editor',          icon: <IconScissors        className="w-4 h-4" />, badge: 'AI' },
   { id: 'settings',    label: 'Settings',    icon: <IconSettings   className="w-4 h-4" /> },
 ];
 
 const NAV_GROUPS = [
   { label: 'Analytics', items: ['dashboard', 'content', 'analytics', 'platforms', 'comparison'] },
-  { label: 'Tools',     items: ['captions', 'insights', 'editor', 'settings'] },
+  { label: 'Tools',     items: ['captions', 'insights', 'scriptAnalyzer', 'editor', 'settings'] },
 ];
 
 interface Props {

@@ -15,19 +15,21 @@ import EditorView from '@/components/views/EditorView';
 import SettingsView from '@/components/views/SettingsView';
 import ComparisonView from '@/components/views/ComparisonView';
 import CaptionView from '@/components/views/CaptionView';
+import ScriptAnalyzerView from '@/components/views/ScriptAnalyzerView';
 import { VideoModalProvider } from '@/context/VideoModalContext';
 import { FilterProvider } from '@/context/FilterContext';
 
 const NAV_TITLES: Record<NavSection, string> = {
-  dashboard:   'Dashboard',
-  content:     'Content',
-  analytics:   'Analytics',
-  platforms:   'Platforms',
-  comparison:  'Comparison',
-  captions:    'Caption Generator',
-  insights:    'AI Insights',
-  editor:      'Editor',
-  settings:    'Settings',
+  dashboard:      'Dashboard',
+  content:        'Content',
+  analytics:      'Analytics',
+  platforms:      'Platforms',
+  comparison:     'Comparison',
+  captions:       'Caption Generator',
+  insights:       'AI Insights',
+  scriptAnalyzer: 'Script Analyzer',
+  editor:         'Editor',
+  settings:       'Settings',
 };
 
 export default function App() {
@@ -114,7 +116,8 @@ export default function App() {
             {activeNav === 'analytics'  && <AnalyticsView posts={posts} />}
             {activeNav === 'platforms'  && <PlatformsView posts={posts} />}
             {activeNav === 'comparison' && <ComparisonView posts={posts} />}
-            {activeNav === 'captions'   && <CaptionView />}
+            {activeNav === 'captions'        && <CaptionView />}
+            {activeNav === 'scriptAnalyzer' && <ScriptAnalyzerView />}
             {activeNav === 'insights'   && <AIInsightsView posts={posts} />}
             {activeNav === 'editor'     && <EditorView />}
             {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}

@@ -236,3 +236,17 @@ export async function saveCaption(
   const { error } = await supabase.from('captions').insert(row);
   if (error) throw error;
 }
+
+// ── Script analyses ────────────────────────────────────────────────────────────
+
+export async function saveScriptAnalysis(row: {
+  script_text: string;
+  overall_score: number;
+  platform_scores: unknown;
+  platform_breakdowns: unknown;
+  recommendations: unknown;
+  title?: string;
+}): Promise<void> {
+  const { error } = await supabase.from('script_analyses').insert(row);
+  if (error) throw error;
+}
