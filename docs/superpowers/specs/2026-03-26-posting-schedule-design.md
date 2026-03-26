@@ -30,7 +30,7 @@ CREATE TABLE scheduled_posts (
 );
 ```
 
-**Seed data:** 15 rows — one per platform per clip:
+**Seed data:** 16 rows — one per platform per clip:
 - MBM015-CLIP-001 "Your customer data is your only real moat" → yt + ig → 2026-03-26
 - MBM015-CLIP-003 "Audience to angle to format" → yt + ig → 2026-03-27
 - MBM015-CLIP-005 "Why volume-based creative testing fails" → yt + ig → 2026-03-28
@@ -42,6 +42,7 @@ CREATE TABLE scheduled_posts (
 - MBM015-CLIP-004 "Stop testing creative, test insights" → yt + ig → 2026-04-10
 
 **Migration file:** `supabase/migrations/20260326_scheduled_posts.sql`
+The `supabase/migrations/` directory does not yet exist — create it. This file is standalone SQL; run it via the Supabase dashboard SQL editor or `supabase db push` if using the CLI.
 
 ---
 
@@ -71,11 +72,15 @@ interface ScheduledPost {
 }
 ```
 
+`created_at` is intentionally excluded. Use an explicit select: `select('id, clip_code, title, platform, scheduled_date, post_time, status, content_type')`.
+
 **Data grouping:** On mount, fetch all rows from `scheduled_posts`. Group client-side into `Map<string, ScheduledPost[]>` keyed by `scheduled_date` (YYYY-MM-DD).
+
+**TypeScript sequencing note:** `NAV_TITLES` in `page.tsx` is typed `Record<NavSection, string>`. Add `'schedule'` to the `NavSection` union in `Sidebar.tsx` first, then add the `schedule` key to `NAV_TITLES` in `page.tsx` — both changes must land together or TypeScript will error.
 
 ### Modified files
 - `src/components/Icons.tsx` — add `IconCalendar` custom SVG
-- `src/components/Sidebar.tsx` — add `'schedule'` to `NavSection` union, `NAV_ITEMS`, and Analytics group (between `'content'` and `'analytics'`)
+- `src/components/Sidebar.tsx` — add `'schedule'` to `NavSection` union, `NAV_ITEMS`, and the Analytics group items array (see Section 5 for exact order)
 - `src/app/page.tsx` — add `'schedule'` to `NAV_TITLES` and the view render
 
 ---
