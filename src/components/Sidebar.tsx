@@ -1,13 +1,14 @@
 'use client';
 
-import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer, IconTranscriber } from './Icons';
+import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer, IconTranscriber, IconCalendar } from './Icons';
 
-export type NavSection = 'dashboard' | 'content' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'transcriber' | 'editor' | 'settings';
+export type NavSection = 'dashboard' | 'content' | 'schedule' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'transcriber' | 'editor' | 'settings';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?: string }[] = [
   { id: 'dashboard',   label: 'Dashboard',   icon: <IconDashboard  className="w-4 h-4" /> },
-  { id: 'content',     label: 'Content',     icon: <IconContent    className="w-4 h-4" /> },
-  { id: 'analytics',   label: 'Analytics',   icon: <IconAnalytics  className="w-4 h-4" /> },
+  { id: 'content',     label: 'Content',          icon: <IconContent   className="w-4 h-4" /> },
+  { id: 'schedule',    label: 'Posting Schedule',  icon: <IconCalendar  className="w-4 h-4" /> },
+  { id: 'analytics',   label: 'Analytics',         icon: <IconAnalytics className="w-4 h-4" /> },
   { id: 'platforms',   label: 'Platforms',   icon: <IconPlatforms  className="w-4 h-4" /> },
   { id: 'comparison',  label: 'Comparison',  icon: <IconComparison className="w-4 h-4" /> },
   { id: 'captions',    label: 'Captions',    icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
@@ -19,7 +20,7 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', 'content', 'analytics', 'platforms', 'comparison'] },
+  { label: 'Analytics', items: ['dashboard', 'content', 'schedule', 'analytics', 'platforms', 'comparison'] },
   { label: 'Tools',     items: ['captions', 'insights', 'transcriber', 'scriptAnalyzer', 'editor', 'settings'] },
 ];
 
