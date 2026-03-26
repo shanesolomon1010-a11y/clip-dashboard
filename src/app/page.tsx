@@ -17,12 +17,14 @@ import ComparisonView from '@/components/views/ComparisonView';
 import CaptionView from '@/components/views/CaptionView';
 import ScriptAnalyzerView from '@/components/views/ScriptAnalyzerView';
 import TranscriberView from '@/components/views/TranscriberView';
+import PostingScheduleView from '@/components/views/PostingScheduleView';
 import { VideoModalProvider } from '@/context/VideoModalContext';
 import { FilterProvider } from '@/context/FilterContext';
 
 const NAV_TITLES: Record<NavSection, string> = {
   dashboard:      'Dashboard',
   content:        'Content',
+  schedule:       'Posting Schedule',
   analytics:      'Analytics',
   platforms:      'Platforms',
   comparison:     'Comparison',
@@ -115,6 +117,7 @@ export default function App() {
           <main className="flex-1 overflow-y-auto">
             {activeNav === 'dashboard'  && <DashboardView posts={posts} />}
             {activeNav === 'content'    && <ContentView posts={posts} onUpload={handleUpload} onPostUpdate={handlePostUpdate} />}
+            {activeNav === 'schedule'   && <PostingScheduleView />}
             {activeNav === 'analytics'  && <AnalyticsView posts={posts} />}
             {activeNav === 'platforms'  && <PlatformsView posts={posts} />}
             {activeNav === 'comparison' && <ComparisonView posts={posts} />}
