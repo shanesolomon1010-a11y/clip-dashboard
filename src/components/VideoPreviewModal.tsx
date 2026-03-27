@@ -18,21 +18,29 @@ interface Props {
   clipCode?: string;
 }
 
-// ── Video URL helpers ──────────────────────────────────────────────────────────
+// ── Video URL detection ────────────────────────────────────────────────────────
 
-function extractYouTubeId(url: string): string | null {
-  const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
-  if (shortMatch) return shortMatch[1];
-  const shortsMatch = url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
-  if (shortsMatch) return shortsMatch[1];
-  const vMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
-  if (vMatch) return vMatch[1];
+type EmbedInfo =
+  | { type: 'youtube';   id: string }
+  | { type: 'tiktok';    id: string }
+  | { type: 'instagram' }
+  | null;
+
+function detectEmbed(url: string): EmbedInfo {
+  if (url.includes('youtube.com') || url.includes('youtu.be')) {
+    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    if (shortMatch) return { type: 'youtube', id: shortMatch[1] };
+    const shortsMatch = url.match(/\/shorts\/([a-zA-Z0-9_-]{11})/);
+    if (shortsMatch) return { type: 'youtube', id: shortsMatch[1] };
+    const vMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    if (vMatch) return { type: 'youtube', id: vMatch[1] };
+  }
+  if (url.includes('tiktok.com')) {
+    const match = url.match(/\/video\/(\d+)/);
+    if (match) return { type: 'tiktok', id: match[1] };
+  }
+  if (url.includes('instagram.com')) return { type: 'instagram' };
   return null;
-}
-
-function extractTikTokId(url: string): string | null {
-  const match = url.match(/\/video\/(\d+)/);
-  return match ? match[1] : null;
 }
 
 function InstagramEmbed({ url }: { url: string }) {
@@ -72,39 +80,36 @@ function VideoPlayer({
   const [urlInput, setUrlInput] = useState('');
   const [saving, setSaving] = useState(false);
   const url = post.url ?? '';
+  const embed = detectEmbed(url);
 
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    const videoId = extractYouTubeId(url);
-    if (videoId) {
-      return (
-        <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-          <iframe
-            src={`https://www.youtube.com/embed/${videoId}`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="w-full h-full"
-          />
-        </div>
-      );
-    }
+  if (embed?.type === 'youtube') {
+    return (
+      <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
+        <iframe
+          title="YouTube video"
+          src={`https://www.youtube.com/embed/${embed.id}`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="w-full h-full"
+        />
+      </div>
+    );
   }
 
-  if (url.includes('tiktok.com')) {
-    const videoId = extractTikTokId(url);
-    if (videoId) {
-      return (
-        <div className="w-full rounded-xl overflow-hidden bg-black flex items-center justify-center" style={{ aspectRatio: '9/16', maxHeight: 400 }}>
-          <iframe
-            src={`https://www.tiktok.com/embed/v2/${videoId}`}
-            allow="autoplay"
-            className="w-full h-full"
-          />
-        </div>
-      );
-    }
+  if (embed?.type === 'tiktok') {
+    return (
+      <div className="w-full rounded-xl overflow-hidden bg-black flex items-center justify-center" style={{ aspectRatio: '9/16', maxHeight: 400 }}>
+        <iframe
+          title="TikTok video"
+          src={`https://www.tiktok.com/embed/v2/${embed.id}`}
+          allow="autoplay"
+          className="w-full h-full"
+        />
+      </div>
+    );
   }
 
-  if (url.includes('instagram.com')) {
+  if (embed?.type === 'instagram') {
     return <InstagramEmbed url={url} />;
   }
 
@@ -144,54 +149,49 @@ function VideoPlayer({
 
 // ── MiniPlayer: used in clip detail mode ──────────────────────────────────────
 
+const miniPlaceholder = (clipCode: string) => (
+  <div
+    className="w-full rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] flex flex-col items-center justify-center gap-2"
+    style={{ height: 280 }}
+  >
+    <p className="text-[11px] font-mono text-[var(--text-3)]">{clipCode}</p>
+    <p className="text-[12px] text-[var(--text-2)]">Video URL not set yet</p>
+  </div>
+);
+
 function MiniPlayer({ url, clipCode }: { url: string | null; clipCode: string }) {
-  if (!url) {
+  if (!url) return miniPlaceholder(clipCode);
+
+  const embed = detectEmbed(url);
+
+  if (embed?.type === 'youtube') {
     return (
-      <div
-        className="w-full rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] flex flex-col items-center justify-center gap-2"
-        style={{ height: 280 }}
-      >
-        <p className="text-[11px] font-mono text-[var(--text-3)]">{clipCode}</p>
-        <p className="text-[12px] text-[var(--text-2)]">Video URL not set yet</p>
+      <div className="w-full rounded-xl overflow-hidden bg-black" style={{ height: 280 }}>
+        <iframe
+          title="YouTube video"
+          src={`https://www.youtube.com/embed/${embed.id}`}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          className="w-full h-full"
+        />
       </div>
     );
   }
 
-  if (url.includes('youtube.com') || url.includes('youtu.be')) {
-    const videoId = extractYouTubeId(url);
-    if (videoId) {
-      return (
-        <div className="w-full rounded-xl overflow-hidden bg-black" style={{ height: 280 }}>
-          <iframe
-            src={`https://www.youtube.com/embed/${videoId}`}
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-            className="w-full h-full"
-          />
-        </div>
-      );
-    }
+  if (embed?.type === 'tiktok') {
+    return (
+      <div className="w-full rounded-xl overflow-hidden bg-black flex items-center justify-center" style={{ height: 280 }}>
+        <iframe
+          title="TikTok video"
+          src={`https://www.tiktok.com/embed/v2/${embed.id}`}
+          allow="autoplay"
+          className="w-full h-full"
+        />
+      </div>
+    );
   }
 
-  if (url.includes('tiktok.com')) {
-    const videoId = extractTikTokId(url);
-    if (videoId) {
-      return (
-        <div
-          className="w-full rounded-xl overflow-hidden bg-black flex items-center justify-center"
-          style={{ height: 280 }}
-        >
-          <iframe
-            src={`https://www.tiktok.com/embed/v2/${videoId}`}
-            allow="autoplay"
-            className="w-full h-full"
-          />
-        </div>
-      );
-    }
-  }
-
-  if (url.includes('instagram.com')) {
+  if (embed?.type === 'instagram') {
     return (
       <div style={{ height: 280, overflow: 'hidden' }} className="rounded-xl">
         <InstagramEmbed url={url} />
@@ -199,16 +199,7 @@ function MiniPlayer({ url, clipCode }: { url: string | null; clipCode: string })
     );
   }
 
-  // Unrecognized URL — treat as no URL
-  return (
-    <div
-      className="w-full rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] flex flex-col items-center justify-center gap-2"
-      style={{ height: 280 }}
-    >
-      <p className="text-[11px] font-mono text-[var(--text-3)]">{clipCode}</p>
-      <p className="text-[12px] text-[var(--text-2)]">Video URL not set yet</p>
-    </div>
-  );
+  return miniPlaceholder(clipCode);
 }
 
 // ── CopyButton ────────────────────────────────────────────────────────────────
