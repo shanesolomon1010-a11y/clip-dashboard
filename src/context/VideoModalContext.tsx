@@ -5,7 +5,7 @@ import { UnifiedPost } from '@/types';
 import VideoPreviewModal from '@/components/VideoPreviewModal';
 
 interface VideoModalContextValue {
-  open: (post: UnifiedPost, clipCode?: string) => void;
+  open: (post: UnifiedPost, clipCode: string) => void;
 }
 
 const VideoModalContext = createContext<VideoModalContextValue | null>(null);
@@ -18,19 +18,13 @@ export function useVideoModal(): VideoModalContextValue {
 
 interface ProviderProps {
   children: React.ReactNode;
-  onUrlSaved: (platform: string, title: string, date: string, url: string) => void;
 }
 
-export function VideoModalProvider({ children, onUrlSaved }: ProviderProps) {
+export function VideoModalProvider({ children }: ProviderProps) {
   const [selectedPost, setSelectedPost] = useState<UnifiedPost | null>(null);
-  const [selectedClipCode, setSelectedClipCode] = useState<string | undefined>(undefined);
+  const [selectedClipCode, setSelectedClipCode] = useState<string>('');
 
-  async function handleUrlSaved(platform: string, title: string, date: string, url: string) {
-    await onUrlSaved(platform, title, date, url);
-    setSelectedPost((prev) => (prev ? { ...prev, url } : null));
-  }
-
-  function openModal(post: UnifiedPost, clipCode?: string) {
+  function openModal(post: UnifiedPost, clipCode: string) {
     setSelectedPost(post);
     setSelectedClipCode(clipCode);
   }
@@ -41,8 +35,7 @@ export function VideoModalProvider({ children, onUrlSaved }: ProviderProps) {
       {selectedPost && (
         <VideoPreviewModal
           post={selectedPost}
-          onClose={() => { setSelectedPost(null); setSelectedClipCode(undefined); }}
-          onUrlSaved={handleUrlSaved}
+          onClose={() => { setSelectedPost(null); setSelectedClipCode(''); }}
           clipCode={selectedClipCode}
         />
       )}

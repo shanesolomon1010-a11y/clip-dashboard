@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { UnifiedPost } from '@/types';
-import { getLatestPostsPerClip, upsertPosts, updatePostUrl } from '@/lib/db';
+import { getLatestPostsPerClip, upsertPosts } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
 import DashboardView from '@/components/views/DashboardView';
 import ContentView from '@/components/views/ContentView';
@@ -66,17 +66,6 @@ export default function App() {
     );
   };
 
-  const handleUrlSaved = async (platform: string, title: string, date: string, url: string) => {
-    await updatePostUrl(platform, title, date, url);
-    setPosts((prev) =>
-      prev.map((p) =>
-        p.platform === platform && p.title === title && p.date === date
-          ? { ...p, url }
-          : p
-      )
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-base)]">
@@ -90,7 +79,7 @@ export default function App() {
 
   return (
     <FilterProvider>
-    <VideoModalProvider onUrlSaved={handleUrlSaved}>
+    <VideoModalProvider>
       <div className="flex h-screen overflow-hidden bg-[var(--bg-base)] text-white">
         <Sidebar active={activeNav} onNavigate={setActiveNav} />
 

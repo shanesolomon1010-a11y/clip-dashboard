@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { UnifiedPost, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
+import { UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { fetchClipDetails, ClipDetail, fetchClipStats, ClipStats } from '@/lib/db';
 
@@ -14,8 +14,7 @@ declare global {
 interface Props {
   post: UnifiedPost;
   onClose: () => void;
-  onUrlSaved: (platform: string, title: string, date: string, url: string) => void;
-  clipCode?: string;
+  clipCode: string;
 }
 
 // ── Video URL detection ────────────────────────────────────────────────────────
@@ -59,72 +58,6 @@ function InstagramEmbed({ url }: { url: string }) {
         data-instgrm-version="14"
         style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
       />
-    </div>
-  );
-}
-
-// ── VideoPlayer: used in legacy player-only mode (no clipCode) ─────────────────
-
-function VideoPlayer({
-  post,
-  onUrlSaved,
-}: {
-  post: UnifiedPost;
-  onUrlSaved: Props['onUrlSaved'];
-}) {
-  const [urlInput, setUrlInput] = useState('');
-  const [saving, setSaving] = useState(false);
-  const url = post.url ?? '';
-  const embed = detectEmbed(url);
-
-  if (embed?.type === 'youtube') {
-    return (
-      <div className="aspect-video w-full rounded-xl overflow-hidden bg-black">
-        <iframe
-          title="YouTube video"
-          src={`https://www.youtube.com/embed/${embed.id}`}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          className="w-full h-full"
-        />
-      </div>
-    );
-  }
-
-  if (embed?.type === 'instagram') {
-    return <InstagramEmbed url={url} />;
-  }
-
-  async function handleSave() {
-    if (!urlInput.trim()) return;
-    setSaving(true);
-    await onUrlSaved(post.platform, post.title, post.date, urlInput.trim());
-    setSaving(false);
-  }
-
-  return (
-    <div className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] p-5 space-y-4">
-      <p className="text-[12px] text-[var(--text-2)] leading-relaxed">
-        No video URL — add a direct video link to this post to enable preview
-      </p>
-      <div className="flex gap-2">
-        <input
-          data-testid="url-input"
-          type="url"
-          value={urlInput}
-          onChange={(e) => setUrlInput(e.target.value)}
-          placeholder="Paste YouTube or Instagram URL…"
-          className="flex-1 bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-lg px-3 py-2 text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-3)] outline-none focus:border-[rgba(247,231,206,0.16)] transition-colors"
-        />
-        <button
-          data-testid="save-url-btn"
-          onClick={handleSave}
-          disabled={saving || !urlInput.trim()}
-          className="px-4 py-2 bg-[rgba(247,231,206,0.08)] hover:bg-[rgba(247,231,206,0.12)] disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-[12px] font-medium text-[var(--text-1)] transition-colors"
-        >
-          {saving ? 'Saving…' : 'Save'}
-        </button>
-      </div>
     </div>
   );
 }
@@ -275,7 +208,7 @@ function ClipDetailBody({ detail }: { detail: ClipDetail }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function VideoPreviewModal({ post, onClose, onUrlSaved, clipCode }: Props) {
+export default function VideoPreviewModal({ post, onClose, clipCode }: Props) {
   const [clipDetail, setClipDetail] = useState<ClipDetail | null>(null);
   const [clipLoading, setClipLoading] = useState(false);
   const [clipFetched, setClipFetched] = useState(false);
@@ -317,76 +250,6 @@ export default function VideoPreviewModal({ post, onClose, onUrlSaved, clipCode 
     </button>
   );
 
-  // ── MODE A: clip detail screen (clipCode present) ──────────────────────────
-  if (clipCode) {
-    return (
-      <div
-        className="fixed inset-0 z-[60] flex items-center justify-center p-4"
-        style={{
-          backgroundColor: 'rgba(0,0,0,0.6)',
-          backdropFilter: 'blur(4px)',
-          animation: 'fadeIn 200ms ease',
-        }}
-        onClick={onClose}
-      >
-        <div
-          data-testid="video-modal"
-          className="relative bg-[var(--bg-card)] border border-[rgba(247,231,206,0.08)] rounded-2xl w-full max-w-[720px] p-6 shadow-2xl overflow-y-auto max-h-[90vh]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {closeBtn}
-
-          {/* Title + clip code */}
-          <div className="mb-5 pr-8">
-            <p className="text-[10px] font-mono text-[var(--text-3)] mb-1">{clipCode}</p>
-            <h2 className="text-[16px] font-semibold text-[var(--text-1)] leading-snug">
-              {clipDetail?.title ?? post.title}
-            </h2>
-          </div>
-
-          {/* Section 1: Mini player */}
-          <MiniPlayer
-            url={clipDetail?.video_url ?? null}
-            clipCode={clipCode}
-          />
-
-          {/* Section 2: Stats row */}
-          <div className="grid grid-cols-4 gap-3 mt-4">
-            {(
-              [
-                { label: 'Views',    value: clipStats.views    },
-                { label: 'Likes',    value: clipStats.likes    },
-                { label: 'Comments', value: clipStats.comments },
-                { label: 'Shares',   value: clipStats.shares   },
-              ] as const
-            ).map(({ label, value }) => (
-              <div key={label} className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] px-4 py-3 text-center">
-                <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.12em] mb-1">{label}</p>
-                <p className="text-[15px] font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(value)}</p>
-              </div>
-            ))}
-          </div>
-
-          {/* Section 3: Copy details */}
-          <div className="mt-6">
-            {clipLoading && (
-              <div className="flex items-center justify-center py-8">
-                <div className="w-5 h-5 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
-              </div>
-            )}
-            {!clipLoading && clipFetched && !clipDetail && (
-              <p className="text-[12px] text-[var(--text-3)] text-center py-6">
-                No copy data added for this clip yet
-              </p>
-            )}
-            {!clipLoading && clipDetail && <ClipDetailBody detail={clipDetail} />}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── MODE B: player-only screen (no clipCode) — original layout ─────────────
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center p-4"
@@ -399,41 +262,56 @@ export default function VideoPreviewModal({ post, onClose, onUrlSaved, clipCode 
     >
       <div
         data-testid="video-modal"
-        className="relative bg-[var(--bg-card)] border border-[rgba(247,231,206,0.08)] rounded-2xl w-full max-w-xl p-6 shadow-2xl overflow-y-auto max-h-[90vh]"
+        className="relative bg-[var(--bg-card)] border border-[rgba(247,231,206,0.08)] rounded-2xl w-full max-w-[720px] p-6 shadow-2xl overflow-y-auto max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {closeBtn}
 
-        {/* Title + platform badge */}
-        <div className="mb-4 pr-8">
-          <h2 className="text-[15px] font-semibold text-[var(--text-1)] mb-2 leading-snug">{post.title}</h2>
-          <span
-            className="inline-block text-[10px] font-semibold px-2 py-1 rounded-lg"
-            style={{
-              background: `${PLATFORM_COLORS[post.platform]}20`,
-              color: PLATFORM_COLORS[post.platform],
-            }}
-          >
-            {PLATFORM_LABELS[post.platform]}
-          </span>
+        {/* Title + clip code */}
+        <div className="mb-5 pr-8">
+          <p className="text-[10px] font-mono text-[var(--text-3)] mb-1">{clipCode}</p>
+          <h2 className="text-[16px] font-semibold text-[var(--text-1)] leading-snug">
+            {clipDetail?.title ?? post.title}
+          </h2>
         </div>
 
-        {/* Stats */}
-        <div className="flex gap-6 mb-5">
-          {([
-            { label: 'Views',    value: post.views    },
-            { label: 'Likes',    value: post.likes    },
-            { label: 'Comments', value: post.comments },
-          ] as const).map(({ label, value }) => (
-            <div key={label}>
-              <p className="text-[10px] text-[var(--text-3)] uppercase tracking-[0.12em] mb-0.5">{label}</p>
-              <p className="text-[14px] font-semibold text-[var(--text-1)] font-['JetBrains_Mono'] tabular-nums">{formatNum(value)}</p>
+        {/* Section 1: Mini player */}
+        <MiniPlayer
+          url={clipDetail?.video_url ?? null}
+          clipCode={clipCode}
+        />
+
+        {/* Section 2: Stats row */}
+        <div className="grid grid-cols-4 gap-3 mt-4">
+          {(
+            [
+              { label: 'Views',    value: clipStats.views    },
+              { label: 'Likes',    value: clipStats.likes    },
+              { label: 'Comments', value: clipStats.comments },
+              { label: 'Shares',   value: clipStats.shares   },
+            ] as const
+          ).map(({ label, value }) => (
+            <div key={label} className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] px-4 py-3 text-center">
+              <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.12em] mb-1">{label}</p>
+              <p className="text-[15px] font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(value)}</p>
             </div>
           ))}
         </div>
 
-        {/* Video player */}
-        <VideoPlayer post={post} onUrlSaved={onUrlSaved} />
+        {/* Section 3: Copy details */}
+        <div className="mt-6">
+          {clipLoading && (
+            <div className="flex items-center justify-center py-8">
+              <div className="w-5 h-5 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+          {!clipLoading && clipFetched && !clipDetail && (
+            <p className="text-[12px] text-[var(--text-3)] text-center py-6">
+              No copy data added for this clip yet
+            </p>
+          )}
+          {!clipLoading && clipDetail && <ClipDetailBody detail={clipDetail} />}
+        </div>
       </div>
     </div>
   );
