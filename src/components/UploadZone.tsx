@@ -29,6 +29,7 @@ export default function UploadZone({ onUpload }: Props) {
   const [processing, setProcessing] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [clipDetailsCode, setClipDetailsCode] = useState('');
 
   const handlePlatformSelect = (p: Platform) => {
     setPlatform(p);
@@ -65,11 +66,15 @@ export default function UploadZone({ onUpload }: Props) {
       pendingFile,
       platform,
       (posts) => {
-        onUpload(posts);
+        const stamped = clipDetailsCode.trim()
+          ? posts.map((p) => ({ ...p, clip_details_code: clipDetailsCode.trim() }))
+          : posts;
+        onUpload(stamped);
         setStatus({ type: 'success', msg: `Imported ${posts.length} posts` });
         setProcessing(false);
         setPendingFile(null);
         setPreview(null);
+        setClipDetailsCode('');
         setStep('file');
       },
       (msg) => {
@@ -77,7 +82,7 @@ export default function UploadZone({ onUpload }: Props) {
         setProcessing(false);
       }
     );
-  }, [pendingFile, platform, onUpload]);
+  }, [pendingFile, platform, onUpload, clipDetailsCode]);
 
   const onDrop = useCallback(
     (e: React.DragEvent) => {
@@ -101,7 +106,7 @@ export default function UploadZone({ onUpload }: Props) {
         <h2 className="text-sm font-semibold text-[var(--text-1)]">Import CSV Data</h2>
         {platform && step !== 'platform' && (
           <button
-            onClick={() => { setStep('platform'); setPlatform(null); setStatus(null); setPreview(null); setPendingFile(null); }}
+            onClick={() => { setStep('platform'); setPlatform(null); setStatus(null); setPreview(null); setPendingFile(null); setClipDetailsCode(''); }}
             className="text-[11px] text-[var(--text-2)] hover:text-[var(--text-1)] transition-colors"
           >
             ← Change platform
@@ -211,9 +216,22 @@ export default function UploadZone({ onUpload }: Props) {
               </tbody>
             </table>
           </div>
+          <div className="mb-3">
+            <label className="block text-[11px] text-[var(--text-2)] mb-1.5">
+              Clip Details Code <span className="text-[var(--text-3)]">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={clipDetailsCode}
+              onChange={(e) => setClipDetailsCode(e.target.value)}
+              placeholder="e.g. MBM015-CLIP-014"
+              className="w-full bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.08)] rounded-xl px-3 py-2 text-xs text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[rgba(247,231,206,0.20)]"
+            />
+            <p className="text-[10px] text-[var(--text-3)] mt-1">If set, stored as clip_details_code on every imported row</p>
+          </div>
           <div className="flex gap-2">
             <button
-              onClick={() => { setPreview(null); setPendingFile(null); setStep('file'); }}
+              onClick={() => { setClipDetailsCode(''); setPreview(null); setPendingFile(null); setStep('file'); }}
               className="flex-1 text-xs py-2 rounded-xl border border-[rgba(247,231,206,0.10)] text-[var(--text-2)] hover:bg-[rgba(247,231,206,0.04)] transition-colors"
             >
               Cancel
