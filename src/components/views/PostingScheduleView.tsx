@@ -201,6 +201,11 @@ export default function PostingScheduleView() {
     });
   }
 
+  async function handleDeletePost(id: string) {
+    await supabase.from('scheduled_posts').delete().eq('id', id);
+    refetchPosts();
+  }
+
   async function handleScheduleSubmit() {
     if (!selectedClip || selectedPlatforms.size === 0 || !selectedDate) return;
     setSubmitting(true);
@@ -597,9 +602,16 @@ export default function PostingScheduleView() {
                 {selectedPosts.map(post => (
                   <div
                     key={post.id}
-                    className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 space-y-2"
+                    className="relative rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 space-y-2"
                   >
-                    <div className="flex items-center justify-between">
+                    <button
+                      onClick={() => handleDeletePost(post.id)}
+                      aria-label="Delete post"
+                      className="absolute top-2 right-2 w-5 h-5 flex items-center justify-center rounded text-[var(--text-3)] hover:text-[var(--text-2)] hover:bg-[rgba(247,231,206,0.06)] transition-colors text-[10px] leading-none"
+                    >
+                      ✕
+                    </button>
+                    <div className="flex items-center justify-between pr-5">
                       <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-1)]">
                         <span
                           className="w-2 h-2 rounded-full flex-shrink-0"
