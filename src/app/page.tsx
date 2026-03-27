@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { UnifiedPost } from '@/types';
-import { SAMPLE_POSTS } from '@/lib/sampleData';
 import { fetchAllPosts, upsertPosts, updatePostUrl } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
@@ -44,17 +43,16 @@ export default function App() {
   useEffect(() => {
     fetchAllPosts()
       .then((fetched) => {
-        setPosts(fetched.length > 0 ? fetched : SAMPLE_POSTS);
+        setPosts(fetched);
       })
       .catch(() => {
-        // Supabase unavailable or not configured — fall back to sample data
-        setPosts(SAMPLE_POSTS);
+        setPosts([]);
       })
       .finally(() => setLoading(false));
   }, []);
 
   const handleClearData = () => {
-    setPosts(SAMPLE_POSTS);
+    setPosts([]);
     if (typeof window !== 'undefined') {
       localStorage.removeItem('clip_studio_ai_insights_v1');
       localStorage.removeItem('clip_studio_anthropic_key');
