@@ -10,7 +10,7 @@ import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter } from '@/context/FilterContext';
 
-const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
+const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
 const TIPS = [
   {
@@ -28,14 +28,13 @@ const TIPS = [
   {
     icon: '🔄',
     title: 'Repurpose across platforms',
-    body: 'A top TikTok clip can earn 3–5× more reach when posted natively to Reels and Shorts.',
+    body: 'A top YouTube Short can earn 3–5× more reach when posted natively to Reels.',
     details: [
       'Native uploads always outperform cross-posted links — each algorithm rewards content uploaded directly.',
-      'Adjust aspect ratio and text safe zones per platform: TikTok and Reels favor 9:16 full bleed, Shorts wants text kept center-screen.',
+      'Adjust aspect ratio and text safe zones per platform: Reels favor 9:16 full bleed, Shorts wants text kept center-screen.',
       'Swap platform-specific audio when needed (trending sounds differ per platform).',
       'Post within 24–48 hrs of your original for maximum overlap momentum.',
       'Tools: CapCut, Descript, and ClipStudio (this app) can help batch your exports.',
-      'Warning: remove TikTok watermarks before posting to Reels/Shorts — both algorithms suppress watermarked content.',
     ],
   },
   {
@@ -43,7 +42,7 @@ const TIPS = [
     title: 'Post time matters less',
     body: 'Algorithm reach now outweighs publish time. Focus on retention over scheduling.',
     details: [
-      'Pre-2022 advice said post at peak hours. That\'s largely obsolete — TikTok, Reels, and Shorts now distribute content over days or weeks based on engagement signals, not timestamps.',
+      'Pre-2022 advice said post at peak hours. That\'s largely obsolete — Reels and Shorts now distribute content over days or weeks based on engagement signals, not timestamps.',
       'What actually moves the needle: watch time %, like-to-view ratio, comment velocity in the first hour, and share rate.',
       'That said: posting when your core audience is awake still helps seed that first-hour signal. Use your platform analytics to find your audience\'s active window.',
       'Don\'t delay a great piece of content waiting for a "perfect" time. Consistency > timing.',
@@ -54,11 +53,11 @@ const TIPS = [
     title: 'Reply to early comments',
     body: 'Engaging in the first 30 min signals content quality and boosts distribution.',
     details: [
-      'Comments in the first 30 minutes are a strong quality signal to TikTok and Instagram\'s algorithms.',
+      'Comments in the first 30 minutes are a strong quality signal to YouTube and Instagram\'s algorithms.',
       'Reply to every comment in that window if possible — even a single emoji reply counts as engagement and re-surfaces your post in commenter feeds.',
       'Ask a question in your caption or on-screen to seed the comment section before you post.',
       'Pin a comment yourself to set the tone — either a hot take, a follow-up detail, or a funny response.',
-      'Video replies to comments (TikTok feature) consistently outperform text replies in reach.',
+      'Video replies to comments consistently outperform text replies in reach.',
     ],
   },
 ];

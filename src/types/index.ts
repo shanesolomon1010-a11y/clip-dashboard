@@ -1,4 +1,4 @@
-export type Platform = 'tiktok' | 'instagram' | 'linkedin' | 'twitter' | 'youtube';
+export type Platform = 'youtube' | 'instagram';
 
 export interface UnifiedPost {
   id: string;
@@ -40,17 +40,11 @@ export const CONTENT_TYPES = [
 export type ContentType = typeof CONTENT_TYPES[number];
 
 export const PLATFORM_COLORS: Record<Platform, string> = {
-  tiktok: '#FF0050',
-  instagram: '#E1306C',
-  linkedin: '#0A66C2',
-  twitter: '#1DA1F2',
-  youtube: '#FF0000',
+  youtube: '#FF4444',
+  instagram: '#C855E8',
 };
 
 export const PLATFORM_LABELS: Record<Platform, string> = {
-  tiktok: 'TikTok',
-  instagram: 'Instagram',
-  linkedin: 'LinkedIn',
-  twitter: 'X/Twitter',
   youtube: 'YouTube',
+  instagram: 'Instagram',
 };

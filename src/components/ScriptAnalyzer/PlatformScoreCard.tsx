@@ -5,11 +5,8 @@ import { PlatformScore } from '@/types/scriptAnalyzer';
 import ScoreBreakdown from './ScoreBreakdown';
 
 const PLATFORM_META: Record<string, { name: string; emoji: string; color: string }> = {
-  tiktok:          { name: 'TikTok',           emoji: '🎵', color: '#FF004F' },
-  youtube_shorts:  { name: 'YouTube Shorts',    emoji: '📺', color: '#FF0000' },
-  instagram_reels: { name: 'Instagram Reels',   emoji: '📸', color: '#C13584' },
-  linkedin:        { name: 'LinkedIn',          emoji: '💼', color: '#0A66C2' },
-  twitter:         { name: 'Twitter/X',         emoji: '🐦', color: '#1D9BF0' },
+  youtube_shorts:  { name: 'YouTube Shorts',    emoji: '📺', color: '#FF4444' },
+  instagram_reels: { name: 'Instagram Reels',   emoji: '📸', color: '#C855E8' },
 };
 
 function deltaBg(delta: number): string {

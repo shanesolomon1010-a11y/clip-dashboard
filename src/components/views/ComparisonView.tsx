@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 
-const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
+const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
 type SortKey = 'platform' | 'views' | 'likes' | 'comments' | 'shares' | 'avgEngRate' | 'postCount' | 'avgViews';
 

@@ -108,14 +108,11 @@ export default function UploadZone({ onUpload }: Props) {
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-5 gap-2">
+      <div className="mt-4 grid grid-cols-2 gap-2">
         {(
           [
-            { label: 'TikTok',    cols: 'Video views, Likes, Comments, Shares', color: '#FF0050' },
-            { label: 'Instagram', cols: 'Impressions, Likes, Comments, Saves',  color: '#E1306C' },
-            { label: 'LinkedIn',  cols: 'Impressions, Reactions, Comments',     color: '#0A66C2' },
-            { label: 'X/Twitter', cols: 'Impressions, Likes, Reposts',          color: '#1DA1F2' },
-            { label: 'YouTube',   cols: 'Views, Likes, Comments',               color: '#FF0000' },
+            { label: 'Instagram', cols: 'Impressions, Likes, Comments, Saves',  color: '#C855E8' },
+            { label: 'YouTube',   cols: 'Views, Likes, Comments',               color: '#FF4444' },
           ] as const
         ).map(({ label, cols, color }) => (
           <div key={label} className="bg-[rgba(247,231,206,0.02)] border border-[rgba(247,231,206,0.05)] rounded-xl p-2.5 text-xs hover:bg-[rgba(247,231,206,0.04)] transition-colors">

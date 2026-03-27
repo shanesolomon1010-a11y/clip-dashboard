@@ -135,7 +135,7 @@ function buildPostPayload(posts: UnifiedPost[]) {
     date: p.date,
   }));
 
-  const platformBreakdown = (['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'] as const)
+  const platformBreakdown = (['youtube', 'instagram'] as const)
     .map((pl) => {
       const pp = posts.filter((p) => p.platform === pl);
       if (!pp.length) return null;
@@ -555,7 +555,7 @@ export default function AIInsightsView({ posts }: Props) {
                 <p className="text-sm text-[var(--text-2)] max-w-sm leading-relaxed">
                   {insightHistory.length > 0
                     ? `Claude will analyze your data and compare against ${insightHistory.length} previous ${insightHistory.length === 1 ? 'analysis' : 'analyses'} to track trends and follow up on past recommendations.`
-                    : 'Claude will identify patterns across your TikTok, Instagram, LinkedIn, X, and YouTube content and give you specific, data-backed recommendations.'}
+                    : 'Claude will identify patterns across your YouTube and Instagram content and give you specific, data-backed recommendations.'}
                 </p>
               </div>
               <button
@@ -741,7 +741,7 @@ export default function AIInsightsView({ posts }: Props) {
                   {[
                     'Which platform should I focus on next month?',
                     'What type of hooks perform best in my data?',
-                    'How can I improve my LinkedIn engagement?',
+                    'How can I improve my Instagram engagement?',
                     'What day of the week gets the most views?',
                   ].map((p) => (
                     <button

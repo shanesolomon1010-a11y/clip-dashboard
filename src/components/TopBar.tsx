@@ -11,7 +11,7 @@ const DATE_OPTIONS: { label: string; value: DateRange }[] = [
   { label: 'All', value: 'all' },
 ];
 
-const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
+const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
 interface Props {
   title: string;

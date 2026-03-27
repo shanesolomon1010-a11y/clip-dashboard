@@ -3,11 +3,8 @@
 import { PlatformScore } from '@/types/scriptAnalyzer';
 
 const PLATFORM_NAMES: Record<string, string> = {
-  tiktok: 'TikTok',
   youtube_shorts: 'YouTube Shorts',
   instagram_reels: 'Instagram Reels',
-  linkedin: 'LinkedIn',
-  twitter: 'Twitter/X',
 };
 
 interface Props {

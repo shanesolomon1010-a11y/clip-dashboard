@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { GoalMetric, GOAL_METRIC_LABELS, Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { GoalRow, fetchGoals, saveGoal } from '@/lib/db';
 
-const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
+const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 const ALL_METRICS: GoalMetric[] = ['views', 'likes', 'engagement_rate', 'followers'];
 
 function fmtGoal(metric: GoalMetric, value: number): string {

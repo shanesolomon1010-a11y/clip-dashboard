@@ -8,7 +8,7 @@ import BestTimeCard from '@/components/BestTimeCard';
 import { formatNum } from '@/lib/utils';
 import { useFilter } from '@/context/FilterContext';
 
-const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
+const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
 function filterByDateRange(posts: UnifiedPost[], range: string): UnifiedPost[] {
   if (range === 'all') return posts;

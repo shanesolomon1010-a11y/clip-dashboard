@@ -23,7 +23,7 @@ const instrumentSerif = Instrument_Serif({
 
 export const metadata: Metadata = {
   title: "Clip Studio",
-  description: "Creator analytics across TikTok, Instagram, LinkedIn, X/Twitter, and YouTube Shorts",
+  description: "Creator analytics for YouTube and Instagram",
 };
 
 export default function RootLayout({

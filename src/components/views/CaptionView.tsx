@@ -3,18 +3,15 @@
 import { useEffect, useState } from 'react';
 import { CaptionRow, fetchCaptions, saveCaption } from '@/lib/db';
 
-const PLATFORMS = ['TikTok', 'Instagram', 'LinkedIn', 'X', 'YouTube'] as const;
+const PLATFORMS = ['YouTube', 'Instagram'] as const;
 type CaptionPlatform = typeof PLATFORMS[number];
 
 const TONES = ['Engaging', 'Professional', 'Casual', 'Viral'] as const;
 type CaptionTone = typeof TONES[number];
 
 const PLATFORM_CHAR_LIMITS: Record<CaptionPlatform, number> = {
-  TikTok:    2200,
-  Instagram: 2200,
-  LinkedIn:  3000,
-  X:         280,
   YouTube:   5000,
+  Instagram: 2200,
 };
 
 function timeAgo(iso: string): string {
@@ -28,7 +25,7 @@ function timeAgo(iso: string): string {
 
 export default function CaptionView() {
   const [description, setDescription] = useState('');
-  const [platform, setPlatform] = useState<CaptionPlatform>('TikTok');
+  const [platform, setPlatform] = useState<CaptionPlatform>('YouTube');
   const [tone, setTone] = useState<CaptionTone>('Engaging');
   const [generating, setGenerating] = useState(false);
   const [caption, setCaption] = useState('');

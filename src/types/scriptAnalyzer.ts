@@ -1,4 +1,4 @@
-export type Platform = 'tiktok' | 'youtube_shorts' | 'instagram_reels' | 'linkedin' | 'twitter';
+export type Platform = 'youtube_shorts' | 'instagram_reels';
 
 export interface PlatformSubScore {
   label: string;

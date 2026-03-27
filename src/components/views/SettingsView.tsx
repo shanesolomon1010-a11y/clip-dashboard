@@ -5,7 +5,7 @@ import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import { fetchAllClipDetails, insertClipDetail, deleteClipDetail } from '@/lib/db';
 import type { ClipDetail } from '@/lib/db';
 
-const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
+const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
 interface Props {
   onClearData?: () => void;
@@ -41,18 +41,14 @@ interface ClipForm {
   title: string;
   headline_banner: string;
   question_banner: string;
-  caption_tiktok: string;
-  caption_instagram: string;
   caption_youtube: string;
-  caption_linkedin: string;
-  caption_twitter: string;
+  caption_instagram: string;
   video_url: string;
 }
 
 const EMPTY_FORM: ClipForm = {
   clip_code: '', title: '', headline_banner: '', question_banner: '',
-  caption_tiktok: '', caption_instagram: '', caption_youtube: '',
-  caption_linkedin: '', caption_twitter: '', video_url: '',
+  caption_youtube: '', caption_instagram: '', video_url: '',
 };
 
 function nullIfEmpty(s: string): string | null {
@@ -98,11 +94,11 @@ export default function SettingsView({ onClearData }: Props) {
         title:            nullIfEmpty(form.title),
         headline_banner:  nullIfEmpty(form.headline_banner),
         question_banner:  nullIfEmpty(form.question_banner),
-        caption_tiktok:   nullIfEmpty(form.caption_tiktok),
-        caption_instagram: nullIfEmpty(form.caption_instagram),
         caption_youtube:  nullIfEmpty(form.caption_youtube),
-        caption_linkedin: nullIfEmpty(form.caption_linkedin),
-        caption_twitter:  nullIfEmpty(form.caption_twitter),
+        caption_instagram: nullIfEmpty(form.caption_instagram),
+        caption_tiktok:   null,
+        caption_linkedin: null,
+        caption_twitter:  null,
         video_url:        nullIfEmpty(form.video_url),
       });
       setClipStatus({ type: 'success', message: `Clip "${form.clip_code.trim()}" added.` });
@@ -210,13 +206,10 @@ export default function SettingsView({ onClearData }: Props) {
             />
           </div>
 
-          {(['caption_tiktok', 'caption_instagram', 'caption_youtube', 'caption_linkedin', 'caption_twitter'] as const).map(field => {
+          {(['caption_youtube', 'caption_instagram'] as const).map(field => {
             const labels: Record<typeof field, string> = {
-              caption_tiktok: 'TikTok Caption',
-              caption_instagram: 'Instagram Caption',
               caption_youtube: 'YouTube Caption',
-              caption_linkedin: 'LinkedIn Caption',
-              caption_twitter: 'Twitter/X Caption',
+              caption_instagram: 'Instagram Caption',
             };
             return (
               <div key={field} className="space-y-1">

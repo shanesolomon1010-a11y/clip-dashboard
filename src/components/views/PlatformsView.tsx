@@ -5,14 +5,11 @@ import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 
-const ALL_PLATFORMS: Platform[] = ['tiktok', 'instagram', 'linkedin', 'twitter', 'youtube'];
+const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
 const PLATFORM_META: Record<Platform, { description: string; exportNote: string }> = {
-  tiktok:    { description: 'Short-form video with algorithmic reach', exportNote: 'TikTok Studio → Analytics → Export' },
-  instagram: { description: 'Reels and feed posts with saves-driven reach', exportNote: 'Instagram Insights → Export data' },
-  linkedin:  { description: 'B2B content with high professional engagement', exportNote: 'LinkedIn Analytics → Post analytics → Export' },
-  twitter:   { description: 'Real-time conversation and viral text+video', exportNote: 'X Analytics → Tweets → Export data' },
   youtube:   { description: 'Long-form and Shorts with watch-time signals', exportNote: 'YouTube Studio → Analytics → Export' },
+  instagram: { description: 'Reels and feed posts with saves-driven reach', exportNote: 'Instagram Insights → Export data' },
 };
 
 

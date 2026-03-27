@@ -22,7 +22,6 @@ interface Props {
 
 type EmbedInfo =
   | { type: 'youtube';   id: string }
-  | { type: 'tiktok';    id: string }
   | { type: 'instagram' }
   | null;
 
@@ -34,10 +33,6 @@ function detectEmbed(url: string): EmbedInfo {
     if (shortsMatch) return { type: 'youtube', id: shortsMatch[1] };
     const vMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
     if (vMatch) return { type: 'youtube', id: vMatch[1] };
-  }
-  if (url.includes('tiktok.com')) {
-    const match = url.match(/\/video\/(\d+)/);
-    if (match) return { type: 'tiktok', id: match[1] };
   }
   if (url.includes('instagram.com')) return { type: 'instagram' };
   return null;
@@ -96,19 +91,6 @@ function VideoPlayer({
     );
   }
 
-  if (embed?.type === 'tiktok') {
-    return (
-      <div className="w-full rounded-xl overflow-hidden bg-black flex items-center justify-center" style={{ aspectRatio: '9/16', maxHeight: 400 }}>
-        <iframe
-          title="TikTok video"
-          src={`https://www.tiktok.com/embed/v2/${embed.id}`}
-          allow="autoplay"
-          className="w-full h-full"
-        />
-      </div>
-    );
-  }
-
   if (embed?.type === 'instagram') {
     return <InstagramEmbed url={url} />;
   }
@@ -131,7 +113,7 @@ function VideoPlayer({
           type="url"
           value={urlInput}
           onChange={(e) => setUrlInput(e.target.value)}
-          placeholder="Paste YouTube, TikTok, or Instagram URL…"
+          placeholder="Paste YouTube or Instagram URL…"
           className="flex-1 bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-lg px-3 py-2 text-[12px] text-[var(--text-1)] placeholder:text-[var(--text-3)] outline-none focus:border-[rgba(247,231,206,0.16)] transition-colors"
         />
         <button
@@ -178,19 +160,6 @@ function MiniPlayer({ url, clipCode }: { url: string | null; clipCode: string })
     );
   }
 
-  if (embed?.type === 'tiktok') {
-    return (
-      <div className="w-full rounded-xl overflow-hidden bg-black flex items-center justify-center" style={{ height: 280 }}>
-        <iframe
-          title="TikTok video"
-          src={`https://www.tiktok.com/embed/v2/${embed.id}`}
-          allow="autoplay"
-          className="w-full h-full"
-        />
-      </div>
-    );
-  }
-
   if (embed?.type === 'instagram') {
     return (
       <div style={{ height: 280, overflow: 'hidden' }} className="rounded-xl">
@@ -226,15 +195,12 @@ function CopyButton({ text }: { text: string }) {
 // ── ClipDetailBody ─────────────────────────────────────────────────────────────
 
 const CAPTION_PLATFORMS: {
-  key: keyof Pick<ClipDetail, 'caption_tiktok' | 'caption_instagram' | 'caption_youtube' | 'caption_linkedin' | 'caption_twitter'>;
+  key: keyof Pick<ClipDetail, 'caption_instagram' | 'caption_youtube'>;
   label: string;
   color: string;
 }[] = [
-  { key: 'caption_tiktok',    label: 'TikTok',     color: '#FF004F' },
-  { key: 'caption_instagram', label: 'Instagram',  color: '#C13584' },
-  { key: 'caption_youtube',   label: 'YouTube',    color: '#FF0000' },
-  { key: 'caption_linkedin',  label: 'LinkedIn',   color: '#0A66C2' },
-  { key: 'caption_twitter',   label: 'Twitter/X',  color: '#1D9BF0' },
+  { key: 'caption_youtube',   label: 'YouTube',    color: '#FF4444' },
+  { key: 'caption_instagram', label: 'Instagram',  color: '#C855E8' },
 ];
 
 function ClipDetailBody({ detail }: { detail: ClipDetail }) {

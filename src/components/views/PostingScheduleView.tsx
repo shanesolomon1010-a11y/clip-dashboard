@@ -9,7 +9,7 @@ import type { UnifiedPost, Platform as UnifiedPlatform } from '@/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
-type Platform = 'yt' | 'ig' | 'tt' | 'tw';
+type Platform = 'yt' | 'ig';
 
 interface ScheduledPost {
   id: string;
@@ -27,25 +27,19 @@ interface ScheduledPost {
 const PLATFORM_COLORS: Record<Platform, string> = {
   yt: '#FF4444',
   ig: '#C855E8',
-  tt: '#3ECFCF',
-  tw: '#4A9EE8',
 };
 
 const PLATFORM_LABELS: Record<Platform, string> = {
   yt: 'YouTube',
   ig: 'Instagram',
-  tt: 'TikTok',
-  tw: 'Twitter/X',
 };
 
 const SCHEDULE_TO_UNIFIED: Record<Platform, UnifiedPlatform> = {
   yt: 'youtube',
   ig: 'instagram',
-  tt: 'tiktok',
-  tw: 'twitter',
 };
 
-const ALL_PLATFORMS: Platform[] = ['yt', 'ig', 'tt', 'tw'];
+const ALL_PLATFORMS: Platform[] = ['yt', 'ig'];
 const DEFAULT_PLATFORMS = new Set<Platform>(['yt', 'ig']);
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
