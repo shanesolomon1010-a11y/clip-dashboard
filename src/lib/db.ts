@@ -315,23 +315,6 @@ export async function updatePostContentType(
   if (error) throw error;
 }
 
-export async function updatePostUrl(
-  platform: string,
-  title: string,
-  date: string,
-  url: string
-): Promise<void> {
-  // Errors are silently swallowed — consistent with save-URL UX
-  try {
-    await supabase
-      .from('posts')
-      .update({ url })
-      .match({ platform, title, date });
-  } catch {
-    // no-op
-  }
-}
-
 // ── Goals ─────────────────────────────────────────────────────────────────────
 
 export interface GoalRow {
