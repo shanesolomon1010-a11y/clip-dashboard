@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { UnifiedPost, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import { formatNum } from '@/lib/utils';
-import { fetchClipDetails, ClipDetail } from '@/lib/db';
+import { fetchClipDetails, ClipDetail, fetchClipStats, ClipStats } from '@/lib/db';
 
 declare global {
   interface Window {
@@ -279,6 +279,7 @@ export default function VideoPreviewModal({ post, onClose, onUrlSaved, clipCode 
   const [clipDetail, setClipDetail] = useState<ClipDetail | null>(null);
   const [clipLoading, setClipLoading] = useState(false);
   const [clipFetched, setClipFetched] = useState(false);
+  const [clipStats, setClipStats] = useState<ClipStats>({ views: 0, likes: 0, comments: 0, shares: 0 });
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -296,6 +297,9 @@ export default function VideoPreviewModal({ post, onClose, onUrlSaved, clipCode 
       .then((detail) => { if (!cancelled) setClipDetail(detail); })
       .catch(() => { if (!cancelled) setClipDetail(null); })
       .finally(() => { if (!cancelled) { setClipLoading(false); setClipFetched(true); } });
+    fetchClipStats(clipCode)
+      .then((stats) => { if (!cancelled) setClipStats(stats); })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, [clipCode]);
 
@@ -346,7 +350,24 @@ export default function VideoPreviewModal({ post, onClose, onUrlSaved, clipCode 
             clipCode={clipCode}
           />
 
-          {/* Section 2: Copy details */}
+          {/* Section 2: Stats row */}
+          <div className="grid grid-cols-4 gap-3 mt-4">
+            {(
+              [
+                { label: 'Views',    value: clipStats.views    },
+                { label: 'Likes',    value: clipStats.likes    },
+                { label: 'Comments', value: clipStats.comments },
+                { label: 'Shares',   value: clipStats.shares   },
+              ] as const
+            ).map(({ label, value }) => (
+              <div key={label} className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] px-4 py-3 text-center">
+                <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.12em] mb-1">{label}</p>
+                <p className="text-[15px] font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(value)}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Section 3: Copy details */}
           <div className="mt-6">
             {clipLoading && (
               <div className="flex items-center justify-center py-8">

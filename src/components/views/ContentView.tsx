@@ -28,7 +28,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
           {recent.map((post) => (
             <div
               key={post.id}
-              onClick={() => open(post)}
+              onClick={() => open(post, post.clip_code)}
               className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-4 hover:bg-[var(--bg-hover)] hover:border-[rgba(247,231,206,0.09)] transition-all group cursor-pointer"
             >
               <div className="flex items-center gap-2 mb-3">

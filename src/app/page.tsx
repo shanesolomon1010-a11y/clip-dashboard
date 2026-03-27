@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { UnifiedPost } from '@/types';
 import { getLatestPostsPerClip, upsertPosts, updatePostUrl } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
-import TopBar from '@/components/TopBar';
 import DashboardView from '@/components/views/DashboardView';
 import ContentView from '@/components/views/ContentView';
 import AnalyticsView from '@/components/views/AnalyticsView';
@@ -20,20 +19,6 @@ import PostingScheduleView from '@/components/views/PostingScheduleView';
 import { VideoModalProvider } from '@/context/VideoModalContext';
 import { FilterProvider } from '@/context/FilterContext';
 
-const NAV_TITLES: Record<NavSection, string> = {
-  dashboard:      'Dashboard',
-  content:        'Content',
-  schedule:       'Posting Schedule',
-  analytics:      'Analytics',
-  platforms:      'Platforms',
-  comparison:     'Comparison',
-  captions:       'Caption Generator',
-  insights:       'AI Insights',
-  scriptAnalyzer: 'Script Analyzer',
-  transcriber:    'Transcriber',
-  editor:         'Editor',
-  settings:       'Settings',
-};
 
 export default function App() {
   const [posts, setPosts] = useState<UnifiedPost[]>([]);
@@ -110,8 +95,6 @@ export default function App() {
         <Sidebar active={activeNav} onNavigate={setActiveNav} />
 
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          <TopBar title={NAV_TITLES[activeNav]} postCount={posts.length} />
-
           <main className="flex-1 overflow-y-auto">
             {activeNav === 'dashboard'  && <DashboardView posts={posts} />}
             {activeNav === 'content'    && <ContentView posts={posts} onUpload={handleUpload} onPostUpdate={handlePostUpdate} />}

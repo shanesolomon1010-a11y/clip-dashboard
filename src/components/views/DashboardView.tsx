@@ -169,7 +169,6 @@ interface Props {
 }
 
 export default function DashboardView({ posts }: Props) {
-  const now = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
   const { open: openVideoModal } = useVideoModal();
   const { dateRange, platform } = useFilter();
 
@@ -208,12 +207,6 @@ export default function DashboardView({ posts }: Props) {
     <div className="flex gap-5 p-5 min-h-full">
       {/* ── Left column ─────────────────────────────────────── */}
       <div className="flex-1 min-w-0 space-y-6">
-
-        {/* Greeting */}
-        <div>
-          <p className="text-[10px] text-[var(--text-3)] mb-1" style={{ fontFamily: 'var(--font-mono)' }}>{now}</p>
-          <h2 className="text-[22px] font-bold text-[var(--text-1)] leading-tight tracking-tight">Welcome back, Creator</h2>
-        </div>
 
         {/* Metric cards strip */}
         <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
@@ -263,7 +256,7 @@ export default function DashboardView({ posts }: Props) {
           </div>
           <div className="divide-y divide-[rgba(247,231,206,0.03)]">
             {topPosts.map((post, i) => (
-              <div key={post.id} data-testid="post-row" onClick={() => openVideoModal(post)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors group cursor-pointer">
+              <div key={post.id} data-testid="post-row" onClick={() => openVideoModal(post, post.clip_code)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors group cursor-pointer">
                 <span className="text-[var(--text-3)] w-4 shrink-0 tabular-nums text-xs font-bold" style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
                 <span
                   className="text-[10px] font-semibold px-2 py-1 rounded-lg shrink-0"

@@ -459,3 +459,38 @@ export async function deleteClipDetail(clipCode: string): Promise<void> {
   const { error } = await supabase.from('clip_details').delete().eq('clip_code', clipCode);
   if (error) throw error;
 }
+
+// ── Clip stats ──────────────────────────────────────────────────────────────────
+
+export interface ClipStats {
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+}
+
+export async function fetchClipStats(clipCode: string): Promise<ClipStats> {
+  const { data, error } = await supabase
+    .from('posts')
+    .select('platform, stat_date, views, likes, comments, shares')
+    .eq('clip_code', clipCode)
+    .order('stat_date', { ascending: false, nullsFirst: false });
+
+  if (error) throw error;
+
+  const seen = new Set<string>();
+  const stats: ClipStats = { views: 0, likes: 0, comments: 0, shares: 0 };
+
+  for (const row of (data ?? [])) {
+    const platform = row.platform as string;
+    if (!seen.has(platform)) {
+      seen.add(platform);
+      stats.views    += Number(row.views    ?? 0);
+      stats.likes    += Number(row.likes    ?? 0);
+      stats.comments += Number(row.comments ?? 0);
+      stats.shares   += Number(row.shares   ?? 0);
+    }
+  }
+
+  return stats;
+}
