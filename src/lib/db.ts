@@ -280,3 +280,26 @@ export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | n
   if (error) throw error;
   return data as ClipDetail | null;
 }
+
+export async function fetchAllClipDetails(): Promise<ClipDetail[]> {
+  const { data, error } = await supabase
+    .from('clip_details')
+    .select(
+      'clip_code, title, headline_banner, question_banner, ' +
+      'caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
+      'video_url'
+    )
+    .order('clip_code');
+  if (error) throw error;
+  return (data ?? []) as unknown as ClipDetail[];
+}
+
+export async function insertClipDetail(row: ClipDetail): Promise<void> {
+  const { error } = await supabase.from('clip_details').insert(row);
+  if (error) throw error;
+}
+
+export async function deleteClipDetail(clipCode: string): Promise<void> {
+  const { error } = await supabase.from('clip_details').delete().eq('clip_code', clipCode);
+  if (error) throw error;
+}

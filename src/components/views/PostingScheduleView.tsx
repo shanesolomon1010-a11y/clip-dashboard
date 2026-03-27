@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useVideoModal } from '@/context/VideoModalContext';
+import { fetchAllClipDetails } from '@/lib/db';
+import type { ClipDetail } from '@/lib/db';
 import type { UnifiedPost, Platform as UnifiedPlatform } from '@/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -42,6 +44,9 @@ const SCHEDULE_TO_UNIFIED: Record<Platform, UnifiedPlatform> = {
   tt: 'tiktok',
   tw: 'twitter',
 };
+
+const ALL_PLATFORMS: Platform[] = ['yt', 'ig', 'tt', 'tw'];
+const DEFAULT_PLATFORMS = new Set<Platform>(['yt', 'ig']);
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_LONG  = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -89,17 +94,44 @@ export default function PostingScheduleView() {
   const [todayStr]                  = useState(getTodayStr);
   const { open: openModal } = useVideoModal();
 
-  // Fetch on mount — no realtime subscription needed
-  useEffect(() => {
+  // ── Scheduling form state ──────────────────────────────────────────────────
+  const [schedulingMode, setSchedulingMode]           = useState(false);
+  const [formStep, setFormStep]                       = useState<1 | 2 | 3>(1);
+  const [clipOptions, setClipOptions]                 = useState<ClipDetail[]>([]);
+  const [clipSearch, setClipSearch]                   = useState('');
+  const [selectedClip, setSelectedClip]               = useState<ClipDetail | null>(null);
+  const [selectedPlatforms, setSelectedPlatforms]     = useState<Set<Platform>>(new Set(DEFAULT_PLATFORMS));
+  const [submitting, setSubmitting]                   = useState(false);
+  const [submitError, setSubmitError]                 = useState<string | null>(null);
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
+
+  function loadPosts() {
     supabase
       .from('scheduled_posts')
       .select('id, clip_code, title, platform, scheduled_date, post_time, status, content_type')
       .then(({ data, error }) => {
-        if (error) { setFetchError(true); }
-        else if (data) { setPosts(data as ScheduledPost[]); }
+        if (error) {
+          console.error('scheduled_posts fetch error:', error);
+          setFetchError(true);
+        } else if (data) {
+          setPosts(data as ScheduledPost[]);
+        }
         setLoading(false);
       });
-  }, []);
+  }
+
+  function refetchPosts() {
+    supabase
+      .from('scheduled_posts')
+      .select('id, clip_code, title, platform, scheduled_date, post_time, status, content_type')
+      .then(({ data, error }) => {
+        if (error) console.error('scheduled_posts refetch error:', error);
+        else if (data) setPosts(data as ScheduledPost[]);
+      });
+  }
+
+  useEffect(() => { loadPosts(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Group posts by date string
   const postsByDate = new Map<string, ScheduledPost[]>();
@@ -110,10 +142,9 @@ export default function PostingScheduleView() {
   }
 
   // ── Calendar grid math (all via Date.UTC) ──────────────────────────────────
-  const firstDayOfWeek = new Date(Date.UTC(year, month, 1)).getUTCDay();   // 0=Sun
+  const firstDayOfWeek = new Date(Date.UTC(year, month, 1)).getUTCDay();
   const daysInMonth    = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 
-  // Fill leading blank cells, then day numbers, then trailing blanks to complete row
   const cells: (number | null)[] = [
     ...Array<null>(firstDayOfWeek).fill(null),
     ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
@@ -132,14 +163,81 @@ export default function PostingScheduleView() {
 
   function openDrawer(day: number) {
     setSelected(toDateStr(year, month, day));
+    setSchedulingMode(false);
     setDrawerOpen(true);
   }
   function closeDrawer() {
     setDrawerOpen(false);
+    setSchedulingMode(false);
   }
 
-  const selectedPosts  = selectedDate ? (postsByDate.get(selectedDate) ?? []) : [];
-  const displayDate    = selectedDate ? formatDisplayDate(selectedDate) : null;
+  // ── Scheduling form handlers ───────────────────────────────────────────────
+
+  async function openSchedulingForm() {
+    setFormStep(1);
+    setSelectedClip(null);
+    setClipSearch('');
+    setSelectedPlatforms(new Set(DEFAULT_PLATFORMS));
+    setSubmitError(null);
+    setSchedulingMode(true);
+    try {
+      const clips = await fetchAllClipDetails();
+      setClipOptions(clips);
+    } catch (err) {
+      console.error('clip_details fetch error:', err);
+    }
+  }
+
+  function cancelSchedulingForm() {
+    setSchedulingMode(false);
+  }
+
+  function togglePlatform(p: Platform) {
+    setSelectedPlatforms(prev => {
+      const next = new Set(prev);
+      if (next.has(p)) next.delete(p);
+      else next.add(p);
+      return next;
+    });
+  }
+
+  async function handleScheduleSubmit() {
+    if (!selectedClip || selectedPlatforms.size === 0 || !selectedDate) return;
+    setSubmitting(true);
+    setSubmitError(null);
+
+    const rows = Array.from(selectedPlatforms).map(platform => ({
+      clip_code: selectedClip.clip_code,
+      title: selectedClip.title,
+      platform,
+      scheduled_date: selectedDate,
+      post_time: '11:00 AM CT',
+      status: 'scheduled',
+    }));
+
+    const { error } = await supabase.from('scheduled_posts').insert(rows);
+    setSubmitting(false);
+
+    if (error) {
+      console.error('scheduled_posts insert error:', error);
+      setSubmitError(error.message);
+      return;
+    }
+
+    setSchedulingMode(false);
+    refetchPosts();
+  }
+
+  // ── Derived ────────────────────────────────────────────────────────────────
+
+  const selectedPosts = selectedDate ? (postsByDate.get(selectedDate) ?? []) : [];
+  const displayDate   = selectedDate ? formatDisplayDate(selectedDate) : null;
+
+  const filteredClips = clipOptions.filter(c =>
+    clipSearch === '' ||
+    c.clip_code.toLowerCase().includes(clipSearch.toLowerCase()) ||
+    c.title.toLowerCase().includes(clipSearch.toLowerCase())
+  );
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -214,7 +312,6 @@ export default function PostingScheduleView() {
         {/* Cells */}
         <div className="grid grid-cols-7">
           {cells.map((day, idx) => {
-            // Blank cell (before first day or trailing filler)
             if (day === null) {
               return (
                 <div
@@ -227,7 +324,6 @@ export default function PostingScheduleView() {
             const dateStr  = toDateStr(year, month, day);
             const dayPosts = postsByDate.get(dateStr) ?? [];
             const isToday  = dateStr === todayStr;
-            // Deduplicate platforms — one dot per platform
             const platforms = Array.from(new Set(dayPosts.map(p => p.platform)));
 
             return (
@@ -241,7 +337,6 @@ export default function PostingScheduleView() {
                     : 'bg-[var(--bg-base)] hover:bg-[var(--bg-hover)]',
                 ].join(' ')}
               >
-                {/* Date number + today pip */}
                 <div className="flex items-center gap-1 mb-1.5">
                   {isToday && (
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 flex-shrink-0" />
@@ -256,7 +351,6 @@ export default function PostingScheduleView() {
                   </span>
                 </div>
 
-                {/* Platform dots */}
                 <div className="flex flex-wrap gap-1">
                   {platforms.map((p: Platform) => (
                     <span
@@ -272,14 +366,14 @@ export default function PostingScheduleView() {
         </div>
       </div>
 
-      {/* ── Slide-in drawer (always in DOM, animated via translateX) ────────── */}
+      {/* ── Slide-in drawer ──────────────────────────────────────────────────── */}
       <div
         className={[
           'fixed inset-0 z-40 transition-opacity duration-200',
           drawerOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none',
         ].join(' ')}
       >
-        {/* Backdrop — click outside to close */}
+        {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black/40"
           onClick={closeDrawer}
@@ -298,12 +392,21 @@ export default function PostingScheduleView() {
           {/* Drawer header */}
           <div className="flex items-start justify-between p-4 border-b border-[var(--border)] flex-shrink-0">
             <div>
-              <p className="text-sm font-semibold text-[var(--text-1)]">
-                {displayDate?.full ?? ''}
-              </p>
-              <p className="text-xs text-[var(--text-2)] mt-0.5">
-                {displayDate?.weekday ?? ''}
-              </p>
+              {schedulingMode ? (
+                <>
+                  <p className="text-sm font-semibold text-[var(--text-1)]">Schedule a Post</p>
+                  <p className="text-xs text-[var(--text-2)] mt-0.5">Step {formStep} of 3</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-semibold text-[var(--text-1)]">
+                    {displayDate?.full ?? ''}
+                  </p>
+                  <p className="text-xs text-[var(--text-2)] mt-0.5">
+                    {displayDate?.weekday ?? ''}
+                  </p>
+                </>
+              )}
             </div>
             <button
               onClick={closeDrawer}
@@ -317,76 +420,242 @@ export default function PostingScheduleView() {
           {/* Drawer body */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
 
-            {/* Empty state */}
-            {selectedPosts.length === 0 && (
-              <p className="text-sm text-[var(--text-2)] text-center py-6">
-                Nothing scheduled
-              </p>
-            )}
+            {schedulingMode ? (
+              /* ── Scheduling form ── */
+              <>
+                {formStep === 1 && (
+                  <div className="space-y-3">
+                    <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Select Clip</p>
 
-            {/* Post cards */}
-            {selectedPosts.map(post => (
-              <div
-                key={post.id}
-                className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 space-y-2"
-              >
-                {/* Platform badge + time */}
-                <div className="flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-1)]">
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ backgroundColor: PLATFORM_COLORS[post.platform] }}
+                    <input
+                      type="text"
+                      placeholder="Search clips…"
+                      value={clipSearch}
+                      onChange={e => setClipSearch(e.target.value)}
+                      className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[var(--border)] rounded-lg text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
                     />
-                    {PLATFORM_LABELS[post.platform]}
-                  </span>
-                  <span className="text-xs text-[var(--text-2)]">{post.post_time}</span>
-                </div>
 
-                {/* Title — click to open clip detail */}
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--border)] divide-y divide-[var(--border)]">
+                      {filteredClips.map(clip => (
+                        <button
+                          key={clip.clip_code}
+                          onClick={() => setSelectedClip(clip)}
+                          className={[
+                            'w-full text-left px-3 py-2.5 text-xs transition-colors',
+                            selectedClip?.clip_code === clip.clip_code
+                              ? 'bg-[var(--gold-dim)] text-[var(--gold)]'
+                              : 'text-[var(--text-1)] hover:bg-[var(--bg-hover)]',
+                          ].join(' ')}
+                        >
+                          <span className="font-mono text-[10px] text-[var(--text-3)]">{clip.clip_code}</span>
+                          <span className="block mt-0.5 leading-snug">{clip.title}</span>
+                        </button>
+                      ))}
+                      {filteredClips.length === 0 && (
+                        <p className="px-3 py-4 text-xs text-[var(--text-3)] text-center">No clips found</p>
+                      )}
+                    </div>
+
+                    {selectedClip && (
+                      <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 space-y-1.5">
+                        <p className="text-[9px] font-bold uppercase tracking-wider text-[var(--text-3)]">Preview</p>
+                        {selectedClip.headline_banner && (
+                          <p className="text-xs font-semibold text-[var(--text-1)] leading-snug">
+                            {selectedClip.headline_banner}
+                          </p>
+                        )}
+                        {selectedClip.question_banner && (
+                          <p className="text-xs text-[var(--text-2)] leading-snug">
+                            {selectedClip.question_banner}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={cancelSchedulingForm}
+                        className="flex-1 py-2 text-xs text-[var(--text-2)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={() => setFormStep(2)}
+                        disabled={!selectedClip}
+                        className="flex-1 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {formStep === 2 && (
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Platforms</p>
+
+                    <div className="space-y-2.5">
+                      {ALL_PLATFORMS.map(p => (
+                        <label key={p} className="flex items-center gap-2.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedPlatforms.has(p)}
+                            onChange={() => togglePlatform(p)}
+                            className="w-3.5 h-3.5 accent-[var(--gold)]"
+                          />
+                          <span className="flex items-center gap-1.5 text-xs text-[var(--text-1)]">
+                            <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: PLATFORM_COLORS[p] }} />
+                            {PLATFORM_LABELS[p]}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+
+                    <div className="space-y-2 border-t border-[var(--border)] pt-3">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-3)]">Date</span>
+                        <span className="text-[var(--text-1)]">{displayDate?.full ?? ''}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-[var(--text-3)]">Time</span>
+                        <span className="text-[var(--text-1)]">11:00 AM CT</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => setFormStep(1)}
+                        className="flex-1 py-2 text-xs text-[var(--text-2)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+                      >
+                        ← Back
+                      </button>
+                      <button
+                        onClick={() => setFormStep(3)}
+                        disabled={selectedPlatforms.size === 0}
+                        className="flex-1 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {formStep === 3 && (
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Confirm</p>
+
+                    <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 space-y-2">
+                      <p className="text-xs font-medium text-[var(--text-1)] leading-snug">{selectedClip?.title}</p>
+                      <p className="text-[10px] font-mono text-[var(--text-3)]">{selectedClip?.clip_code}</p>
+                      <div className="flex flex-wrap gap-1.5 pt-0.5">
+                        {Array.from(selectedPlatforms).map(p => (
+                          <span
+                            key={p}
+                            className="px-2 py-0.5 rounded text-[10px] font-medium"
+                            style={{ background: `${PLATFORM_COLORS[p]}22`, color: PLATFORM_COLORS[p] }}
+                          >
+                            {PLATFORM_LABELS[p]}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[11px] text-[var(--text-2)] pt-0.5">
+                        {displayDate?.full} · 11:00 AM CT
+                      </p>
+                    </div>
+
+                    {submitError && (
+                      <p className="text-xs text-red-400">{submitError}</p>
+                    )}
+
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setFormStep(2)}
+                        className="flex-1 py-2 text-xs text-[var(--text-2)] border border-[var(--border)] rounded-lg hover:bg-[var(--bg-hover)] transition-colors"
+                      >
+                        ← Back
+                      </button>
+                      <button
+                        onClick={handleScheduleSubmit}
+                        disabled={submitting}
+                        className="flex-1 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-lg hover:opacity-90 transition-opacity disabled:opacity-40"
+                      >
+                        {submitting ? 'Scheduling…' : 'Schedule Post'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* ── Normal list view ── */
+              <>
+                {selectedPosts.length === 0 && (
+                  <p className="text-sm text-[var(--text-2)] text-center py-6">
+                    Nothing scheduled
+                  </p>
+                )}
+
+                {selectedPosts.map(post => (
+                  <div
+                    key={post.id}
+                    className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-1.5 text-xs font-medium text-[var(--text-1)]">
+                        <span
+                          className="w-2 h-2 rounded-full flex-shrink-0"
+                          style={{ backgroundColor: PLATFORM_COLORS[post.platform] }}
+                        />
+                        {PLATFORM_LABELS[post.platform]}
+                      </span>
+                      <span className="text-xs text-[var(--text-2)]">{post.post_time}</span>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const minimalPost: UnifiedPost = {
+                          id: post.id,
+                          platform: SCHEDULE_TO_UNIFIED[post.platform],
+                          title: post.title,
+                          date: post.scheduled_date,
+                          views: 0,
+                          likes: 0,
+                          comments: 0,
+                          shares: 0,
+                          saves: 0,
+                          engagementRate: 0,
+                        };
+                        openModal(minimalPost, post.clip_code);
+                      }}
+                      className="text-left text-sm font-medium text-[var(--text-1)] leading-snug hover:text-[rgba(247,231,206,0.8)] transition-colors w-full"
+                    >
+                      {post.title}
+                    </button>
+
+                    <p className="text-xs text-[var(--text-2)] font-mono">
+                      {post.clip_code}
+                    </p>
+
+                    <div className="flex flex-wrap gap-1.5">
+                      {post.content_type && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-2)] border border-[var(--border)]">
+                          {post.content_type}
+                        </span>
+                      )}
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)]">
+                        {post.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
                 <button
-                  onClick={() => {
-                    const minimalPost: UnifiedPost = {
-                      id: post.id,
-                      platform: SCHEDULE_TO_UNIFIED[post.platform],
-                      title: post.title,
-                      date: post.scheduled_date,
-                      views: 0,
-                      likes: 0,
-                      comments: 0,
-                      shares: 0,
-                      saves: 0,
-                      engagementRate: 0,
-                    };
-                    openModal(minimalPost, post.clip_code);
-                  }}
-                  className="text-left text-sm font-medium text-[var(--text-1)] leading-snug hover:text-[rgba(247,231,206,0.8)] transition-colors w-full"
+                  onClick={openSchedulingForm}
+                  className="w-full py-2.5 text-xs text-[var(--text-2)] border border-dashed border-[var(--border)] rounded-lg hover:border-[var(--border-md)] hover:text-[var(--text-1)] transition-colors"
                 >
-                  {post.title}
+                  + Schedule a post
                 </button>
-
-                {/* Clip code */}
-                <p className="text-xs text-[var(--text-2)] font-mono">
-                  {post.clip_code}
-                </p>
-
-                {/* Tags: content_type + status */}
-                <div className="flex flex-wrap gap-1.5">
-                  {post.content_type && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--bg-hover)] text-[var(--text-2)] border border-[var(--border)]">
-                      {post.content_type}
-                    </span>
-                  )}
-                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)]">
-                    {post.status}
-                  </span>
-                </div>
-              </div>
-            ))}
-
-            {/* Schedule a post CTA */}
-            <button className="w-full py-2.5 text-xs text-[var(--text-2)] border border-dashed border-[var(--border)] rounded-lg hover:border-[var(--border-md)] hover:text-[var(--text-1)] transition-colors">
-              + Schedule a post
-            </button>
+              </>
+            )}
 
           </div>
         </div>
