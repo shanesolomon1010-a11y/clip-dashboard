@@ -100,6 +100,63 @@ function calcEngagementRate(
   return parseFloat((((likes + comments + shares + saves) / views) * 100).toFixed(2));
 }
 
+function mapPostRow(row: Record<string, unknown>): UnifiedPost {
+  const views = Number(row.views ?? 0);
+  const likes = Number(row.likes ?? 0);
+  const comments = Number(row.comments ?? 0);
+  const shares = Number(row.shares ?? 0);
+  const saves = Number(row.saves ?? 0);
+  return {
+    id: row.id as string,
+    clip_code: row.clip_code as string | undefined,
+    platform: row.platform as Platform,
+    date: (row.posted_at as string ?? '').slice(0, 10),
+    title: row.title as string,
+    views,
+    likes,
+    comments,
+    shares,
+    saves,
+    engagementRate: calcEngagementRate(views, likes, comments, shares, saves),
+    content_type: row.content_type as string | undefined,
+    url: row.url as string | undefined,
+    thumbnail_url: row.thumbnail_url as string | undefined,
+    watch_time_minutes: row.watch_time_minutes != null ? Number(row.watch_time_minutes) : undefined,
+    avg_view_duration_seconds: row.avg_view_duration_seconds != null ? Number(row.avg_view_duration_seconds) : undefined,
+    avg_view_percentage: row.avg_view_percentage != null ? Number(row.avg_view_percentage) : undefined,
+    impressions: row.impressions != null ? Number(row.impressions) : undefined,
+    impression_ctr: row.impression_ctr != null ? Number(row.impression_ctr) : undefined,
+    dislikes: row.dislikes != null ? Number(row.dislikes) : undefined,
+    subscribers_gained: row.subscribers_gained != null ? Number(row.subscribers_gained) : undefined,
+    subscribers_lost: row.subscribers_lost != null ? Number(row.subscribers_lost) : undefined,
+    card_clicks: row.card_clicks != null ? Number(row.card_clicks) : undefined,
+    card_ctr: row.card_ctr != null ? Number(row.card_ctr) : undefined,
+    end_screen_clicks: row.end_screen_clicks != null ? Number(row.end_screen_clicks) : undefined,
+    end_screen_ctr: row.end_screen_ctr != null ? Number(row.end_screen_ctr) : undefined,
+    plays: row.plays != null ? Number(row.plays) : undefined,
+    reach: row.reach != null ? Number(row.reach) : undefined,
+    profile_visits: row.profile_visits != null ? Number(row.profile_visits) : undefined,
+    follows: row.follows != null ? Number(row.follows) : undefined,
+    accounts_reached: row.accounts_reached != null ? Number(row.accounts_reached) : undefined,
+    accounts_engaged: row.accounts_engaged != null ? Number(row.accounts_engaged) : undefined,
+    engagement_rate: row.engagement_rate != null ? Number(row.engagement_rate) : undefined,
+  };
+}
+
+export async function getPosts(
+  platform?: 'youtube' | 'instagram',
+  startDate?: string,
+  endDate?: string
+): Promise<UnifiedPost[]> {
+  let query = supabase.from('posts').select('*').order('posted_at', { ascending: false });
+  if (platform) query = query.eq('platform', platform);
+  if (startDate) query = query.gte('posted_at', startDate);
+  if (endDate) query = query.lte('posted_at', endDate);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).map((row) => mapPostRow(row as Record<string, unknown>));
+}
+
 export async function fetchAllPosts(): Promise<UnifiedPost[]> {
   const { data, error } = await supabase
     .from('posts')
@@ -108,50 +165,7 @@ export async function fetchAllPosts(): Promise<UnifiedPost[]> {
 
   if (error) throw error;
 
-  return (data ?? []).map((row) => {
-    const views = Number(row.views ?? 0);
-    const likes = Number(row.likes ?? 0);
-    const comments = Number(row.comments ?? 0);
-    const shares = Number(row.shares ?? 0);
-    const saves = Number(row.saves ?? 0);
-    return {
-      id: row.id as string,
-      clip_code: row.clip_code as string | undefined,
-      platform: row.platform as Platform,
-      date: (row.posted_at as string ?? '').slice(0, 10),
-      title: row.title as string,
-      views,
-      likes,
-      comments,
-      shares,
-      saves,
-      engagementRate: calcEngagementRate(views, likes, comments, shares, saves),
-      content_type: row.content_type as string | undefined,
-      url: row.url as string | undefined,
-      thumbnail_url: row.thumbnail_url as string | undefined,
-      // YouTube-specific
-      watch_time_minutes: row.watch_time_minutes != null ? Number(row.watch_time_minutes) : undefined,
-      avg_view_duration_seconds: row.avg_view_duration_seconds != null ? Number(row.avg_view_duration_seconds) : undefined,
-      avg_view_percentage: row.avg_view_percentage != null ? Number(row.avg_view_percentage) : undefined,
-      impressions: row.impressions != null ? Number(row.impressions) : undefined,
-      impression_ctr: row.impression_ctr != null ? Number(row.impression_ctr) : undefined,
-      dislikes: row.dislikes != null ? Number(row.dislikes) : undefined,
-      subscribers_gained: row.subscribers_gained != null ? Number(row.subscribers_gained) : undefined,
-      subscribers_lost: row.subscribers_lost != null ? Number(row.subscribers_lost) : undefined,
-      card_clicks: row.card_clicks != null ? Number(row.card_clicks) : undefined,
-      card_ctr: row.card_ctr != null ? Number(row.card_ctr) : undefined,
-      end_screen_clicks: row.end_screen_clicks != null ? Number(row.end_screen_clicks) : undefined,
-      end_screen_ctr: row.end_screen_ctr != null ? Number(row.end_screen_ctr) : undefined,
-      // Instagram-specific
-      plays: row.plays != null ? Number(row.plays) : undefined,
-      reach: row.reach != null ? Number(row.reach) : undefined,
-      profile_visits: row.profile_visits != null ? Number(row.profile_visits) : undefined,
-      follows: row.follows != null ? Number(row.follows) : undefined,
-      accounts_reached: row.accounts_reached != null ? Number(row.accounts_reached) : undefined,
-      accounts_engaged: row.accounts_engaged != null ? Number(row.accounts_engaged) : undefined,
-      engagement_rate: row.engagement_rate != null ? Number(row.engagement_rate) : undefined,
-    };
-  });
+  return (data ?? []).map((row) => mapPostRow(row as Record<string, unknown>));
 }
 
 export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
