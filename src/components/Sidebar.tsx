@@ -20,7 +20,7 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', /* 'content', // hidden — re-add when ready */ 'schedule', 'analytics', 'platforms', 'comparison', 'settings'] },
+  { label: 'Analytics', items: ['dashboard', /* 'content', // hidden — re-add when ready */ 'schedule', 'analytics', /* 'platforms', // hidden — re-add when ready */ /* 'comparison', // hidden — re-add when ready */ 'settings'] },
   // hidden — re-add when ready
   // { label: 'Tools', items: ['captions', 'insights', 'transcriber', 'scriptAnalyzer', 'editor'] },
 ];
