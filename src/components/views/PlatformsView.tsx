@@ -112,7 +112,7 @@ export default function PlatformsView({ posts }: Props) {
 
                     {/* Best post */}
                     {best && (
-                      <div onClick={() => open(best, best.clip_code)} className="bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.05)] rounded-xl p-3.5 cursor-pointer hover:bg-[rgba(247,231,206,0.05)] transition-colors">
+                      <div onClick={() => best.clip_code && open(best, best.clip_code)} className="bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.05)] rounded-xl p-3.5 cursor-pointer hover:bg-[rgba(247,231,206,0.05)] transition-colors">
                         <div className="flex items-center gap-1.5 mb-2">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)]">Best Post</p>
                           {best.url && (
