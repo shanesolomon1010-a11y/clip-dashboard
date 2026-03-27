@@ -72,6 +72,7 @@ function formatDisplayDate(dateStr: string): { full: string; weekday: string } {
 export default function PostingScheduleView() {
   const [posts, setPosts]           = useState<ScheduledPost[]>([]);
   const [loading, setLoading]       = useState(true);
+  const [fetchError, setFetchError] = useState(false);
   const [year, setYear]             = useState(() => new Date().getFullYear());
   const [month, setMonth]           = useState(() => new Date().getMonth());  // 0-indexed
   const [selectedDate, setSelected] = useState<string | null>(null);
@@ -85,7 +86,8 @@ export default function PostingScheduleView() {
       .from('scheduled_posts')
       .select('id, clip_code, title, platform, scheduled_date, post_time, status, content_type')
       .then(({ data, error }) => {
-        if (!error && data) setPosts(data as ScheduledPost[]);
+        if (error) { setFetchError(true); }
+        else if (data) { setPosts(data as ScheduledPost[]); }
         setLoading(false);
       });
   }, []);
@@ -136,6 +138,14 @@ export default function PostingScheduleView() {
     return (
       <div className="flex items-center justify-center h-64 text-[var(--text-2)] text-sm">
         Loading schedule…
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="flex items-center justify-center h-64 text-[var(--text-2)] text-sm">
+        Failed to load schedule.
       </div>
     );
   }
