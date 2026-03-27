@@ -31,7 +31,7 @@ INSERT INTO clip_details (
   'Why understanding your customer at a deeper level is the most valuable skill in media buying right now.',
   'The businesses winning on paid media right now aren''t the ones with the best creative or the biggest budgets. They''re the ones who actually understand their customer.',
   '1-2 genuine customer insights can reshape an entire company''s growth trajectory. Most brands don''t have even one.',
-  ''
+  NULL
 ),
 (
   'MBM015-CLIP-003',
@@ -43,5 +43,5 @@ INSERT INTO clip_details (
   'The three-step framework that determines whether your ad works before you shoot a single frame.',
   'Format is the last decision, not the first. Most media buyers pick the format then reverse-engineer the message. That''s why the message feels forced.',
   'Audience → angle → format. In that order. Always.',
-  ''
+  NULL
 );
