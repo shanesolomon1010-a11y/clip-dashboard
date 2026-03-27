@@ -109,6 +109,7 @@ function mapPostRow(row: Record<string, unknown>): UnifiedPost {
   return {
     id: row.id as string,
     clip_code: row.clip_code as string | undefined,
+    clip_details_code: row.clip_details_code as string | undefined,
     platform: row.platform as Platform,
     date: (row.posted_at as string ?? '').slice(0, 10),
     stat_date: row.stat_date as string | undefined,
@@ -252,6 +253,7 @@ export async function deletePost(id: string): Promise<void> {
 export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
   const rows = posts.map((p) => ({
     clip_code: p.clip_code ?? null,
+    clip_details_code: p.clip_details_code ?? null,
     stat_date: p.stat_date ?? null,
     content_id: p.content_id ?? null,
     platform: p.platform,
@@ -456,7 +458,7 @@ export async function fetchClipStats(clipCode: string): Promise<ClipStats> {
   const { data, error } = await supabase
     .from('posts')
     .select('platform, stat_date, views, likes, comments, shares')
-    .eq('clip_code', clipCode)
+    .or(`clip_details_code.eq."${clipCode}",clip_code.eq."${clipCode}"`)
     .order('stat_date', { ascending: false, nullsFirst: false });
 
   if (error) throw error;
