@@ -333,11 +333,13 @@ export default function VideoPreviewModal({ post, onClose, onUrlSaved, clipCode 
 
   useEffect(() => {
     if (!clipCode) return;
+    let cancelled = false;
     setClipLoading(true);
     fetchClipDetails(clipCode)
-      .then((detail) => setClipDetail(detail))
-      .catch(() => setClipDetail(null))
-      .finally(() => { setClipLoading(false); setClipFetched(true); });
+      .then((detail) => { if (!cancelled) setClipDetail(detail); })
+      .catch(() => { if (!cancelled) setClipDetail(null); })
+      .finally(() => { if (!cancelled) { setClipLoading(false); setClipFetched(true); } });
+    return () => { cancelled = true; };
   }, [clipCode]);
 
   // ── Shared close button ────────────────────────────────────────────────────
