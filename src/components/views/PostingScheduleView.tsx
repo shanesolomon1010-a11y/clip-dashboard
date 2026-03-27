@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
+import { useVideoModal } from '@/context/VideoModalContext';
+import type { UnifiedPost, Platform as UnifiedPlatform } from '@/types';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -32,6 +34,13 @@ const PLATFORM_LABELS: Record<Platform, string> = {
   ig: 'Instagram',
   tt: 'TikTok',
   tw: 'Twitter/X',
+};
+
+const SCHEDULE_TO_UNIFIED: Record<Platform, UnifiedPlatform> = {
+  yt: 'youtube',
+  ig: 'instagram',
+  tt: 'tiktok',
+  tw: 'twitter',
 };
 
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -78,6 +87,7 @@ export default function PostingScheduleView() {
   const [selectedDate, setSelected] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [todayStr]                  = useState(getTodayStr);
+  const { open: openModal } = useVideoModal();
 
   // Fetch on mount — no realtime subscription needed
   useEffect(() => {
@@ -332,10 +342,27 @@ export default function PostingScheduleView() {
                   <span className="text-xs text-[var(--text-2)]">{post.post_time}</span>
                 </div>
 
-                {/* Title */}
-                <p className="text-sm font-medium text-[var(--text-1)] leading-snug">
+                {/* Title — click to open clip detail */}
+                <button
+                  onClick={() => {
+                    const minimalPost: UnifiedPost = {
+                      id: post.id,
+                      platform: SCHEDULE_TO_UNIFIED[post.platform],
+                      title: post.title,
+                      date: post.scheduled_date,
+                      views: 0,
+                      likes: 0,
+                      comments: 0,
+                      shares: 0,
+                      saves: 0,
+                      engagementRate: 0,
+                    };
+                    openModal(minimalPost, post.clip_code);
+                  }}
+                  className="text-left text-sm font-medium text-[var(--text-1)] leading-snug hover:text-[rgba(247,231,206,0.8)] transition-colors w-full"
+                >
                   {post.title}
-                </p>
+                </button>
 
                 {/* Clip code */}
                 <p className="text-xs text-[var(--text-2)] font-mono">
