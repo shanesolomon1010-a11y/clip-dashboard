@@ -255,7 +255,7 @@ export async function saveScriptAnalysis(row: {
 
 export interface ClipDetail {
   clip_code: string;
-  title: string;
+  title: string | null;
   headline_banner: string | null;
   question_banner: string | null;
   caption_tiktok: string | null;
@@ -296,7 +296,10 @@ export async function fetchAllClipDetails(): Promise<ClipDetail[]> {
 
 export async function insertClipDetail(row: ClipDetail): Promise<void> {
   const { error } = await supabase.from('clip_details').insert(row);
-  if (error) throw error;
+  if (error) {
+    console.error('insertClipDetail error:', error);
+    throw error;
+  }
 }
 
 export async function deleteClipDetail(clipCode: string): Promise<void> {

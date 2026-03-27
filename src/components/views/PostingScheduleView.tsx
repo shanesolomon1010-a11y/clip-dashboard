@@ -236,7 +236,7 @@ export default function PostingScheduleView() {
   const filteredClips = clipOptions.filter(c =>
     clipSearch === '' ||
     c.clip_code.toLowerCase().includes(clipSearch.toLowerCase()) ||
-    c.title.toLowerCase().includes(clipSearch.toLowerCase())
+    (c.title ?? '').toLowerCase().includes(clipSearch.toLowerCase())
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────

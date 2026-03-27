@@ -89,13 +89,13 @@ export default function SettingsView({ onClearData }: Props) {
 
   async function handleAddClip(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.clip_code.trim() || !form.title.trim()) return;
+    if (!form.clip_code.trim()) return;
     setClipSubmitting(true);
     setClipStatus(null);
     try {
       await insertClipDetail({
         clip_code:        form.clip_code.trim(),
-        title:            form.title.trim(),
+        title:            nullIfEmpty(form.title),
         headline_banner:  nullIfEmpty(form.headline_banner),
         question_banner:  nullIfEmpty(form.question_banner),
         caption_tiktok:   nullIfEmpty(form.caption_tiktok),
@@ -110,7 +110,9 @@ export default function SettingsView({ onClearData }: Props) {
       const updated = await fetchAllClipDetails();
       setClips(updated);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const msg = (err instanceof Error || (err !== null && typeof err === 'object' && 'message' in err))
+        ? (err as { message: string }).message
+        : 'Unknown error';
       setClipStatus({ type: 'error', message: msg });
     } finally {
       setClipSubmitting(false);
@@ -181,7 +183,6 @@ export default function SettingsView({ onClearData }: Props) {
                 placeholder="Clip title"
                 value={form.title}
                 onChange={e => setField('title', e.target.value)}
-                required
                 className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
               />
             </div>
@@ -253,7 +254,7 @@ export default function SettingsView({ onClearData }: Props) {
 
           <button
             type="submit"
-            disabled={clipSubmitting || !form.clip_code.trim() || !form.title.trim()}
+            disabled={clipSubmitting || !form.clip_code.trim()}
             className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {clipSubmitting ? 'Adding…' : 'Add Clip'}
