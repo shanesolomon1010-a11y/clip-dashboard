@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import { fetchAllClipDetails, insertClipDetail, deleteClipDetail } from '@/lib/db';
 import type { ClipDetail } from '@/lib/db';
+import DataEditorTab from '@/components/DataEditorTab';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -58,6 +59,7 @@ function nullIfEmpty(s: string): string | null {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function SettingsView({ onClearData }: Props) {
+  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor'>('clips');
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Clip Library state
@@ -125,11 +127,34 @@ export default function SettingsView({ onClearData }: Props) {
   }
 
   return (
-    <div className="p-6 max-w-2xl space-y-5">
+    <div className="p-6 space-y-5">
       <div>
         <h2 className="text-base font-bold text-[var(--text-1)] mb-1 tracking-tight">Settings</h2>
         <p className="text-sm text-[var(--text-2)]">Manage your Clip Studio preferences.</p>
+        {/* Tabs */}
+        <div className="flex gap-1 mt-4 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-full p-1 w-fit">
+          {([
+            { key: 'clips', label: 'Clip Library' },
+            { key: 'data-editor', label: 'Data Editor' },
+          ] as { key: typeof activeTab; label: string }[]).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setActiveTab(key)}
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
+              style={{
+                background: activeTab === key ? 'var(--gold)' : 'transparent',
+                color: activeTab === key ? '#000' : 'var(--text-3)',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {activeTab === 'data-editor' && <DataEditorTab />}
+
+      {activeTab === 'clips' && <div className="max-w-2xl space-y-5">
 
       {/* Connected platforms */}
       <Section title="Connected Platforms">
@@ -305,6 +330,8 @@ export default function SettingsView({ onClearData }: Props) {
           }
         />
       </Section>
+
+      </div>}
 
       {confirmOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">

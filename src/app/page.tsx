@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { UnifiedPost } from '@/types';
-import { fetchAllPosts, upsertPosts, updatePostUrl } from '@/lib/db';
+import { getLatestPostsPerClip, upsertPosts, updatePostUrl } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
 import TopBar from '@/components/TopBar';
 import DashboardView from '@/components/views/DashboardView';
@@ -41,7 +41,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchAllPosts()
+    getLatestPostsPerClip()
       .then((fetched) => {
         setPosts(fetched);
       })

@@ -111,6 +111,7 @@ function mapPostRow(row: Record<string, unknown>): UnifiedPost {
     clip_code: row.clip_code as string | undefined,
     platform: row.platform as Platform,
     date: (row.posted_at as string ?? '').slice(0, 10),
+    stat_date: row.stat_date as string | undefined,
     title: row.title as string,
     views,
     likes,
@@ -122,6 +123,7 @@ function mapPostRow(row: Record<string, unknown>): UnifiedPost {
     url: row.url as string | undefined,
     thumbnail_url: row.thumbnail_url as string | undefined,
     watch_time_minutes: row.watch_time_minutes != null ? Number(row.watch_time_minutes) : undefined,
+    watch_time_hours: row.watch_time_hours != null ? Number(row.watch_time_hours) : undefined,
     avg_view_duration_seconds: row.avg_view_duration_seconds != null ? Number(row.avg_view_duration_seconds) : undefined,
     avg_view_percentage: row.avg_view_percentage != null ? Number(row.avg_view_percentage) : undefined,
     impressions: row.impressions != null ? Number(row.impressions) : undefined,
@@ -140,6 +142,11 @@ function mapPostRow(row: Record<string, unknown>): UnifiedPost {
     accounts_reached: row.accounts_reached != null ? Number(row.accounts_reached) : undefined,
     accounts_engaged: row.accounts_engaged != null ? Number(row.accounts_engaged) : undefined,
     engagement_rate: row.engagement_rate != null ? Number(row.engagement_rate) : undefined,
+    duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : undefined,
+    daily_engaged_views: row.daily_engaged_views != null ? Number(row.daily_engaged_views) : undefined,
+    total_engaged_views: row.total_engaged_views != null ? Number(row.total_engaged_views) : undefined,
+    unique_viewers: row.unique_viewers != null ? Number(row.unique_viewers) : undefined,
+    youtube_premium_views: row.youtube_premium_views != null ? Number(row.youtube_premium_views) : undefined,
   };
 }
 
@@ -166,6 +173,80 @@ export async function fetchAllPosts(): Promise<UnifiedPost[]> {
   if (error) throw error;
 
   return (data ?? []).map((row) => mapPostRow(row as Record<string, unknown>));
+}
+
+// Returns one row per clip_code+platform using the latest stat_date.
+// Posts without a clip_code are returned as-is (each row is unique).
+export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedPost[]> {
+  let query = supabase
+    .from('posts')
+    .select('*')
+    .order('stat_date', { ascending: false, nullsFirst: false })
+    .order('posted_at', { ascending: false });
+
+  if (platform) query = query.eq('platform', platform);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const seen = new Set<string>();
+  const result: UnifiedPost[] = [];
+
+  for (const row of data ?? []) {
+    const key = row.clip_code
+      ? `${row.clip_code as string}::${row.platform as string}`
+      : row.id as string;
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(mapPostRow(row as Record<string, unknown>));
+    }
+  }
+
+  return result;
+}
+
+// Returns all rows unfiltered — used by the Data Editor.
+export async function getAllPosts(platform?: string): Promise<UnifiedPost[]> {
+  let query = supabase
+    .from('posts')
+    .select('*')
+    .order('clip_code', { ascending: true, nullsFirst: false })
+    .order('stat_date', { ascending: false, nullsFirst: false });
+
+  if (platform) query = query.eq('platform', platform);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []).map((row) => mapPostRow(row as Record<string, unknown>));
+}
+
+export async function updatePost(id: string, fields: Partial<UnifiedPost>): Promise<void> {
+  const dbFields: Record<string, unknown> = {};
+
+  const directKeys: Array<keyof UnifiedPost> = [
+    'clip_code', 'platform', 'title', 'url', 'stat_date', 'duration_seconds',
+    'views', 'likes', 'comments', 'shares', 'impressions', 'impression_ctr',
+    'watch_time_hours', 'avg_view_duration_seconds', 'avg_view_percentage',
+    'daily_engaged_views', 'total_engaged_views', 'unique_viewers',
+    'subscribers_gained', 'subscribers_lost', 'youtube_premium_views',
+  ];
+
+  for (const key of directKeys) {
+    if (key in fields) dbFields[key] = fields[key] ?? null;
+  }
+
+  if ('date' in fields) dbFields['posted_at'] = fields.date;
+
+  if (Object.keys(dbFields).length === 0) return;
+
+  const { error } = await supabase.from('posts').update(dbFields).eq('id', id);
+  if (error) throw error;
+}
+
+export async function deletePost(id: string): Promise<void> {
+  const { error } = await supabase.from('posts').delete().eq('id', id);
+  if (error) throw error;
 }
 
 export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
