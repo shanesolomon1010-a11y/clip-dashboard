@@ -3,6 +3,7 @@ export type Platform = 'youtube' | 'instagram';
 export interface UnifiedPost {
   id: string;
   clip_code?: string;
+  clip_details_code?: string;
   platform: Platform;
   date: string; // ISO date string YYYY-MM-DD (maps to posted_at in DB)
   views: number;
