@@ -250,3 +250,33 @@ export async function saveScriptAnalysis(row: {
   const { error } = await supabase.from('script_analyses').insert(row);
   if (error) throw error;
 }
+
+// ── Clip details ───────────────────────────────────────────────────────────────
+
+export interface ClipDetail {
+  clip_code: string;
+  title: string;
+  headline_banner: string | null;
+  question_banner: string | null;
+  caption_tiktok: string | null;
+  caption_instagram: string | null;
+  caption_youtube: string | null;
+  caption_linkedin: string | null;
+  caption_twitter: string | null;
+  video_url: string | null;
+}
+
+export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | null> {
+  const { data, error } = await supabase
+    .from('clip_details')
+    .select(
+      'clip_code, title, headline_banner, question_banner, ' +
+      'caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
+      'video_url'
+    )
+    .eq('clip_code', clipCode)
+    .maybeSingle();
+
+  if (error) throw error;
+  return data as ClipDetail | null;
+}
