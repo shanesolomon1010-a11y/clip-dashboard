@@ -15,6 +15,15 @@ export interface UnifiedPost {
   content_type?: string;
   url?: string;
   thumbnail_url?: string;
+  // YouTube daily stat fields
+  stat_date?: string;       // daily stat row date (YYYY-MM-DD)
+  content_id?: string;      // YouTube video content_id
+  duration_seconds?: number;
+  daily_engaged_views?: number;
+  total_engaged_views?: number;
+  watch_time_hours?: number;
+  unique_viewers?: number;
+  youtube_premium_views?: number;
   // YouTube-specific
   watch_time_minutes?: number;
   avg_view_duration_seconds?: number;

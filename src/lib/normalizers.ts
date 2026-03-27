@@ -1,5 +1,6 @@
 import Papa from 'papaparse';
 import { Platform, UnifiedPost } from '@/types';
+import { parseHMStoSeconds } from './utils';
 
 type RawRow = Record<string, string>;
 
@@ -68,38 +69,49 @@ function normalizeInstagram(rows: RawRow[]): Omit<UnifiedPost, 'id'>[] {
 }
 
 // ── YouTube ───────────────────────────────────────────────────────────────────
+function parsePublishDate(val: string | undefined): string {
+  if (!val || val.trim() === '') return new Date().toISOString().slice(0, 10);
+  const d = new Date(val);
+  return isNaN(d.getTime()) ? new Date().toISOString().slice(0, 10) : d.toISOString().slice(0, 10);
+}
+
 function normalizeYouTube(rows: RawRow[]): Omit<UnifiedPost, 'id'>[] {
   return rows.map((row, i) => {
-    const views = parseNum(row['views']);
+    const contentId = row['content_id'] || undefined;
+    const views = parseNum(row['total_views']);
     const likes = parseNum(row['likes']);
     const comments = parseNum(row['comments']);
     const shares = parseNum(row['shares']);
+    const watchTimeHours = parseOptNum(row['watch_time_hours']);
+    const avgViewDurRaw = row['average_view_duration'];
     return {
-      clip_code: row['clip_code'] || undefined,
-      platform: 'youtube' as Platform,
-      date: (row['posted_at'] || new Date().toISOString()).slice(0, 10),
-      title: row['title'] || `YouTube Short ${i + 1}`,
-      content_type: row['content_type'] || undefined,
-      url: row['url'] || undefined,
+      clip_code: row['clip_id'] || undefined,
+      stat_date: (row['date'] || new Date().toISOString()).slice(0, 10),
+      content_id: contentId,
+      platform: (row['platform'] ? row['platform'].toLowerCase() : 'youtube') as Platform,
+      date: parsePublishDate(row['video_publish_time']),
+      title: row['video_title'] || `YouTube Short ${i + 1}`,
+      url: contentId ? `https://www.youtube.com/shorts/${contentId}` : undefined,
       views,
       likes,
       comments,
       shares,
       saves: 0,
       engagementRate: calcEngagement(views, likes, comments, shares, 0),
-      // YouTube-specific
-      watch_time_minutes: parseOptNum(row['watch_time_minutes']),
-      avg_view_duration_seconds: parseOptNum(row['avg_view_duration_seconds']),
-      avg_view_percentage: parseOptNum(row['avg_view_percentage']),
+      // YouTube daily stat fields
+      duration_seconds: parseOptNum(row['duration_seconds']) !== undefined ? Math.round(parseNum(row['duration_seconds'])) : undefined,
+      daily_engaged_views: parseOptNum(row['daily_engaged_views']),
+      total_engaged_views: parseOptNum(row['total_engaged_views']),
+      watch_time_hours: watchTimeHours,
+      watch_time_minutes: watchTimeHours !== undefined ? watchTimeHours * 60 : undefined,
+      avg_view_duration_seconds: avgViewDurRaw ? parseHMStoSeconds(avgViewDurRaw) : undefined,
+      avg_view_percentage: parseOptNum(row['average_percentage_viewed']),
       impressions: parseOptNum(row['impressions']),
-      impression_ctr: parseOptNum(row['impression_ctr']),
-      dislikes: parseOptNum(row['dislikes']),
+      impression_ctr: parseOptNum(row['impressions_ctr']),
+      unique_viewers: parseOptNum(row['unique_viewers']),
       subscribers_gained: parseOptNum(row['subscribers_gained']),
       subscribers_lost: parseOptNum(row['subscribers_lost']),
-      card_clicks: parseOptNum(row['card_clicks']),
-      card_ctr: parseOptNum(row['card_ctr']),
-      end_screen_clicks: parseOptNum(row['end_screen_clicks']),
-      end_screen_ctr: parseOptNum(row['end_screen_ctr']),
+      youtube_premium_views: parseOptNum(row['youtube_premium_views']),
     };
   });
 }

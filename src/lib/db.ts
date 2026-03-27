@@ -171,6 +171,8 @@ export async function fetchAllPosts(): Promise<UnifiedPost[]> {
 export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
   const rows = posts.map((p) => ({
     clip_code: p.clip_code ?? null,
+    stat_date: p.stat_date ?? null,
+    content_id: p.content_id ?? null,
     platform: p.platform,
     posted_at: p.date,
     title: p.title,
@@ -181,15 +183,22 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
     likes: p.likes,
     comments: p.comments,
     shares: p.shares,
-    // YouTube-specific
-    watch_time_minutes: p.watch_time_minutes ?? null,
+    // YouTube daily stat fields
+    duration_seconds: p.duration_seconds ?? null,
+    daily_engaged_views: p.daily_engaged_views ?? null,
+    total_engaged_views: p.total_engaged_views ?? null,
+    watch_time_hours: p.watch_time_hours ?? null,
+    watch_time_minutes: p.watch_time_hours != null ? p.watch_time_hours * 60 : (p.watch_time_minutes ?? null),
     avg_view_duration_seconds: p.avg_view_duration_seconds ?? null,
     avg_view_percentage: p.avg_view_percentage ?? null,
     impressions: p.impressions ?? null,
     impression_ctr: p.impression_ctr ?? null,
-    dislikes: p.dislikes ?? null,
+    unique_viewers: p.unique_viewers ?? null,
+    youtube_premium_views: p.youtube_premium_views ?? null,
     subscribers_gained: p.subscribers_gained ?? null,
     subscribers_lost: p.subscribers_lost ?? null,
+    // YouTube legacy fields
+    dislikes: p.dislikes ?? null,
     card_clicks: p.card_clicks ?? null,
     card_ctr: p.card_ctr ?? null,
     end_screen_clicks: p.end_screen_clicks ?? null,
@@ -207,7 +216,7 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
 
   const { error } = await supabase
     .from('posts')
-    .upsert(rows, { onConflict: 'clip_code,platform' });
+    .upsert(rows, { onConflict: 'clip_code,platform,stat_date' });
 
   if (error) throw error;
 }
