@@ -77,8 +77,7 @@ export default function PostingScheduleView() {
   const [month, setMonth]           = useState(() => new Date().getMonth());  // 0-indexed
   const [selectedDate, setSelected] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const todayStr = getTodayStr();
+  const [todayStr]                  = useState(getTodayStr);
 
   // Fetch on mount — no realtime subscription needed
   useEffect(() => {
