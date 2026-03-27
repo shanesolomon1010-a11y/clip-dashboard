@@ -20,8 +20,9 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', 'content', 'schedule', 'analytics', 'platforms', 'comparison'] },
-  { label: 'Tools',     items: ['captions', 'insights', 'transcriber', 'scriptAnalyzer', 'editor', 'settings'] },
+  { label: 'Analytics', items: ['dashboard', /* 'content', // hidden — re-add when ready */ 'schedule', 'analytics', 'platforms', 'comparison', 'settings'] },
+  // hidden — re-add when ready
+  // { label: 'Tools', items: ['captions', 'insights', 'transcriber', 'scriptAnalyzer', 'editor'] },
 ];
 
 interface Props {

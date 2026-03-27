@@ -12,9 +12,9 @@ test.describe('Filters', () => {
     await expect(page.locator('[data-testid="date-btn-7d"]')).toHaveAttribute('data-active', 'true');
   });
 
-  test('90D filter persists after navigating to Content', async ({ page }) => {
+  test('90D filter persists after navigating to Schedule', async ({ page }) => {
     await page.click('[data-testid="date-btn-90d"]');
-    await page.click('[data-testid="nav-content"]');
+    await page.click('[data-testid="nav-schedule"]');
     await expect(page.locator('[data-testid="date-btn-90d"]')).toHaveAttribute('data-active', 'true');
   });
 
