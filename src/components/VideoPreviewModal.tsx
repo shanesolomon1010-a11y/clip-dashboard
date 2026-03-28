@@ -22,6 +22,7 @@ interface Props {
 type EmbedInfo =
   | { type: 'youtube';   id: string }
   | { type: 'instagram' }
+  | { type: 'mp4' }
   | null;
 
 function detectEmbed(url: string): EmbedInfo {
@@ -34,6 +35,7 @@ function detectEmbed(url: string): EmbedInfo {
     if (vMatch) return { type: 'youtube', id: vMatch[1] };
   }
   if (url.includes('instagram.com')) return { type: 'instagram' };
+  if (url.endsWith('.mp4') || url.includes('supabase.co/storage')) return { type: 'mp4' };
   return null;
 }
 
@@ -97,6 +99,16 @@ function MiniPlayer({ url, clipCode }: { url: string | null; clipCode: string })
     return (
       <div style={{ height: 280, overflow: 'hidden' }} className="rounded-xl">
         <InstagramEmbed url={url} />
+      </div>
+    );
+  }
+
+  if (embed?.type === 'mp4') {
+    return (
+      <div className="w-full rounded-xl overflow-hidden bg-black" style={{ height: 280 }}>
+        <video controls playsInline width="100%" height="100%" style={{ width: '100%', height: '100%' }}>
+          <source src={url} type="video/mp4" />
+        </video>
       </div>
     );
   }
