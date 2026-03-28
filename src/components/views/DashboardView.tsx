@@ -267,7 +267,7 @@ export default function DashboardView({ posts }: Props) {
                 >
                   {PLATFORM_LABELS[post.platform]}
                 </span>
-                <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{post.title}</span>
+                <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{post.clip_code}</span>
                 {post.url && (
                   <svg className="w-3 h-3 shrink-0 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">
                     <path d="M4 3l10 5-10 5V3z" />

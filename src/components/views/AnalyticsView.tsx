@@ -682,7 +682,7 @@ export default function AnalyticsView({ posts }: Props) {
                     className="px-5 py-3 text-left text-[10px] font-medium text-[var(--text-3)] uppercase tracking-[0.12em] cursor-pointer hover:text-[var(--text-2)] transition-colors"
                     onClick={() => handleSort('title')}
                   >
-                    Clip Title {sortCol === 'title' && (sortDir === 'asc' ? '↑' : '↓')}
+                    Clip Code {sortCol === 'title' && (sortDir === 'asc' ? '↑' : '↓')}
                   </th>
                   <th
                     className="px-5 py-3 text-left text-[10px] font-medium text-[var(--text-3)] uppercase tracking-[0.12em] cursor-pointer hover:text-[var(--text-2)] transition-colors whitespace-nowrap"
@@ -708,7 +708,7 @@ export default function AnalyticsView({ posts }: Props) {
                 {sortedPosts.map((post) => (
                   <tr key={post.id} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
                     <td className="px-5 py-3.5 text-[var(--text-1)] text-[13px] max-w-[260px] truncate">
-                      {post.title}
+                      {post.clip_code}
                     </td>
                     <td
                       className="px-5 py-3.5 text-[var(--text-2)] text-[13px] tabular-nums whitespace-nowrap"

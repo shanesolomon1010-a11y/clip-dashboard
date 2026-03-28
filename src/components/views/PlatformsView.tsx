@@ -121,7 +121,7 @@ export default function PlatformsView({ posts }: Props) {
                             </svg>
                           )}
                         </div>
-                        <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.title}</p>
+                        <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.clip_code}</p>
                         <div className="flex gap-4 text-[11px]">
                           <span className="text-[var(--text-2)]">Views: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.views)}</span></span>
                           <span className="text-[var(--text-2)]">Interactions: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.likes + best.comments + best.shares + best.saves)}</span></span>

@@ -48,7 +48,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
                 )}
                 <span className="text-[10px] text-[var(--text-2)] ml-auto font-medium">{post.date}</span>
               </div>
-              <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-[var(--text-1)] transition-colors">{post.title}</p>
+              <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-[var(--text-1)] transition-colors">{post.clip_code}</p>
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px]">
                   <span className="text-[var(--text-2)]">Views</span>

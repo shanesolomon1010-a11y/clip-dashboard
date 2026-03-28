@@ -88,8 +88,8 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
                 </td>
                 <td className="px-5 py-3.5 max-w-[220px] cursor-pointer" onClick={() => post.clip_code && open(post, post.clip_code)}>
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="text-[var(--text-1)] truncate text-[13px] group-hover:text-[var(--text-1)] transition-colors flex-1" title={post.title}>
-                      {post.title.length > 44 ? post.title.slice(0, 44) + '…' : post.title}
+                    <span className="text-[var(--text-1)] truncate text-[13px] group-hover:text-[var(--text-1)] transition-colors flex-1">
+                      {post.clip_code}
                     </span>
                     {post.url && (
                       <svg className="w-3 h-3 shrink-0 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">

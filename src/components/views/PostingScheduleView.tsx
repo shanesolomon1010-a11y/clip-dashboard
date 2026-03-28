@@ -207,7 +207,7 @@ export default function PostingScheduleView() {
 
     const rows = Array.from(selectedPlatforms).map(platform => ({
       clip_code: selectedClip.clip_code,
-      title: selectedClip.title,
+      title: selectedClip.clip_code,
       platform,
       scheduled_date: selectedDate,
       post_time: '11:00 AM CT',
@@ -632,12 +632,8 @@ export default function PostingScheduleView() {
                       }}
                       className="text-left text-sm font-medium text-[var(--text-1)] leading-snug hover:text-[rgba(247,231,206,0.8)] transition-colors w-full"
                     >
-                      {post.title}
-                    </button>
-
-                    <p className="text-xs text-[var(--text-2)] font-mono">
                       {post.clip_code}
-                    </p>
+                    </button>
 
                     <div className="flex flex-wrap gap-1.5">
                       {post.content_type && (
