@@ -220,7 +220,7 @@ function ClipDetailBody({ detail }: { detail: ClipDetail }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function VideoPreviewModal({ post, onClose, clipCode }: Props) {
+export default function VideoPreviewModal({ onClose, clipCode }: Props) {
   const [clipDetail, setClipDetail] = useState<ClipDetail | null>(null);
   const [clipLoading, setClipLoading] = useState(false);
   const [clipFetched, setClipFetched] = useState(false);
@@ -279,12 +279,9 @@ export default function VideoPreviewModal({ post, onClose, clipCode }: Props) {
       >
         {closeBtn}
 
-        {/* Title + clip code */}
+        {/* Clip code */}
         <div className="mb-5 pr-8">
           <p className="text-[10px] font-mono text-[var(--text-3)] mb-1">{clipCode}</p>
-          <h2 className="text-[16px] font-semibold text-[var(--text-1)] leading-snug">
-            {clipDetail?.title ?? post.title}
-          </h2>
         </div>
 
         {/* Section 1: Mini player */}

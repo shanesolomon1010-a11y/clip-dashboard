@@ -447,7 +447,6 @@ export default function PostingScheduleView() {
                           ].join(' ')}
                         >
                           <span className="font-mono text-[10px] text-[var(--text-3)]">{clip.clip_code}</span>
-                          <span className="block mt-0.5 leading-snug">{clip.title}</span>
                         </button>
                       ))}
                       {filteredClips.length === 0 && (
@@ -544,7 +543,6 @@ export default function PostingScheduleView() {
                     <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Confirm</p>
 
                     <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 space-y-2">
-                      <p className="text-xs font-medium text-[var(--text-1)] leading-snug">{selectedClip?.title}</p>
                       <p className="text-[10px] font-mono text-[var(--text-3)]">{selectedClip?.clip_code}</p>
                       <div className="flex flex-wrap gap-1.5 pt-0.5">
                         {Array.from(selectedPlatforms).map(p => (
