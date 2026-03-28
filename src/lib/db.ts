@@ -393,6 +393,7 @@ export async function saveScriptAnalysis(row: {
 
 export interface ClipDetail {
   clip_code: string;
+  clip_details_code: string | null;
   title: string | null;
   headline_banner: string | null;
   question_banner: string | null;
@@ -420,7 +421,7 @@ export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | n
   const { data, error } = await supabase
     .from('clip_details')
     .select(
-      'clip_code, title, headline_banner, question_banner, ' +
+      'clip_code, clip_details_code, title, headline_banner, question_banner, ' +
       'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
       'video_url'
     )
@@ -435,7 +436,7 @@ export async function fetchAllClipDetails(): Promise<ClipDetail[]> {
   const { data, error } = await supabase
     .from('clip_details')
     .select(
-      'clip_code, title, headline_banner, question_banner, ' +
+      'clip_code, clip_details_code, title, headline_banner, question_banner, ' +
       'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
       'video_url'
     )
