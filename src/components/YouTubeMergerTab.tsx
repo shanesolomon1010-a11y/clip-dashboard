@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Papa from 'papaparse';
 
 interface ChartRow {
@@ -72,10 +72,12 @@ function downloadCSV(content: string, filename: string) {
 }
 
 export default function YouTubeMergerTab() {
-  const [clipId, setClipId] = useState('');
   const [chartFile, setChartFile] = useState<File | null>(null);
   const [totalsFile, setTotalsFile] = useState<File | null>(null);
   const [tableFile, setTableFile] = useState<File | null>(null);
+  const [detectedVideos, setDetectedVideos] = useState<{ contentId: string; videoTitle: string }[]>([]);
+  const [clipMap, setClipMap] = useState<Record<string, string>>({});
+  const [scanning, setScanning] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [processing, setProcessing] = useState(false);
 
@@ -83,9 +85,52 @@ export default function YouTubeMergerTab() {
   const totalsRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    if (!chartFile || !tableFile) {
+      setDetectedVideos([]);
+      setClipMap({});
+      return;
+    }
+    setScanning(true);
+    setStatus(null);
+    Promise.all([parseCSV<ChartRow>(chartFile), parseCSV<TableRow>(tableFile)])
+      .then(([chartRows, tableRows]) => {
+        const seen = new Map<string, string>();
+        for (const row of chartRows) {
+          if (row.Content && !seen.has(row.Content)) {
+            seen.set(row.Content, row['Video title'] ?? '');
+          }
+        }
+        for (const row of tableRows) {
+          if (row.Content && row.Content.toLowerCase() !== 'total' && !seen.has(row.Content)) {
+            seen.set(row.Content, row['Video title'] ?? '');
+          }
+        }
+        const videos = Array.from(seen.entries()).map(([contentId, videoTitle]) => ({ contentId, videoTitle }));
+        setDetectedVideos(videos);
+        setClipMap(prev => {
+          const next: Record<string, string> = {};
+          for (const { contentId } of videos) {
+            next[contentId] = prev[contentId] ?? '';
+          }
+          return next;
+        });
+      })
+      .catch(err => {
+        const msg = err instanceof Error ? err.message : 'Unknown error';
+        setStatus({ type: 'error', message: `Scan failed: ${msg}` });
+      })
+      .finally(() => setScanning(false));
+  }, [chartFile, tableFile]);
+
   async function handleGenerate() {
-    if (!chartFile || !tableFile || !clipId.trim()) {
-      setStatus({ type: 'error', message: 'Please provide both CSV files and a Clip ID.' });
+    if (!chartFile || !tableFile) {
+      setStatus({ type: 'error', message: 'Please provide both CSV files.' });
+      return;
+    }
+    const unmapped = detectedVideos.filter(v => !clipMap[v.contentId]?.trim());
+    if (unmapped.length > 0) {
+      setStatus({ type: 'error', message: `Missing clip code for ${unmapped.length} video(s).` });
       return;
     }
     setProcessing(true);
@@ -96,14 +141,12 @@ export default function YouTubeMergerTab() {
         parseCSV<TableRow>(tableFile),
       ]);
 
-      // Build lookup from Content → TableRow (skip "Total" row)
       const tableMap = new Map<string, TableRow>();
       for (const row of tableRows) {
         if (row.Content?.toLowerCase() === 'total') continue;
         tableMap.set(row.Content, row);
       }
 
-      // Group chart rows by Content: track most-recent date row and sum engaged views
       const chartByContent = new Map<string, { latestRow: ChartRow; totalEngaged: number }>();
       for (const chart of chartRows) {
         const contentId = chart.Content;
@@ -123,7 +166,7 @@ export default function YouTubeMergerTab() {
       const outputRows = Array.from(chartByContent.values()).map(({ latestRow: chart, totalEngaged }) => {
         const table = tableMap.get(chart.Content) ?? {} as TableRow;
         return {
-          clip_id:                    clipId.trim(),
+          clip_id:                    (clipMap[chart.Content] ?? '').trim(),
           date:                       chart.Date ?? '',
           content_id:                 chart.Content ?? '',
           video_title:                chart['Video title'] ?? '',
@@ -149,7 +192,7 @@ export default function YouTubeMergerTab() {
       });
 
       const csv = buildCSV(outputRows);
-      downloadCSV(csv, `${clipId.trim()}-youtube-merged.csv`);
+      downloadCSV(csv, 'youtube-merged.csv');
       setStatus({ type: 'success', message: `Generated ${outputRows.length} rows.` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
@@ -162,6 +205,8 @@ export default function YouTubeMergerTab() {
   const inputClass = 'w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]';
   const labelClass = 'text-[11px] text-[var(--text-3)]';
 
+  const allMapped = detectedVideos.length > 0 && detectedVideos.every(v => clipMap[v.contentId]?.trim());
+
   return (
     <div className="max-w-lg space-y-5">
       <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
@@ -173,18 +218,6 @@ export default function YouTubeMergerTab() {
         </div>
 
         <div className="px-5 py-4 space-y-4">
-          {/* Clip ID */}
-          <div className="space-y-1">
-            <label className={labelClass}>Clip ID</label>
-            <input
-              type="text"
-              placeholder="e.g. MBM015-CLIP-004"
-              value={clipId}
-              onChange={e => setClipId(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-
           {/* Chart data file */}
           <div className="space-y-1">
             <label className={labelClass}>Chart data CSV <span className="text-[var(--text-3)] font-normal">(Chart_data.csv)</span></label>
@@ -248,6 +281,32 @@ export default function YouTubeMergerTab() {
             />
           </div>
 
+          {/* Per-video clip ID inputs */}
+          {scanning && (
+            <p className="text-xs text-[var(--text-3)]">Scanning files…</p>
+          )}
+          {!scanning && detectedVideos.length > 0 && (
+            <div className="space-y-3 pt-1">
+              <p className="text-[11px] text-[var(--text-3)]">
+                {detectedVideos.length} video{detectedVideos.length !== 1 ? 's' : ''} detected — enter a clip code for each:
+              </p>
+              {detectedVideos.map(({ contentId, videoTitle }) => (
+                <div key={contentId} className="space-y-1">
+                  <label className="text-[11px] text-[var(--text-2)] truncate block" title={videoTitle || contentId}>
+                    {videoTitle || contentId}
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. MBM015-CLIP-004"
+                    value={clipMap[contentId] ?? ''}
+                    onChange={e => setClipMap(prev => ({ ...prev, [contentId]: e.target.value }))}
+                    className={inputClass}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
           {status && (
             <p className={['text-xs', status.type === 'success' ? 'text-green-400' : 'text-red-400'].join(' ')}>
               {status.message}
@@ -256,7 +315,7 @@ export default function YouTubeMergerTab() {
 
           <button
             onClick={handleGenerate}
-            disabled={processing || !clipId.trim() || !chartFile || !tableFile}
+            disabled={processing || !chartFile || !tableFile || !allMapped}
             className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {processing ? 'Processing…' : 'Generate CSV'}
