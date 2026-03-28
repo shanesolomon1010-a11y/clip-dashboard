@@ -256,7 +256,7 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
     clip_details_code: p.clip_details_code ?? null,
     stat_date: p.stat_date ?? null,
     content_id: p.content_id ?? null,
-    platform: p.platform,
+    platform: (p.platform as string).toLowerCase(),
     posted_at: p.date,
     title: p.title,
     content_type: p.content_type ?? null,

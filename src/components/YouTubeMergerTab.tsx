@@ -187,7 +187,7 @@ export default function YouTubeMergerTab() {
           subscribers_gained:         table['Subscribers gained'] ?? '',
           subscribers_lost:           table['Subscribers lost'] ?? '',
           youtube_premium_views:      table['YouTube Premium views'] ?? '',
-          platform:                   'YouTube',
+          platform:                   'youtube',
         };
       });
 
