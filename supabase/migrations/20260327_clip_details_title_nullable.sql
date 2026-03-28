@@ -1,0 +1,1 @@
+ALTER TABLE clip_details ALTER COLUMN title DROP NOT NULL;

@@ -40,7 +40,6 @@ function Row({ label, sub, right }: { label: string; sub?: string; right: React.
 interface ClipForm {
   clip_code: string;
   clip_details_code: string;
-  title: string;
   headline_banner: string;
   question_banner: string;
   caption_youtube_title: string;
@@ -50,7 +49,7 @@ interface ClipForm {
 }
 
 const EMPTY_FORM: ClipForm = {
-  clip_code: '', clip_details_code: '', title: '', headline_banner: '', question_banner: '',
+  clip_code: '', clip_details_code: '', headline_banner: '', question_banner: '',
   caption_youtube_title: '', caption_youtube: '', caption_instagram: '', video_url: '',
 };
 
@@ -102,7 +101,7 @@ export default function SettingsView({ onClearData }: Props) {
       await insertClipDetail({
         clip_code:             form.clip_code.trim(),
         clip_details_code:     nullIfEmpty(form.clip_details_code),
-        title:                 nullIfEmpty(form.title),
+        title:                 null,
         headline_banner:       nullIfEmpty(form.headline_banner),
         question_banner:       nullIfEmpty(form.question_banner),
         caption_youtube_title: nullIfEmpty(form.caption_youtube_title),
@@ -145,7 +144,6 @@ export default function SettingsView({ onClearData }: Props) {
     setEditForm({
       clip_code:             clip.clip_code,
       clip_details_code:     clip.clip_details_code ?? '',
-      title:                 clip.title ?? '',
       headline_banner:       clip.headline_banner ?? '',
       question_banner:       clip.question_banner ?? '',
       caption_youtube_title: clip.caption_youtube_title ?? '',
@@ -167,7 +165,7 @@ export default function SettingsView({ onClearData }: Props) {
       await upsertClipDetail({
         clip_code:             editForm.clip_code,
         clip_details_code:     nullIfEmpty(editForm.clip_details_code),
-        title:                 nullIfEmpty(editForm.title),
+        title:                 null,
         headline_banner:       nullIfEmpty(editForm.headline_banner),
         question_banner:       nullIfEmpty(editForm.question_banner),
         caption_youtube_title: nullIfEmpty(editForm.caption_youtube_title),
@@ -261,7 +259,6 @@ export default function SettingsView({ onClearData }: Props) {
               <thead>
                 <tr className="border-b border-[rgba(247,231,206,0.05)]">
                   <th className="px-5 py-2 text-left text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Code</th>
-                  <th className="px-3 py-2 text-left text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Title</th>
                   <th className="px-3 py-2 w-20" />
                 </tr>
               </thead>
@@ -270,7 +267,6 @@ export default function SettingsView({ onClearData }: Props) {
                   <>
                     <tr key={clip.clip_code} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
                       <td className="px-5 py-3 font-mono text-[var(--text-2)] whitespace-nowrap">{clip.clip_code}</td>
-                      <td className="px-3 py-3 text-[var(--text-1)] leading-snug">{clip.title}</td>
                       <td className="px-3 py-3 text-right flex items-center justify-end gap-1">
                         <button
                           onClick={() => editingClipCode === clip.clip_code ? setEditingClipCode(null) : handleStartEdit(clip)}
@@ -288,7 +284,7 @@ export default function SettingsView({ onClearData }: Props) {
                     </tr>
                     {editingClipCode === clip.clip_code && (
                       <tr key={`${clip.clip_code}-edit`}>
-                        <td colSpan={3} className="px-5 py-4 bg-[rgba(247,231,206,0.02)] border-b border-[rgba(247,231,206,0.05)]">
+                        <td colSpan={2} className="px-5 py-4 bg-[rgba(247,231,206,0.02)] border-b border-[rgba(247,231,206,0.05)]">
                           <form onSubmit={handleUpdateClip} className="space-y-3">
                             <p className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Edit Clip</p>
 
@@ -312,17 +308,6 @@ export default function SettingsView({ onClearData }: Props) {
                                   className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
                                 />
                               </div>
-                            </div>
-
-                            <div className="space-y-1">
-                              <label className="text-[11px] text-[var(--text-3)]">Title</label>
-                              <input
-                                type="text"
-                                placeholder="Clip title"
-                                value={editForm.title}
-                                onChange={e => setEditField('title', e.target.value)}
-                                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-                              />
                             </div>
 
                             <div className="space-y-1">
@@ -447,17 +432,6 @@ export default function SettingsView({ onClearData }: Props) {
                 className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
               />
             </div>
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] text-[var(--text-3)]">Title</label>
-            <input
-              type="text"
-              placeholder="Clip title"
-              value={form.title}
-              onChange={e => setField('title', e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-            />
           </div>
 
           <div className="space-y-1">
