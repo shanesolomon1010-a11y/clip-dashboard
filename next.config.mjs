@@ -6,7 +6,6 @@ const nextConfig = {
         source: '/(.*)',
         headers: [
           { key: 'Cross-Origin-Opener-Policy',   value: 'same-origin' },
-          { key: 'Cross-Origin-Embedder-Policy', value: 'require-corp' },
           { key: 'Content-Security-Policy',      value: "media-src 'self' https://bfpjexlmoqoacoglqugl.supabase.co" },
         ],
       },
