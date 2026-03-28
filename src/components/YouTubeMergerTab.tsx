@@ -74,11 +74,13 @@ function downloadCSV(content: string, filename: string) {
 export default function YouTubeMergerTab() {
   const [clipId, setClipId] = useState('');
   const [chartFile, setChartFile] = useState<File | null>(null);
+  const [totalsFile, setTotalsFile] = useState<File | null>(null);
   const [tableFile, setTableFile] = useState<File | null>(null);
   const [status, setStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [processing, setProcessing] = useState(false);
 
   const chartRef = useRef<HTMLInputElement>(null);
+  const totalsRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLInputElement>(null);
 
   async function handleGenerate() {
@@ -159,7 +161,7 @@ export default function YouTubeMergerTab() {
             <label className={labelClass}>Clip ID</label>
             <input
               type="text"
-              placeholder="e.g. MBM016"
+              placeholder="e.g. MBM015-CLIP-004"
               value={clipId}
               onChange={e => setClipId(e.target.value)}
               className={inputClass}
@@ -184,6 +186,27 @@ export default function YouTubeMergerTab() {
               accept=".csv"
               className="hidden"
               onChange={e => setChartFile(e.target.files?.[0] ?? null)}
+            />
+          </div>
+
+          {/* Totals file (accepted but not used) */}
+          <div className="space-y-1">
+            <label className={labelClass}>Totals CSV <span className="text-[var(--text-3)] font-normal">(Totals.csv)</span></label>
+            <div
+              className="flex items-center gap-3 px-3 py-2 bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl cursor-pointer hover:border-[var(--gold-border)] transition-colors"
+              onClick={() => totalsRef.current?.click()}
+            >
+              <span className="text-xs text-[var(--text-3)] flex-1 truncate">
+                {totalsFile ? totalsFile.name : 'Choose file…'}
+              </span>
+              <span className="text-[10px] font-semibold text-[var(--text-3)] bg-[rgba(247,231,206,0.06)] px-2 py-0.5 rounded-lg">Browse</span>
+            </div>
+            <input
+              ref={totalsRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={e => setTotalsFile(e.target.files?.[0] ?? null)}
             />
           </div>
 
