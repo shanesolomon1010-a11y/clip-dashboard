@@ -42,6 +42,7 @@ interface ClipForm {
   title: string;
   headline_banner: string;
   question_banner: string;
+  caption_youtube_title: string;
   caption_tiktok: string;
   caption_youtube: string;
   caption_instagram: string;
@@ -52,7 +53,7 @@ interface ClipForm {
 
 const EMPTY_FORM: ClipForm = {
   clip_code: '', title: '', headline_banner: '', question_banner: '',
-  caption_tiktok: '', caption_youtube: '', caption_instagram: '',
+  caption_youtube_title: '', caption_tiktok: '', caption_youtube: '', caption_instagram: '',
   caption_linkedin: '', caption_twitter: '', video_url: '',
 };
 
@@ -108,16 +109,17 @@ export default function SettingsView({ onClearData }: Props) {
     setClipStatus(null);
     try {
       await insertClipDetail({
-        clip_code:        form.clip_code.trim(),
-        title:            nullIfEmpty(form.title),
-        headline_banner:  nullIfEmpty(form.headline_banner),
-        question_banner:  nullIfEmpty(form.question_banner),
-        caption_youtube:  nullIfEmpty(form.caption_youtube),
-        caption_instagram: nullIfEmpty(form.caption_instagram),
-        caption_tiktok:   null,
-        caption_linkedin: null,
-        caption_twitter:  null,
-        video_url:        nullIfEmpty(form.video_url),
+        clip_code:             form.clip_code.trim(),
+        title:                 nullIfEmpty(form.title),
+        headline_banner:       nullIfEmpty(form.headline_banner),
+        question_banner:       nullIfEmpty(form.question_banner),
+        caption_youtube_title: nullIfEmpty(form.caption_youtube_title),
+        caption_youtube:       nullIfEmpty(form.caption_youtube),
+        caption_instagram:     nullIfEmpty(form.caption_instagram),
+        caption_tiktok:        null,
+        caption_linkedin:      null,
+        caption_twitter:       null,
+        video_url:             nullIfEmpty(form.video_url),
       });
       setClipStatus({ type: 'success', message: `Clip "${form.clip_code.trim()}" added.` });
       setForm(EMPTY_FORM);
@@ -146,16 +148,17 @@ export default function SettingsView({ onClearData }: Props) {
     setEditingClipCode(clip.clip_code);
     setEditStatus(null);
     setEditForm({
-      clip_code:        clip.clip_code,
-      title:            clip.title ?? '',
-      headline_banner:  clip.headline_banner ?? '',
-      question_banner:  clip.question_banner ?? '',
-      caption_tiktok:   clip.caption_tiktok ?? '',
-      caption_youtube:  clip.caption_youtube ?? '',
-      caption_instagram: clip.caption_instagram ?? '',
-      caption_linkedin: clip.caption_linkedin ?? '',
-      caption_twitter:  clip.caption_twitter ?? '',
-      video_url:        clip.video_url ?? '',
+      clip_code:             clip.clip_code,
+      title:                 clip.title ?? '',
+      headline_banner:       clip.headline_banner ?? '',
+      question_banner:       clip.question_banner ?? '',
+      caption_youtube_title: clip.caption_youtube_title ?? '',
+      caption_tiktok:        clip.caption_tiktok ?? '',
+      caption_youtube:       clip.caption_youtube ?? '',
+      caption_instagram:     clip.caption_instagram ?? '',
+      caption_linkedin:      clip.caption_linkedin ?? '',
+      caption_twitter:       clip.caption_twitter ?? '',
+      video_url:             clip.video_url ?? '',
     });
   }
 
@@ -169,16 +172,17 @@ export default function SettingsView({ onClearData }: Props) {
     setEditStatus(null);
     try {
       await upsertClipDetail({
-        clip_code:        editForm.clip_code,
-        title:            nullIfEmpty(editForm.title),
-        headline_banner:  nullIfEmpty(editForm.headline_banner),
-        question_banner:  nullIfEmpty(editForm.question_banner),
-        caption_tiktok:   nullIfEmpty(editForm.caption_tiktok),
-        caption_youtube:  nullIfEmpty(editForm.caption_youtube),
-        caption_instagram: nullIfEmpty(editForm.caption_instagram),
-        caption_linkedin: nullIfEmpty(editForm.caption_linkedin),
-        caption_twitter:  nullIfEmpty(editForm.caption_twitter),
-        video_url:        nullIfEmpty(editForm.video_url),
+        clip_code:             editForm.clip_code,
+        title:                 nullIfEmpty(editForm.title),
+        headline_banner:       nullIfEmpty(editForm.headline_banner),
+        question_banner:       nullIfEmpty(editForm.question_banner),
+        caption_youtube_title: nullIfEmpty(editForm.caption_youtube_title),
+        caption_tiktok:        nullIfEmpty(editForm.caption_tiktok),
+        caption_youtube:       nullIfEmpty(editForm.caption_youtube),
+        caption_instagram:     nullIfEmpty(editForm.caption_instagram),
+        caption_linkedin:      nullIfEmpty(editForm.caption_linkedin),
+        caption_twitter:       nullIfEmpty(editForm.caption_twitter),
+        video_url:             nullIfEmpty(editForm.video_url),
       });
       const updated = await fetchAllClipDetails();
       setClips(updated);
@@ -318,6 +322,17 @@ export default function SettingsView({ onClearData }: Props) {
             />
           </div>
 
+          <div className="space-y-1">
+            <label className="text-[11px] text-[var(--text-3)]">YouTube Title</label>
+            <input
+              type="text"
+              placeholder="YouTube video title"
+              value={form.caption_youtube_title}
+              onChange={e => setField('caption_youtube_title', e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+            />
+          </div>
+
           {(['caption_youtube', 'caption_instagram'] as const).map(field => {
             const labels: Record<typeof field, string> = {
               caption_youtube: 'YouTube Caption',
@@ -447,6 +462,17 @@ export default function SettingsView({ onClearData }: Props) {
                                 placeholder="Question shown on the clip"
                                 value={editForm.question_banner}
                                 onChange={e => setEditField('question_banner', e.target.value)}
+                                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[11px] text-[var(--text-3)]">YouTube Title</label>
+                              <input
+                                type="text"
+                                placeholder="YouTube video title"
+                                value={editForm.caption_youtube_title}
+                                onChange={e => setEditField('caption_youtube_title', e.target.value)}
                                 className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
                               />
                             </div>

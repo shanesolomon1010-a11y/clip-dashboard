@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { UnifiedPost } from '@/types';
 import { getLatestPostsPerClip, upsertPosts } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
@@ -20,10 +21,27 @@ import { VideoModalProvider } from '@/context/VideoModalContext';
 import { FilterProvider } from '@/context/FilterContext';
 
 
-export default function App() {
+const VALID_NAV_SECTIONS = new Set<NavSection>([
+  'dashboard', 'content', 'schedule', 'analytics', 'platforms',
+  'comparison', 'captions', 'scriptAnalyzer', 'transcriber', 'insights', 'editor', 'settings',
+]);
+
+function AppInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [posts, setPosts] = useState<UnifiedPost[]>([]);
-  const [activeNav, setActiveNav] = useState<NavSection>('dashboard');
+  const initialNav = (() => {
+    const tab = searchParams.get('tab') as NavSection | null;
+    return tab && VALID_NAV_SECTIONS.has(tab) ? tab : 'dashboard';
+  })();
+  const [activeNav, setActiveNav] = useState<NavSection>(initialNav);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('tab', activeNav);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [activeNav]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     getLatestPostsPerClip()
@@ -102,5 +120,13 @@ export default function App() {
       </div>
     </VideoModalProvider>
     </FilterProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <Suspense>
+      <AppInner />
+    </Suspense>
   );
 }

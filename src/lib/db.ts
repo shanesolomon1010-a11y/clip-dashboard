@@ -396,6 +396,7 @@ export interface ClipDetail {
   title: string | null;
   headline_banner: string | null;
   question_banner: string | null;
+  caption_youtube_title: string | null;
   caption_tiktok: string | null;
   caption_instagram: string | null;
   caption_youtube: string | null;
@@ -420,7 +421,7 @@ export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | n
     .from('clip_details')
     .select(
       'clip_code, title, headline_banner, question_banner, ' +
-      'caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
+      'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
       'video_url'
     )
     .eq('clip_code', lookupCode)
@@ -435,7 +436,7 @@ export async function fetchAllClipDetails(): Promise<ClipDetail[]> {
     .from('clip_details')
     .select(
       'clip_code, title, headline_banner, question_banner, ' +
-      'caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
+      'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
       'video_url'
     )
     .order('clip_code');
