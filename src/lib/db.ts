@@ -451,6 +451,16 @@ export async function insertClipDetail(row: ClipDetail): Promise<void> {
   }
 }
 
+export async function updatePostsClipDetailsCode(clipCode: string, clipDetailsCode: string): Promise<number> {
+  const { data, error } = await supabase
+    .from('posts')
+    .update({ clip_details_code: clipDetailsCode })
+    .eq('clip_code', clipCode)
+    .select('id');
+  if (error) throw error;
+  return (data ?? []).length;
+}
+
 export async function upsertClipDetail(row: ClipDetail): Promise<void> {
   const { error } = await supabase.from('clip_details').upsert(row, { onConflict: 'clip_code' });
   if (error) throw error;

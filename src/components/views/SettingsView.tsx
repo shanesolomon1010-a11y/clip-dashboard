@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
-import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail } from '@/lib/db';
+import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail, updatePostsClipDetailsCode } from '@/lib/db';
 import type { ClipDetail } from '@/lib/db';
 import DataEditorTab from '@/components/DataEditorTab';
 
@@ -77,6 +77,12 @@ export default function SettingsView({ onClearData }: Props) {
   const [editForm, setEditForm]               = useState<ClipForm>(EMPTY_FORM);
   const [editSubmitting, setEditSubmitting]   = useState(false);
   const [editStatus, setEditStatus]           = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Link posts state
+  const [linkClipCode, setLinkClipCode]             = useState('');
+  const [linkDetailsCode, setLinkDetailsCode]       = useState('');
+  const [linkSubmitting, setLinkSubmitting]         = useState(false);
+  const [linkStatus, setLinkStatus]                 = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     fetchAllClipDetails()
@@ -184,6 +190,26 @@ export default function SettingsView({ onClearData }: Props) {
       setEditStatus({ type: 'error', message: msg });
     } finally {
       setEditSubmitting(false);
+    }
+  }
+
+  async function handleLinkPosts(e: React.FormEvent) {
+    e.preventDefault();
+    if (!linkClipCode.trim() || !linkDetailsCode.trim()) return;
+    setLinkSubmitting(true);
+    setLinkStatus(null);
+    try {
+      const count = await updatePostsClipDetailsCode(linkClipCode.trim(), linkDetailsCode.trim());
+      setLinkStatus({ type: 'success', message: `Updated ${count} post${count !== 1 ? 's' : ''}.` });
+      setLinkClipCode('');
+      setLinkDetailsCode('');
+    } catch (err) {
+      const msg = (err instanceof Error || (err !== null && typeof err === 'object' && 'message' in err))
+        ? (err as { message: string }).message
+        : 'Unknown error';
+      setLinkStatus({ type: 'error', message: msg });
+    } finally {
+      setLinkSubmitting(false);
     }
   }
 
@@ -491,6 +517,51 @@ export default function SettingsView({ onClearData }: Props) {
           </div>
         )}
 
+      </Section>
+
+      {/* Link Posts to Clip Details */}
+      <Section title="Link Posts to Clip Details">
+        <form onSubmit={handleLinkPosts} className="px-5 py-4 space-y-3">
+          <p className="text-[11px] text-[var(--text-3)]">
+            Set <code className="font-mono text-[var(--text-2)]">clip_details_code</code> on all posts matching a given clip code. Use this to connect posts that were imported without the link.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[11px] text-[var(--text-3)]">Clip Code (on posts)</label>
+              <input
+                type="text"
+                placeholder="MBM014"
+                value={linkClipCode}
+                onChange={e => setLinkClipCode(e.target.value)}
+                required
+                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-[var(--text-3)]">Clip Details Code</label>
+              <input
+                type="text"
+                placeholder="MBM015-CLIP-014"
+                value={linkDetailsCode}
+                onChange={e => setLinkDetailsCode(e.target.value)}
+                required
+                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+              />
+            </div>
+          </div>
+          {linkStatus && (
+            <p className={['text-xs', linkStatus.type === 'success' ? 'text-green-400' : 'text-red-400'].join(' ')}>
+              {linkStatus.message}
+            </p>
+          )}
+          <button
+            type="submit"
+            disabled={linkSubmitting || !linkClipCode.trim() || !linkDetailsCode.trim()}
+            className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {linkSubmitting ? 'Updating…' : 'Update Posts'}
+          </button>
+        </form>
       </Section>
 
       {/* Data & Privacy */}
