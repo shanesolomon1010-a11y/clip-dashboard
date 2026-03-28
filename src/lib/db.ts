@@ -451,6 +451,11 @@ export async function insertClipDetail(row: ClipDetail): Promise<void> {
   }
 }
 
+export async function upsertClipDetail(row: ClipDetail): Promise<void> {
+  const { error } = await supabase.from('clip_details').upsert(row, { onConflict: 'clip_code' });
+  if (error) throw error;
+}
+
 export async function deleteClipDetail(clipCode: string): Promise<void> {
   const { error } = await supabase.from('clip_details').delete().eq('clip_code', clipCode);
   if (error) throw error;

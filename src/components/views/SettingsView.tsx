@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
-import { fetchAllClipDetails, insertClipDetail, deleteClipDetail } from '@/lib/db';
+import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail } from '@/lib/db';
 import type { ClipDetail } from '@/lib/db';
 import DataEditorTab from '@/components/DataEditorTab';
 
@@ -42,14 +42,18 @@ interface ClipForm {
   title: string;
   headline_banner: string;
   question_banner: string;
+  caption_tiktok: string;
   caption_youtube: string;
   caption_instagram: string;
+  caption_linkedin: string;
+  caption_twitter: string;
   video_url: string;
 }
 
 const EMPTY_FORM: ClipForm = {
   clip_code: '', title: '', headline_banner: '', question_banner: '',
-  caption_youtube: '', caption_instagram: '', video_url: '',
+  caption_tiktok: '', caption_youtube: '', caption_instagram: '',
+  caption_linkedin: '', caption_twitter: '', video_url: '',
 };
 
 function nullIfEmpty(s: string): string | null {
@@ -67,6 +71,12 @@ export default function SettingsView({ onClearData }: Props) {
   const [form, setForm]             = useState<ClipForm>(EMPTY_FORM);
   const [clipSubmitting, setClipSubmitting] = useState(false);
   const [clipStatus, setClipStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Edit state
+  const [editingClipCode, setEditingClipCode] = useState<string | null>(null);
+  const [editForm, setEditForm]               = useState<ClipForm>(EMPTY_FORM);
+  const [editSubmitting, setEditSubmitting]   = useState(false);
+  const [editStatus, setEditStatus]           = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   useEffect(() => {
     fetchAllClipDetails()
@@ -123,6 +133,57 @@ export default function SettingsView({ onClearData }: Props) {
       setClips(prev => prev.filter(c => c.clip_code !== clipCode));
     } catch (err) {
       console.error('delete clip error:', err);
+    }
+  }
+
+  function handleStartEdit(clip: ClipDetail) {
+    setEditingClipCode(clip.clip_code);
+    setEditStatus(null);
+    setEditForm({
+      clip_code:        clip.clip_code,
+      title:            clip.title ?? '',
+      headline_banner:  clip.headline_banner ?? '',
+      question_banner:  clip.question_banner ?? '',
+      caption_tiktok:   clip.caption_tiktok ?? '',
+      caption_youtube:  clip.caption_youtube ?? '',
+      caption_instagram: clip.caption_instagram ?? '',
+      caption_linkedin: clip.caption_linkedin ?? '',
+      caption_twitter:  clip.caption_twitter ?? '',
+      video_url:        clip.video_url ?? '',
+    });
+  }
+
+  function setEditField(key: keyof ClipForm, value: string) {
+    setEditForm(prev => ({ ...prev, [key]: value }));
+  }
+
+  async function handleUpdateClip(e: React.FormEvent) {
+    e.preventDefault();
+    setEditSubmitting(true);
+    setEditStatus(null);
+    try {
+      await upsertClipDetail({
+        clip_code:        editForm.clip_code,
+        title:            nullIfEmpty(editForm.title),
+        headline_banner:  nullIfEmpty(editForm.headline_banner),
+        question_banner:  nullIfEmpty(editForm.question_banner),
+        caption_tiktok:   nullIfEmpty(editForm.caption_tiktok),
+        caption_youtube:  nullIfEmpty(editForm.caption_youtube),
+        caption_instagram: nullIfEmpty(editForm.caption_instagram),
+        caption_linkedin: nullIfEmpty(editForm.caption_linkedin),
+        caption_twitter:  nullIfEmpty(editForm.caption_twitter),
+        video_url:        nullIfEmpty(editForm.video_url),
+      });
+      const updated = await fetchAllClipDetails();
+      setClips(updated);
+      setEditingClipCode(null);
+    } catch (err) {
+      const msg = (err instanceof Error || (err !== null && typeof err === 'object' && 'message' in err))
+        ? (err as { message: string }).message
+        : 'Unknown error';
+      setEditStatus({ type: 'error', message: msg });
+    } finally {
+      setEditSubmitting(false);
     }
   }
 
@@ -290,23 +351,140 @@ export default function SettingsView({ onClearData }: Props) {
                 <tr className="border-b border-[rgba(247,231,206,0.05)]">
                   <th className="px-5 py-2 text-left text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Code</th>
                   <th className="px-3 py-2 text-left text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Title</th>
-                  <th className="px-3 py-2 w-12" />
+                  <th className="px-3 py-2 w-20" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-[rgba(247,231,206,0.04)]">
                 {clips.map(clip => (
-                  <tr key={clip.clip_code} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
-                    <td className="px-5 py-3 font-mono text-[var(--text-2)] whitespace-nowrap">{clip.clip_code}</td>
-                    <td className="px-3 py-3 text-[var(--text-1)] leading-snug">{clip.title}</td>
-                    <td className="px-3 py-3 text-right">
-                      <button
-                        onClick={() => handleDeleteClip(clip.clip_code)}
-                        className="text-[10px] text-[var(--text-3)] hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-[rgba(255,68,68,0.08)]"
-                      >
-                        Delete
-                      </button>
-                    </td>
-                  </tr>
+                  <>
+                    <tr key={clip.clip_code} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
+                      <td className="px-5 py-3 font-mono text-[var(--text-2)] whitespace-nowrap">{clip.clip_code}</td>
+                      <td className="px-3 py-3 text-[var(--text-1)] leading-snug">{clip.title}</td>
+                      <td className="px-3 py-3 text-right flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => editingClipCode === clip.clip_code ? setEditingClipCode(null) : handleStartEdit(clip)}
+                          className="text-[10px] text-[var(--text-3)] hover:text-[var(--gold)] transition-colors px-2 py-1 rounded hover:bg-[rgba(247,231,206,0.06)]"
+                        >
+                          {editingClipCode === clip.clip_code ? 'Cancel' : 'Edit'}
+                        </button>
+                        <button
+                          onClick={() => handleDeleteClip(clip.clip_code)}
+                          className="text-[10px] text-[var(--text-3)] hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-[rgba(255,68,68,0.08)]"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                    {editingClipCode === clip.clip_code && (
+                      <tr key={`${clip.clip_code}-edit`}>
+                        <td colSpan={3} className="px-5 py-4 bg-[rgba(247,231,206,0.02)] border-b border-[rgba(247,231,206,0.05)]">
+                          <form onSubmit={handleUpdateClip} className="space-y-3">
+                            <p className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Edit Clip</p>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-1">
+                                <label className="text-[11px] text-[var(--text-3)]">Clip Code</label>
+                                <input
+                                  type="text"
+                                  value={editForm.clip_code}
+                                  disabled
+                                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-3)] font-mono opacity-60"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <label className="text-[11px] text-[var(--text-3)]">Title</label>
+                                <input
+                                  type="text"
+                                  placeholder="Clip title"
+                                  value={editForm.title}
+                                  onChange={e => setEditField('title', e.target.value)}
+                                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[11px] text-[var(--text-3)]">Headline Banner</label>
+                              <input
+                                type="text"
+                                placeholder="Headline text shown on the clip"
+                                value={editForm.headline_banner}
+                                onChange={e => setEditField('headline_banner', e.target.value)}
+                                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+                              />
+                            </div>
+
+                            <div className="space-y-1">
+                              <label className="text-[11px] text-[var(--text-3)]">Question Banner</label>
+                              <input
+                                type="text"
+                                placeholder="Question shown on the clip"
+                                value={editForm.question_banner}
+                                onChange={e => setEditField('question_banner', e.target.value)}
+                                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+                              />
+                            </div>
+
+                            {(['caption_tiktok', 'caption_youtube', 'caption_instagram', 'caption_linkedin', 'caption_twitter'] as const).map(field => {
+                              const labels: Record<typeof field, string> = {
+                                caption_tiktok: 'TikTok Caption',
+                                caption_youtube: 'YouTube Caption',
+                                caption_instagram: 'Instagram Caption',
+                                caption_linkedin: 'LinkedIn Caption',
+                                caption_twitter: 'Twitter Caption',
+                              };
+                              return (
+                                <div key={field} className="space-y-1">
+                                  <label className="text-[11px] text-[var(--text-3)]">{labels[field]}</label>
+                                  <textarea
+                                    rows={2}
+                                    placeholder={labels[field]}
+                                    value={editForm[field]}
+                                    onChange={e => setEditField(field, e.target.value)}
+                                    className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] resize-none"
+                                  />
+                                </div>
+                              );
+                            })}
+
+                            <div className="space-y-1">
+                              <label className="text-[11px] text-[var(--text-3)]">Video URL <span className="text-[var(--text-3)] font-normal">(optional)</span></label>
+                              <input
+                                type="text"
+                                placeholder="https://…"
+                                value={editForm.video_url}
+                                onChange={e => setEditField('video_url', e.target.value)}
+                                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+                              />
+                            </div>
+
+                            {editStatus && (
+                              <p className={['text-xs', editStatus.type === 'success' ? 'text-green-400' : 'text-red-400'].join(' ')}>
+                                {editStatus.message}
+                              </p>
+                            )}
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="submit"
+                                disabled={editSubmitting}
+                                className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+                              >
+                                {editSubmitting ? 'Saving…' : 'Save Changes'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setEditingClipCode(null)}
+                                className="px-4 py-2 text-xs font-semibold text-[var(--text-2)] bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl hover:bg-[rgba(247,231,206,0.07)] transition-all"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </form>
+                        </td>
+                      </tr>
+                    )}
+                  </>
                 ))}
               </tbody>
             </table>
