@@ -272,121 +272,14 @@ export default function SettingsView({ onClearData }: Props) {
       {/* Clip Library */}
       <Section title="Clip Library">
 
-        {/* Add clip form */}
-        <form onSubmit={handleAddClip} className="px-5 py-4 space-y-3">
-          <p className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Add Clip</p>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[11px] text-[var(--text-3)]">Clip Code</label>
-              <input
-                type="text"
-                placeholder="MBM015-CLIP-014"
-                value={form.clip_code}
-                onChange={e => setField('clip_code', e.target.value)}
-                required
-                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-[11px] text-[var(--text-3)]">Title</label>
-              <input
-                type="text"
-                placeholder="Clip title"
-                value={form.title}
-                onChange={e => setField('title', e.target.value)}
-                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-              />
-            </div>
+        {/* Existing clips list */}
+        <div>
+          <div className="px-5 py-2 bg-[rgba(247,231,206,0.02)]">
+            <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Existing Clips ({clips.length})</p>
           </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] text-[var(--text-3)]">Headline Banner</label>
-            <input
-              type="text"
-              placeholder="Headline text shown on the clip"
-              value={form.headline_banner}
-              onChange={e => setField('headline_banner', e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] text-[var(--text-3)]">Question Banner</label>
-            <input
-              type="text"
-              placeholder="Question shown on the clip"
-              value={form.question_banner}
-              onChange={e => setField('question_banner', e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] text-[var(--text-3)]">YouTube Title</label>
-            <input
-              type="text"
-              placeholder="YouTube video title"
-              value={form.caption_youtube_title}
-              onChange={e => setField('caption_youtube_title', e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-            />
-          </div>
-
-          {(['caption_youtube', 'caption_instagram'] as const).map(field => {
-            const labels: Record<typeof field, string> = {
-              caption_youtube: 'YouTube Caption',
-              caption_instagram: 'Instagram Caption',
-            };
-            return (
-              <div key={field} className="space-y-1">
-                <label className="text-[11px] text-[var(--text-3)]">{labels[field]}</label>
-                <textarea
-                  rows={2}
-                  placeholder={labels[field]}
-                  value={form[field]}
-                  onChange={e => setField(field, e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] resize-none"
-                />
-              </div>
-            );
-          })}
-
-          <div className="space-y-1">
-            <label className="text-[11px] text-[var(--text-3)]">Video URL <span className="text-[var(--text-3)] font-normal">(optional)</span></label>
-            <input
-              type="text"
-              placeholder="https://…"
-              value={form.video_url}
-              onChange={e => setField('video_url', e.target.value)}
-              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-            />
-          </div>
-
-          {clipStatus && (
-            <p className={[
-              'text-xs',
-              clipStatus.type === 'success' ? 'text-green-400' : 'text-red-400',
-            ].join(' ')}>
-              {clipStatus.message}
-            </p>
-          )}
-
-          <button
-            type="submit"
-            disabled={clipSubmitting || !form.clip_code.trim()}
-            className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {clipSubmitting ? 'Adding…' : 'Add Clip'}
-          </button>
-        </form>
-
-        {/* Clip list */}
-        {clips.length > 0 && (
-          <div className="border-t border-[rgba(247,231,206,0.05)]">
-            <div className="px-5 py-2 bg-[rgba(247,231,206,0.02)]">
-              <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Existing Clips ({clips.length})</p>
-            </div>
+          {clips.length === 0 ? (
+            <p className="px-5 py-4 text-xs text-[var(--text-3)]">No clips yet.</p>
+          ) : (
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-[rgba(247,231,206,0.05)]">
@@ -540,8 +433,118 @@ export default function SettingsView({ onClearData }: Props) {
                 ))}
               </tbody>
             </table>
+          )}
+        </div>
+
+        {/* Add clip form */}
+        <form onSubmit={handleAddClip} className="px-5 py-4 space-y-3 border-t border-[rgba(247,231,206,0.05)]">
+          <p className="text-[11px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Add Clip</p>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[11px] text-[var(--text-3)]">Clip Code</label>
+              <input
+                type="text"
+                placeholder="MBM015-CLIP-014"
+                value={form.clip_code}
+                onChange={e => setField('clip_code', e.target.value)}
+                required
+                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[11px] text-[var(--text-3)]">Title</label>
+              <input
+                type="text"
+                placeholder="Clip title"
+                value={form.title}
+                onChange={e => setField('title', e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+              />
+            </div>
           </div>
-        )}
+
+          <div className="space-y-1">
+            <label className="text-[11px] text-[var(--text-3)]">Headline Banner</label>
+            <input
+              type="text"
+              placeholder="Headline text shown on the clip"
+              value={form.headline_banner}
+              onChange={e => setField('headline_banner', e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] text-[var(--text-3)]">Question Banner</label>
+            <input
+              type="text"
+              placeholder="Question shown on the clip"
+              value={form.question_banner}
+              onChange={e => setField('question_banner', e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+            />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-[11px] text-[var(--text-3)]">YouTube Title</label>
+            <input
+              type="text"
+              placeholder="YouTube video title"
+              value={form.caption_youtube_title}
+              onChange={e => setField('caption_youtube_title', e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+            />
+          </div>
+
+          {(['caption_youtube', 'caption_instagram'] as const).map(field => {
+            const labels: Record<typeof field, string> = {
+              caption_youtube: 'YouTube Caption',
+              caption_instagram: 'Instagram Caption',
+            };
+            return (
+              <div key={field} className="space-y-1">
+                <label className="text-[11px] text-[var(--text-3)]">{labels[field]}</label>
+                <textarea
+                  rows={2}
+                  placeholder={labels[field]}
+                  value={form[field]}
+                  onChange={e => setField(field, e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] resize-none"
+                />
+              </div>
+            );
+          })}
+
+          <div className="space-y-1">
+            <label className="text-[11px] text-[var(--text-3)]">Video URL <span className="text-[var(--text-3)] font-normal">(optional)</span></label>
+            <input
+              type="text"
+              placeholder="https://…"
+              value={form.video_url}
+              onChange={e => setField('video_url', e.target.value)}
+              className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+            />
+          </div>
+
+          {clipStatus && (
+            <p className={[
+              'text-xs',
+              clipStatus.type === 'success' ? 'text-green-400' : 'text-red-400',
+            ].join(' ')}>
+              {clipStatus.message}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={clipSubmitting || !form.clip_code.trim()}
+            className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {clipSubmitting ? 'Adding…' : 'Add Clip'}
+          </button>
+        </form>
+
 
       </Section>
 
