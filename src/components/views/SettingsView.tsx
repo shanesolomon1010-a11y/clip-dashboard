@@ -43,18 +43,14 @@ interface ClipForm {
   headline_banner: string;
   question_banner: string;
   caption_youtube_title: string;
-  caption_tiktok: string;
   caption_youtube: string;
   caption_instagram: string;
-  caption_linkedin: string;
-  caption_twitter: string;
   video_url: string;
 }
 
 const EMPTY_FORM: ClipForm = {
   clip_code: '', title: '', headline_banner: '', question_banner: '',
-  caption_youtube_title: '', caption_tiktok: '', caption_youtube: '', caption_instagram: '',
-  caption_linkedin: '', caption_twitter: '', video_url: '',
+  caption_youtube_title: '', caption_youtube: '', caption_instagram: '', video_url: '',
 };
 
 function nullIfEmpty(s: string): string | null {
@@ -153,11 +149,8 @@ export default function SettingsView({ onClearData }: Props) {
       headline_banner:       clip.headline_banner ?? '',
       question_banner:       clip.question_banner ?? '',
       caption_youtube_title: clip.caption_youtube_title ?? '',
-      caption_tiktok:        clip.caption_tiktok ?? '',
       caption_youtube:       clip.caption_youtube ?? '',
       caption_instagram:     clip.caption_instagram ?? '',
-      caption_linkedin:      clip.caption_linkedin ?? '',
-      caption_twitter:       clip.caption_twitter ?? '',
       video_url:             clip.video_url ?? '',
     });
   }
@@ -177,11 +170,11 @@ export default function SettingsView({ onClearData }: Props) {
         headline_banner:       nullIfEmpty(editForm.headline_banner),
         question_banner:       nullIfEmpty(editForm.question_banner),
         caption_youtube_title: nullIfEmpty(editForm.caption_youtube_title),
-        caption_tiktok:        nullIfEmpty(editForm.caption_tiktok),
+        caption_tiktok:        null,
         caption_youtube:       nullIfEmpty(editForm.caption_youtube),
         caption_instagram:     nullIfEmpty(editForm.caption_instagram),
-        caption_linkedin:      nullIfEmpty(editForm.caption_linkedin),
-        caption_twitter:       nullIfEmpty(editForm.caption_twitter),
+        caption_linkedin:      null,
+        caption_twitter:       null,
         video_url:             nullIfEmpty(editForm.video_url),
       });
       const updated = await fetchAllClipDetails();
@@ -370,13 +363,10 @@ export default function SettingsView({ onClearData }: Props) {
                               />
                             </div>
 
-                            {(['caption_tiktok', 'caption_youtube', 'caption_instagram', 'caption_linkedin', 'caption_twitter'] as const).map(field => {
+                            {(['caption_youtube', 'caption_instagram'] as const).map(field => {
                               const labels: Record<typeof field, string> = {
-                                caption_tiktok: 'TikTok Caption',
                                 caption_youtube: 'YouTube Caption',
                                 caption_instagram: 'Instagram Caption',
-                                caption_linkedin: 'LinkedIn Caption',
-                                caption_twitter: 'Twitter Caption',
                               };
                               return (
                                 <div key={field} className="space-y-1">
