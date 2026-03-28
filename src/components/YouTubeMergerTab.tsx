@@ -103,7 +103,24 @@ export default function YouTubeMergerTab() {
         tableMap.set(row.Content, row);
       }
 
-      const outputRows = chartRows.map(chart => {
+      // Group chart rows by Content: track most-recent date row and sum engaged views
+      const chartByContent = new Map<string, { latestRow: ChartRow; totalEngaged: number }>();
+      for (const chart of chartRows) {
+        const contentId = chart.Content;
+        const existing = chartByContent.get(contentId);
+        const engagedViews = Number(chart['Engaged views']) || 0;
+        if (!existing) {
+          chartByContent.set(contentId, { latestRow: chart, totalEngaged: engagedViews });
+        } else {
+          const isNewer = new Date(chart.Date) > new Date(existing.latestRow.Date);
+          chartByContent.set(contentId, {
+            latestRow: isNewer ? chart : existing.latestRow,
+            totalEngaged: existing.totalEngaged + engagedViews,
+          });
+        }
+      }
+
+      const outputRows = Array.from(chartByContent.values()).map(({ latestRow: chart, totalEngaged }) => {
         const table = tableMap.get(chart.Content) ?? {} as TableRow;
         return {
           clip_id:                    clipId.trim(),
@@ -112,7 +129,7 @@ export default function YouTubeMergerTab() {
           video_title:                chart['Video title'] ?? '',
           video_publish_time:         chart['Video publish time'] ?? '',
           duration_seconds:           chart.Duration ?? '',
-          daily_engaged_views:        chart['Engaged views'] ?? '',
+          daily_engaged_views:        String(totalEngaged),
           total_engaged_views:        table['Engaged views'] ?? '',
           total_views:                table.Views ?? '',
           watch_time_hours:           table['Watch time (hours)'] ?? '',
