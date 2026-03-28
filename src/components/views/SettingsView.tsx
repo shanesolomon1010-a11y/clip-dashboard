@@ -5,6 +5,7 @@ import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail, updatePostsClipDetailsCode } from '@/lib/db';
 import type { ClipDetail } from '@/lib/db';
 import DataEditorTab from '@/components/DataEditorTab';
+import YouTubeMergerTab from '@/components/YouTubeMergerTab';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -60,7 +61,7 @@ function nullIfEmpty(s: string): string | null {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function SettingsView({ onClearData }: Props) {
-  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor'>('clips');
+  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor' | 'youtube-merger'>('clips');
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Clip Library state
@@ -202,6 +203,7 @@ export default function SettingsView({ onClearData }: Props) {
           {([
             { key: 'clips', label: 'Clip Library' },
             { key: 'data-editor', label: 'Data Editor' },
+            { key: 'youtube-merger', label: 'YouTube Merger' },
           ] as { key: typeof activeTab; label: string }[]).map(({ key, label }) => (
             <button
               key={key}
@@ -219,6 +221,7 @@ export default function SettingsView({ onClearData }: Props) {
       </div>
 
       {activeTab === 'data-editor' && <DataEditorTab />}
+      {activeTab === 'youtube-merger' && <YouTubeMergerTab />}
 
       {activeTab === 'clips' && <div className="max-w-2xl space-y-5">
 
