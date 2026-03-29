@@ -310,7 +310,7 @@ export default function SettingsView({ onClearData }: Props) {
                 </button>
               </div>
               {apifyStatus && (
-                <p className={`text-xs ${apifyStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                <p className={`text-xs break-all whitespace-pre-wrap ${apifyStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
                   {apifyStatus.message}
                 </p>
               )}

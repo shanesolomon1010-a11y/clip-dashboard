@@ -37,9 +37,9 @@ export async function POST(req: Request) {
       }
     );
     if (!res.ok) {
-      const errorBody = await res.json().catch(() => res.text());
-      console.log('[apify/start] error response:', JSON.stringify(errorBody, null, 2));
-      return Response.json({ error: `Apify error: ${res.statusText}`, detail: errorBody }, { status: res.status });
+      const errorText = await res.text();
+      console.error('Apify start error:', res.status, errorText);
+      return Response.json({ error: errorText }, { status: res.status });
     }
     const data = (await res.json()) as { data: { id: string; status: string } };
     return Response.json({ runId: data.data.id, status: data.data.status });
