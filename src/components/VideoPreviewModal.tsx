@@ -142,15 +142,34 @@ function DetailField({
   label,
   text,
   preWrap,
+  accentColor,
 }: {
   label: string;
   text: string;
   preWrap?: boolean;
+  accentColor?: string;
 }) {
   return (
-    <div className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] p-4">
+    <div
+      className="rounded-xl p-4"
+      style={
+        accentColor
+          ? {
+              background: `color-mix(in srgb, ${accentColor} 6%, transparent)`,
+              border: `1px solid color-mix(in srgb, ${accentColor} 20%, transparent)`,
+              borderLeft: `3px solid color-mix(in srgb, ${accentColor} 50%, transparent)`,
+            }
+          : {
+              background: 'rgba(247,231,206,0.02)',
+              border: '1px solid rgba(247,231,206,0.06)',
+            }
+      }
+    >
       <div className="flex items-center justify-between mb-2">
-        <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.12em]">
+        <p
+          className="text-[10px] font-semibold uppercase tracking-[0.12em]"
+          style={{ color: accentColor ?? 'var(--text-3)' }}
+        >
           {label}
         </p>
         <CopyButton text={text} />
@@ -175,13 +194,13 @@ function ClipDetailBody({ detail }: { detail: ClipDetail }) {
         <DetailField label="Question Banner" text={detail.question_banner} />
       )}
       {detail.caption_youtube_title && (
-        <DetailField label="YouTube Title" text={detail.caption_youtube_title} />
+        <DetailField label="YouTube Title" text={detail.caption_youtube_title} accentColor="#FF4444" />
       )}
       {detail.caption_youtube && (
-        <DetailField label="YouTube Caption" text={detail.caption_youtube} />
+        <DetailField label="YouTube Caption" text={detail.caption_youtube} accentColor="#FF4444" />
       )}
       {detail.caption_instagram && (
-        <DetailField label="Instagram Caption" text={detail.caption_instagram} preWrap />
+        <DetailField label="Instagram Caption" text={detail.caption_instagram} preWrap accentColor="#C855E8" />
       )}
     </div>
   );
