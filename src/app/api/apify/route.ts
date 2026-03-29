@@ -17,20 +17,29 @@ export async function POST(req: Request) {
     if (!username) {
       return Response.json({ error: 'username is required for start' }, { status: 400 });
     }
+
+    // Fetch actor schema to confirm expected input fields
+    const schemaRes = await fetch(
+      `https://api.apify.com/v2/acts/apify~instagram-reel-scraper?token=${token}`
+    );
+    const schemaData = await schemaRes.json();
+    console.log('[apify/start] actor schema:', JSON.stringify(schemaData, null, 2));
+
     const res = await fetch(
       `https://api.apify.com/v2/acts/apify~instagram-reel-scraper/runs?token=${token}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          directUrls: [`https://www.instagram.com/${username}/`],
-          resultsType: 'posts',
-          resultsLimit: 50,
+          username,
+          maxReels: 50,
         }),
       }
     );
     if (!res.ok) {
-      return Response.json({ error: `Apify error: ${res.statusText}` }, { status: res.status });
+      const errorBody = await res.json().catch(() => res.text());
+      console.log('[apify/start] error response:', JSON.stringify(errorBody, null, 2));
+      return Response.json({ error: `Apify error: ${res.statusText}`, detail: errorBody }, { status: res.status });
     }
     const data = (await res.json()) as { data: { id: string; status: string } };
     return Response.json({ runId: data.data.id, status: data.data.status });
