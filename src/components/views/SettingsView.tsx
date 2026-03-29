@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail, updatePostsClipDetailsCode } from '@/lib/db';
+import { syncInstagramReels } from '@/lib/apify';
 import type { ClipDetail } from '@/lib/db';
 import DataEditorTab from '@/components/DataEditorTab';
 import YouTubeMergerTab from '@/components/YouTubeMergerTab';
@@ -61,7 +62,7 @@ function nullIfEmpty(s: string): string | null {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function SettingsView({ onClearData }: Props) {
-  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor' | 'youtube-merger'>('clips');
+  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor' | 'youtube-merger' | 'connections'>('clips');
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Clip Library state
@@ -69,6 +70,14 @@ export default function SettingsView({ onClearData }: Props) {
   const [form, setForm]             = useState<ClipForm>(EMPTY_FORM);
   const [clipSubmitting, setClipSubmitting] = useState(false);
   const [clipStatus, setClipStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  // Connections / Apify state
+  const [apifyToken, setApifyToken]           = useState(() => localStorage.getItem('apify_token') ?? '');
+  const [apifyUsername, setApifyUsername]     = useState(() => localStorage.getItem('apify_instagram_username') ?? '');
+  const [apifySaveLabel, setApifySaveLabel]   = useState<'Save' | 'Saved'>('Save');
+  const [apifySyncing, setApifySyncing]       = useState(false);
+  const [apifyStatus, setApifyStatus]         = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [apifyLastSync, setApifyLastSync]     = useState(() => localStorage.getItem('apify_last_sync'));
 
   // Edit state
   const [editingClipCode, setEditingClipCode] = useState<string | null>(null);
@@ -81,6 +90,29 @@ export default function SettingsView({ onClearData }: Props) {
       .then(setClips)
       .catch(err => console.error('clip_details fetch error:', err));
   }, []);
+
+  function handleApifySave() {
+    localStorage.setItem('apify_token', apifyToken);
+    localStorage.setItem('apify_instagram_username', apifyUsername);
+    setApifySaveLabel('Saved');
+    setTimeout(() => setApifySaveLabel('Save'), 2000);
+  }
+
+  async function handleApifySync() {
+    setApifySyncing(true);
+    setApifyStatus(null);
+    try {
+      await syncInstagramReels();
+      const ts = localStorage.getItem('apify_last_sync');
+      setApifyLastSync(ts);
+      setApifyStatus({ type: 'success', message: 'Sync complete.' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setApifyStatus({ type: 'error', message: msg });
+    } finally {
+      setApifySyncing(false);
+    }
+  }
 
   const handleRequestClear = () => setConfirmOpen(true);
   const handleCancel = () => setConfirmOpen(false);
@@ -204,6 +236,7 @@ export default function SettingsView({ onClearData }: Props) {
             { key: 'clips', label: 'Clip Library' },
             { key: 'data-editor', label: 'Data Editor' },
             { key: 'youtube-merger', label: 'YouTube Merger' },
+            { key: 'connections', label: 'Connections' },
           ] as { key: typeof activeTab; label: string }[]).map(({ key, label }) => (
             <button
               key={key}
@@ -222,6 +255,62 @@ export default function SettingsView({ onClearData }: Props) {
 
       {activeTab === 'data-editor' && <DataEditorTab />}
       {activeTab === 'youtube-merger' && <YouTubeMergerTab />}
+
+      {activeTab === 'connections' && (
+        <div className="max-w-2xl space-y-5">
+          <Section title="Apify — Instagram Sync">
+            <div className="px-5 py-4 space-y-4">
+              <div className="space-y-1">
+                <label className="text-[11px] text-[var(--text-3)]">Apify API Token</label>
+                <input
+                  type="password"
+                  placeholder="apify_api_…"
+                  value={apifyToken}
+                  onChange={e => setApifyToken(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-[var(--text-3)]">Instagram Username (without @)</label>
+                <input
+                  type="text"
+                  placeholder="foundername"
+                  value={apifyUsername}
+                  onChange={e => setApifyUsername(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleApifySave}
+                  className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity"
+                >
+                  {apifySaveLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleApifySync}
+                  disabled={apifySyncing}
+                  className="px-4 py-2 text-xs font-semibold text-[var(--text-2)] bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl hover:bg-[rgba(247,231,206,0.07)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {apifySyncing ? 'Syncing…' : 'Sync Instagram Now'}
+                </button>
+              </div>
+              {apifyStatus && (
+                <p className={`text-xs ${apifyStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                  {apifyStatus.message}
+                </p>
+              )}
+              <p className="text-[11px] text-[var(--text-3)]">
+                {apifyLastSync
+                  ? `Last synced: ${new Date(apifyLastSync).toLocaleString()}`
+                  : 'Never synced'}
+              </p>
+            </div>
+          </Section>
+        </div>
+      )}
 
       {activeTab === 'clips' && <div className="max-w-2xl space-y-5">
 
