@@ -1,10 +1,6 @@
 import { upsertPosts } from './db';
 import type { UnifiedPost } from '@/types';
 
-interface ApifyRunResponse {
-  data: { id: string; status: string };
-}
-
 interface ApifyDatasetItem {
   url?: string;
   shortCode?: string;
@@ -17,6 +13,14 @@ interface ApifyDatasetItem {
   caption?: string;
 }
 
+async function apifyRequest(body: Record<string, unknown>): Promise<Response> {
+  return fetch('/api/apify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+}
+
 export async function syncInstagramReels(): Promise<void> {
   const token = localStorage.getItem('apify_token');
   const username = localStorage.getItem('apify_instagram_username');
@@ -26,38 +30,24 @@ export async function syncInstagramReels(): Promise<void> {
   }
 
   // 1. Start actor run
-  const startRes = await fetch(
-    `https://api.apify.com/v2/acts/apify~instagram-reel-scraper/runs?token=${token}`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        startUrls: [{ url: `https://www.instagram.com/${username}/` }],
-        resultsLimit: 50,
-      }),
-    }
-  );
-
+  const startRes = await apifyRequest({ action: 'start', token, username });
   if (!startRes.ok) {
-    throw new Error(`Failed to start Apify run: ${startRes.statusText}`);
+    const err = (await startRes.json()) as { error?: string };
+    throw new Error(err.error ?? `Failed to start Apify run: ${startRes.statusText}`);
   }
-
-  const { data: run } = (await startRes.json()) as ApifyRunResponse;
-  const runId = run.id;
+  const { runId } = (await startRes.json()) as { runId: string; status: string };
 
   // 2. Poll until complete (max 40 polls × 3s = 2 min)
-  let status = run.status;
+  let status = 'RUNNING';
   let polls = 0;
   while (status === 'RUNNING' || status === 'READY') {
     if (polls >= 40) {
       throw new Error('Apify run timed out after 2 minutes.');
     }
     await new Promise((res) => setTimeout(res, 3000));
-    const statusRes = await fetch(
-      `https://api.apify.com/v2/actor-runs/${runId}?token=${token}`
-    );
-    const statusData = (await statusRes.json()) as ApifyRunResponse;
-    status = statusData.data.status;
+    const statusRes = await apifyRequest({ action: 'status', token, runId });
+    const statusData = (await statusRes.json()) as { status: string };
+    status = statusData.status;
     polls++;
   }
 
@@ -66,15 +56,13 @@ export async function syncInstagramReels(): Promise<void> {
   }
 
   // 3. Fetch dataset items
-  const dataRes = await fetch(
-    `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${token}`
-  );
-
+  const dataRes = await apifyRequest({ action: 'results', token, runId });
   if (!dataRes.ok) {
-    throw new Error(`Failed to fetch dataset: ${dataRes.statusText}`);
+    const err = (await dataRes.json()) as { error?: string };
+    throw new Error(err.error ?? `Failed to fetch dataset: ${dataRes.statusText}`);
   }
+  const { items } = (await dataRes.json()) as { items: ApifyDatasetItem[] };
 
-  const items = (await dataRes.json()) as ApifyDatasetItem[];
   const statDate = new Date().toISOString().split('T')[0];
 
   // 4. Map to UnifiedPost shape
