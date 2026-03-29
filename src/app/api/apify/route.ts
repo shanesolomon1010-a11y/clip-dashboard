@@ -25,14 +25,12 @@ export async function POST(req: Request) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          directUrls: [`https://www.instagram.com/${username}/`],
+          username,
           resultsLimit: 50,
           proxy: { useApifyProxy: true },
-          ...(instagram_session && {
-            sessionCookies: [
-              { name: 'sessionid', value: instagram_session, domain: '.instagram.com' },
-            ],
-          }),
+          sessionCookies: [
+            { name: 'sessionid', value: instagram_session ?? '', domain: '.instagram.com' },
+          ],
         }),
       }
     );
