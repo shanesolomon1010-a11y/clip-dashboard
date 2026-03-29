@@ -299,7 +299,7 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
 
   const { error } = await supabase
     .from('posts')
-    .upsert(rows, { onConflict: 'clip_code,platform,stat_date' });
+    .upsert(rows, { onConflict: 'clip_code,platform,stat_date', ignoreDuplicates: false });
 
   if (error) throw error;
 }

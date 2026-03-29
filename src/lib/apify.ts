@@ -86,7 +86,7 @@ export async function syncInstagramReels(): Promise<void> {
     const statDate = new Date().toISOString().split('T')[0];
 
     // 4. Map to UnifiedPost shape — only fields that exist in the posts table
-    const posts: UnifiedPost[] = items.map((item): UnifiedPost => ({
+    const mapped: UnifiedPost[] = items.map((item): UnifiedPost => ({
       // Required by UnifiedPost type; id is not stored, engagementRate is computed
       id: '',
       engagementRate: 0,
@@ -109,8 +109,26 @@ export async function syncInstagramReels(): Promise<void> {
       plays: item.videoPlayCount ?? 0,
     }));
 
-    // 5. Upsert to Supabase
-    await upsertPosts(posts);
+    // 5. Strip to allowed DB columns before upsert
+    // Note: UnifiedPost uses 'date' for the posted_at column; id/engagementRate are type-required but not stored.
+    const allowedKeys = ['id','engagementRate','clip_code','clip_details_code','platform','title',
+      'content_type','date','url','thumbnail_url','stat_date','content_id',
+      'views','likes','comments','shares','plays','reach','saves','profile_visits',
+      'follows','accounts_reached','accounts_engaged','engagement_rate',
+      'watch_time_minutes','watch_time_hours','avg_view_duration_seconds',
+      'avg_view_percentage','impressions','impression_ctr','dislikes',
+      'subscribers_gained','subscribers_lost','card_clicks','card_ctr',
+      'end_screen_clicks','end_screen_ctr','duration_seconds','daily_engaged_views',
+      'total_engaged_views','unique_viewers','youtube_premium_views'];
+
+    const filtered = mapped.map(row =>
+      Object.fromEntries(
+        Object.entries(row).filter(([k]) => allowedKeys.includes(k))
+      )
+    ) as unknown as UnifiedPost[];
+
+    // 6. Upsert to Supabase
+    await upsertPosts(filtered);
 
     // 6. Record last sync time
     localStorage.setItem('apify_last_sync', new Date().toISOString());

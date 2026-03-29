@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail, updatePostsClipDetailsCode } from '@/lib/db';
 import { syncInstagramReels } from '@/lib/apify';
@@ -61,8 +62,22 @@ function nullIfEmpty(s: string): string | null {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
+const VALID_STABS = new Set(['clips', 'data-editor', 'youtube-merger', 'connections']);
+
 export default function SettingsView({ onClearData }: Props) {
-  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor' | 'youtube-merger' | 'connections'>('clips');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const initialStab = (() => {
+    const s = searchParams.get('stab');
+    return (s && VALID_STABS.has(s) ? s : 'clips') as 'clips' | 'data-editor' | 'youtube-merger' | 'connections';
+  })();
+  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor' | 'youtube-merger' | 'connections'>(initialStab);
+
+  useEffect(() => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('stab', activeTab);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [activeTab]); // eslint-disable-line react-hooks/exhaustive-deps
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Clip Library state
