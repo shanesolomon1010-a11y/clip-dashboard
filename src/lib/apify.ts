@@ -24,13 +24,14 @@ async function apifyRequest(body: Record<string, unknown>): Promise<Response> {
 export async function syncInstagramReels(): Promise<void> {
   const token = localStorage.getItem('apify_token');
   const username = localStorage.getItem('apify_instagram_username');
+  const instagram_session = localStorage.getItem('apify_instagram_session') ?? '';
 
   if (!token || !username) {
     throw new Error('Apify token and Instagram username are required.');
   }
 
   // 1. Start actor run
-  const startRes = await apifyRequest({ action: 'start', token, username });
+  const startRes = await apifyRequest({ action: 'start', token, username, instagram_session });
   if (!startRes.ok) {
     const err = (await startRes.json()) as { error?: string };
     throw new Error(err.error ?? `Failed to start Apify run: ${startRes.statusText}`);

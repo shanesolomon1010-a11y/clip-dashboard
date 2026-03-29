@@ -2,12 +2,13 @@ interface ApifyRequestBody {
   action: 'start' | 'status' | 'results';
   token: string;
   username?: string;
+  instagram_session?: string;
   runId?: string;
 }
 
 export async function POST(req: Request) {
   const body = (await req.json()) as ApifyRequestBody;
-  const { action, token, username, runId } = body;
+  const { action, token, username, instagram_session, runId } = body;
 
   if (!token) {
     return Response.json({ error: 'token is required' }, { status: 400 });
@@ -18,21 +19,20 @@ export async function POST(req: Request) {
       return Response.json({ error: 'username is required for start' }, { status: 400 });
     }
 
-    // Fetch actor schema to confirm expected input fields
-    const schemaRes = await fetch(
-      `https://api.apify.com/v2/acts/apify~instagram-reel-scraper?token=${token}`
-    );
-    const schemaData = await schemaRes.json();
-    console.log('[apify/start] actor schema:', JSON.stringify(schemaData, null, 2));
-
     const res = await fetch(
       `https://api.apify.com/v2/acts/apify~instagram-reel-scraper/runs?token=${token}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username,
-          maxReels: 50,
+          directUrls: [`https://www.instagram.com/${username}/`],
+          resultsLimit: 50,
+          proxy: { useApifyProxy: true },
+          ...(instagram_session && {
+            sessionCookies: [
+              { name: 'sessionid', value: instagram_session, domain: '.instagram.com' },
+            ],
+          }),
         }),
       }
     );

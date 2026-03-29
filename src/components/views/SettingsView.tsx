@@ -74,6 +74,7 @@ export default function SettingsView({ onClearData }: Props) {
   // Connections / Apify state
   const [apifyToken, setApifyToken]           = useState(() => localStorage.getItem('apify_token') ?? '');
   const [apifyUsername, setApifyUsername]     = useState(() => localStorage.getItem('apify_instagram_username') ?? '');
+  const [apifySession, setApifySession]       = useState(() => localStorage.getItem('apify_instagram_session') ?? '');
   const [apifySaveLabel, setApifySaveLabel]   = useState<'Save' | 'Saved'>('Save');
   const [apifySyncing, setApifySyncing]       = useState(false);
   const [apifyStatus, setApifyStatus]         = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -94,6 +95,7 @@ export default function SettingsView({ onClearData }: Props) {
   function handleApifySave() {
     localStorage.setItem('apify_token', apifyToken);
     localStorage.setItem('apify_instagram_username', apifyUsername);
+    localStorage.setItem('apify_instagram_session', apifySession);
     setApifySaveLabel('Saved');
     setTimeout(() => setApifySaveLabel('Save'), 2000);
   }
@@ -277,6 +279,16 @@ export default function SettingsView({ onClearData }: Props) {
                   placeholder="foundername"
                   value={apifyUsername}
                   onChange={e => setApifyUsername(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[11px] text-[var(--text-3)]">Instagram Session Cookie</label>
+                <input
+                  type="password"
+                  placeholder="sessionid value from instagram.com cookies"
+                  value={apifySession}
+                  onChange={e => setApifySession(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
                 />
               </div>
