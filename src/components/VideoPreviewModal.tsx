@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { UnifiedPost } from '@/types';
-import { formatNum } from '@/lib/utils';
-import { fetchClipDetails, ClipDetail, fetchClipStats, ClipStats } from '@/lib/db';
+import { fetchClipDetails, ClipDetail } from '@/lib/db';
 
 declare global {
   interface Window {
@@ -139,81 +138,51 @@ function CopyButton({ text }: { text: string }) {
 
 // ── ClipDetailBody ─────────────────────────────────────────────────────────────
 
-const CAPTION_PLATFORMS: {
-  key: keyof Pick<ClipDetail, 'caption_instagram' | 'caption_youtube'>;
+function DetailField({
+  label,
+  text,
+  preWrap,
+}: {
   label: string;
-  color: string;
-}[] = [
-  { key: 'caption_youtube',   label: 'YouTube',    color: '#FF4444' },
-  { key: 'caption_instagram', label: 'Instagram',  color: '#C855E8' },
-];
+  text: string;
+  preWrap?: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] p-4">
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.12em]">
+          {label}
+        </p>
+        <CopyButton text={text} />
+      </div>
+      <p
+        className="text-[13px] text-[var(--text-1)] leading-relaxed"
+        style={preWrap ? { whiteSpace: 'pre-wrap' } : undefined}
+      >
+        {text}
+      </p>
+    </div>
+  );
+}
 
 function ClipDetailBody({ detail }: { detail: ClipDetail }) {
   return (
-    <div className="space-y-6 pt-2">
-
-      {/* Banners */}
-      <div>
-        <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] mb-3">
-          Banners
-        </h3>
-        <div className="space-y-2">
-          {detail.headline_banner && (
-            <div className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] p-4">
-              <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.12em] mb-1.5">
-                Headline Banner
-              </p>
-              <p className="text-[13px] font-semibold text-[var(--text-1)] leading-snug">
-                {detail.headline_banner}
-              </p>
-            </div>
-          )}
-          {detail.question_banner && (
-            <div className="rounded-xl border border-[rgba(247,231,206,0.08)] bg-[rgba(247,231,206,0.03)] p-4">
-              <div className="flex items-center justify-between mb-1.5">
-                <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.12em]">
-                  Question Banner
-                </p>
-                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-[rgba(212,146,42,0.15)] text-[var(--gold)]">
-                  Recommended
-                </span>
-              </div>
-              <p className="text-[13px] font-semibold text-[var(--text-1)] leading-snug">
-                {detail.question_banner}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Platform Captions */}
-      <div>
-        <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em] mb-3">
-          Platform Captions
-        </h3>
-        <div className="space-y-2">
-          {CAPTION_PLATFORMS.map(({ key, label, color }) => {
-            const text = detail[key];
-            if (!text) return null;
-            return (
-              <div
-                key={key}
-                className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] p-4"
-              >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color }}>
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: color }} />
-                    {label}
-                  </span>
-                  <CopyButton text={text} />
-                </div>
-                <p className="text-[12px] text-[var(--text-2)] leading-relaxed">{text}</p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
+    <div className="space-y-2 pt-2">
+      {detail.headline_banner && (
+        <DetailField label="Headline Banner" text={detail.headline_banner} />
+      )}
+      {detail.question_banner && (
+        <DetailField label="Question Banner" text={detail.question_banner} />
+      )}
+      {detail.caption_youtube_title && (
+        <DetailField label="YouTube Title" text={detail.caption_youtube_title} />
+      )}
+      {detail.caption_youtube && (
+        <DetailField label="YouTube Caption" text={detail.caption_youtube} />
+      )}
+      {detail.caption_instagram && (
+        <DetailField label="Instagram Caption" text={detail.caption_instagram} preWrap />
+      )}
     </div>
   );
 }
@@ -224,7 +193,6 @@ export default function VideoPreviewModal({ onClose, clipCode }: Props) {
   const [clipDetail, setClipDetail] = useState<ClipDetail | null>(null);
   const [clipLoading, setClipLoading] = useState(false);
   const [clipFetched, setClipFetched] = useState(false);
-  const [clipStats, setClipStats] = useState<ClipStats>({ views: 0, likes: 0, comments: 0, shares: 0 });
 
   useEffect(() => {
     function handleKey(e: KeyboardEvent) {
@@ -242,9 +210,6 @@ export default function VideoPreviewModal({ onClose, clipCode }: Props) {
       .then((detail) => { if (!cancelled) setClipDetail(detail); })
       .catch(() => { if (!cancelled) setClipDetail(null); })
       .finally(() => { if (!cancelled) { setClipLoading(false); setClipFetched(true); } });
-    fetchClipStats(clipCode)
-      .then((stats) => { if (!cancelled) setClipStats(stats); })
-      .catch(() => {});
     return () => { cancelled = true; };
   }, [clipCode]);
 
@@ -281,7 +246,7 @@ export default function VideoPreviewModal({ onClose, clipCode }: Props) {
 
         {/* Clip code */}
         <div className="mb-5 pr-8">
-          <p className="text-[10px] font-mono text-[var(--text-3)] mb-1">{clipCode}</p>
+          <p className="text-[22px] font-bold text-[var(--text-1)] leading-tight">{clipCode}</p>
         </div>
 
         {/* Section 1: Mini player */}
@@ -290,24 +255,7 @@ export default function VideoPreviewModal({ onClose, clipCode }: Props) {
           clipCode={clipCode}
         />
 
-        {/* Section 2: Stats row */}
-        <div className="grid grid-cols-4 gap-3 mt-4">
-          {(
-            [
-              { label: 'Views',    value: clipStats.views    },
-              { label: 'Likes',    value: clipStats.likes    },
-              { label: 'Comments', value: clipStats.comments },
-              { label: 'Shares',   value: clipStats.shares   },
-            ] as const
-          ).map(({ label, value }) => (
-            <div key={label} className="rounded-xl border border-[rgba(247,231,206,0.06)] bg-[rgba(247,231,206,0.02)] px-4 py-3 text-center">
-              <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.12em] mb-1">{label}</p>
-              <p className="text-[15px] font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(value)}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Section 3: Copy details */}
+        {/* Section 2: Copy details */}
         <div className="mt-6">
           {clipLoading && (
             <div className="flex items-center justify-center py-8">

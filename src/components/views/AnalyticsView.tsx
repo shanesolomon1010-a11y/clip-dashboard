@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { UnifiedPost, DateRange } from '@/types';
 import { formatNum } from '@/lib/utils';
+import { useVideoModal } from '@/context/VideoModalContext';
 
 type AnalyticsPlatform = 'youtube' | 'instagram' | 'both';
 type TimeAxis = 'post_date' | 'days_since';
@@ -206,6 +207,7 @@ function CustomTooltip({ active, label, payload, timeAxis }: CustomTooltipProps)
 }
 
 export default function AnalyticsView({ posts }: Props) {
+  const { open: openModal } = useVideoModal();
   const [analyticsPlat, setAnalyticsPlat] = useState<AnalyticsPlatform>('both');
   const [timeAxis, setTimeAxis] = useState<TimeAxis>('post_date');
   const [dateRange, setDateRange] = useState<Exclude<DateRange, '1d'>>('30d');
@@ -706,7 +708,11 @@ export default function AnalyticsView({ posts }: Props) {
               </thead>
               <tbody className="divide-y divide-[rgba(247,231,206,0.04)]">
                 {sortedPosts.map((post) => (
-                  <tr key={post.id} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
+                  <tr
+                    key={post.id}
+                    className="hover:bg-[rgba(247,231,206,0.04)] transition-colors cursor-pointer"
+                    onClick={() => openModal(post, post.clip_code ?? '')}
+                  >
                     <td className="px-5 py-3.5 text-[var(--text-1)] text-[13px] max-w-[260px] truncate">
                       {post.clip_code}
                     </td>
