@@ -25,7 +25,7 @@ export async function POST(req: Request) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          username,
+          username: [username],
           resultsLimit: 50,
           proxy: { useApifyProxy: true },
           sessionCookies: [
