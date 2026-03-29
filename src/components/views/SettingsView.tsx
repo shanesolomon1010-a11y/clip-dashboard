@@ -109,7 +109,7 @@ export default function SettingsView({ onClearData }: Props) {
       setApifyLastSync(ts);
       setApifyStatus({ type: 'success', message: 'Sync complete.' });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const msg = err instanceof Error ? err.message : String(err);
       setApifyStatus({ type: 'error', message: msg });
     } finally {
       setApifySyncing(false);

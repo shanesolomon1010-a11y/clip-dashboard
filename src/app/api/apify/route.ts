@@ -51,7 +51,9 @@ export async function POST(req: Request) {
       `https://api.apify.com/v2/actor-runs/${runId}?token=${token}`
     );
     if (!res.ok) {
-      return Response.json({ error: `Apify error: ${res.statusText}` }, { status: res.status });
+      const errorText = await res.text();
+      console.error('Apify status error:', res.status, errorText);
+      return Response.json({ error: errorText }, { status: res.status });
     }
     const data = (await res.json()) as { data: { status: string } };
     return Response.json({ status: data.data.status });
@@ -65,7 +67,9 @@ export async function POST(req: Request) {
       `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${token}`
     );
     if (!res.ok) {
-      return Response.json({ error: `Apify error: ${res.statusText}` }, { status: res.status });
+      const errorText = await res.text();
+      console.error('Apify results error:', res.status, errorText);
+      return Response.json({ error: errorText }, { status: res.status });
     }
     const items = await res.json();
     return Response.json({ items });
