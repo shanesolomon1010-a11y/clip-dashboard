@@ -85,24 +85,28 @@ export async function syncInstagramReels(): Promise<void> {
 
     const statDate = new Date().toISOString().split('T')[0];
 
-    // 4. Map to UnifiedPost shape
-    const posts: UnifiedPost[] = items.map((item) => ({
+    // 4. Map to UnifiedPost shape — only fields that exist in the posts table
+    const posts: UnifiedPost[] = items.map((item): UnifiedPost => ({
+      // Required by UnifiedPost type; id is not stored, engagementRate is computed
       id: '',
+      engagementRate: 0,
+      // posts table columns
       platform: 'instagram',
       clip_code: '',
-      url: item.url,
+      clip_details_code: undefined,
       content_id: item.shortCode,
+      title: item.caption?.slice(0, 100) ?? item.shortCode ?? '',
+      content_type: 'reel',
+      url: item.url,
+      thumbnail_url: undefined,
       date: item.timestamp ?? statDate,
       stat_date: statDate,
       views: item.videoViewCount ?? item.videoPlayCount ?? 0,
-      plays: item.videoPlayCount ?? 0,
       likes: item.likesCount ?? 0,
       comments: item.commentsCount ?? 0,
       shares: item.sharesCount ?? 0,
       saves: 0,
-      engagementRate: 0,
-      content_type: 'reel',
-      title: item.caption?.slice(0, 100) ?? item.shortCode ?? '',
+      plays: item.videoPlayCount ?? 0,
     }));
 
     // 5. Upsert to Supabase
