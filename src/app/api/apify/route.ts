@@ -23,7 +23,8 @@ export async function POST(req: Request) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          startUrls: [{ url: `https://www.instagram.com/${username}/` }],
+          directUrls: [`https://www.instagram.com/${username}/`],
+          resultsType: 'posts',
           resultsLimit: 50,
         }),
       }
