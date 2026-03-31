@@ -22,8 +22,9 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
   const dateMap: Record<string, Record<Platform, number>> = {};
 
   for (const p of posts) {
-    if (!dateMap[p.date]) dateMap[p.date] = {} as Record<Platform, number>;
-    dateMap[p.date][p.platform] = (dateMap[p.date][p.platform] || 0) + p.views;
+    const key = p.stat_date || p.date;
+    if (!dateMap[key]) dateMap[key] = {} as Record<Platform, number>;
+    dateMap[key][p.platform] = (dateMap[key][p.platform] || 0) + p.views;
   }
 
   const data = Object.entries(dateMap)

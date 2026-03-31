@@ -253,7 +253,7 @@ export default function SettingsView({ onClearData }: Props) {
             { key: 'clips', label: 'Clip Library' },
             { key: 'data-editor', label: 'Data Editor' },
             { key: 'youtube-merger', label: 'YouTube Merger' },
-            { key: 'connections', label: 'Connections' },
+            // { key: 'connections', label: 'Connections' },
           ] as { key: typeof activeTab; label: string }[]).map(({ key, label }) => (
             <button
               key={key}

@@ -1,66 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import MetricCard from '@/components/MetricCard';
 import ViewsLineChart from '@/components/ViewsLineChart';
-import GoalsSection from '@/components/GoalsSection';
-import { IconEye, IconTrendUp, IconStar, IconLightning } from '@/components/Icons';
+import { IconEye, IconTrendUp, IconStar } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter } from '@/context/FilterContext';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
-
-const TIPS = [
-  {
-    icon: '🎯',
-    title: 'Hook within 1 second',
-    body: 'Viewers decide in the first frame. Open on action, not on text cards.',
-    details: [
-      'The first frame is your entire pitch. If it looks like a title card or slow intro, 60–80% of viewers swipe before second 2.',
-      'Best hooks: mid-action clips, a bold visual contrast, someone mid-sentence saying something surprising, or a text overlay that creates immediate curiosity ("I lost $10k doing this…").',
-      'Avoid: logos, intros, "hey guys welcome back", slow zooms, black fades.',
-      'Pro move: shoot your hook last — once you know the full story, it\'s easier to write the best entry point.',
-      'Benchmark: aim for a 3-second retention rate above 70% in your analytics.',
-    ],
-  },
-  {
-    icon: '🔄',
-    title: 'Repurpose across platforms',
-    body: 'A top YouTube Short can earn 3–5× more reach when posted natively to Reels.',
-    details: [
-      'Native uploads always outperform cross-posted links — each algorithm rewards content uploaded directly.',
-      'Adjust aspect ratio and text safe zones per platform: Reels favor 9:16 full bleed, Shorts wants text kept center-screen.',
-      'Swap platform-specific audio when needed (trending sounds differ per platform).',
-      'Post within 24–48 hrs of your original for maximum overlap momentum.',
-      'Tools: CapCut, Descript, and ClipStudio (this app) can help batch your exports.',
-    ],
-  },
-  {
-    icon: '📊',
-    title: 'Post time matters less',
-    body: 'Algorithm reach now outweighs publish time. Focus on retention over scheduling.',
-    details: [
-      'Pre-2022 advice said post at peak hours. That\'s largely obsolete — Reels and Shorts now distribute content over days or weeks based on engagement signals, not timestamps.',
-      'What actually moves the needle: watch time %, like-to-view ratio, comment velocity in the first hour, and share rate.',
-      'That said: posting when your core audience is awake still helps seed that first-hour signal. Use your platform analytics to find your audience\'s active window.',
-      'Don\'t delay a great piece of content waiting for a "perfect" time. Consistency > timing.',
-    ],
-  },
-  {
-    icon: '💬',
-    title: 'Reply to early comments',
-    body: 'Engaging in the first 30 min signals content quality and boosts distribution.',
-    details: [
-      'Comments in the first 30 minutes are a strong quality signal to YouTube and Instagram\'s algorithms.',
-      'Reply to every comment in that window if possible — even a single emoji reply counts as engagement and re-surfaces your post in commenter feeds.',
-      'Ask a question in your caption or on-screen to seed the comment section before you post.',
-      'Pin a comment yourself to set the tone — either a hot take, a follow-up detail, or a funny response.',
-      'Video replies to comments consistently outperform text replies in reach.',
-    ],
-  },
-];
 
 const RANGES: { key: string; label: string; days: number | null }[] = [
   { key: '1d',  label: 'Last 24 hours', days: 1   },
@@ -80,88 +29,6 @@ function filterByDays(posts: UnifiedPost[], days: number | null): UnifiedPost[] 
 
 function postInteractions(p: UnifiedPost): number {
   return p.likes + p.comments + p.shares + p.saves;
-}
-
-function CreatorTips() {
-  const [activeTip, setActiveTip] = useState<typeof TIPS[0] | null>(null);
-
-  return (
-    <>
-      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
-        <div className="px-4 py-3.5 border-b border-[rgba(247,231,206,0.05)] flex items-center gap-2">
-          <IconLightning className="w-3.5 h-3.5 text-[var(--gold)]" />
-          <h3 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-[0.16em]">Creator Tips</h3>
-        </div>
-        <div className="divide-y divide-[rgba(247,231,206,0.03)]">
-          {TIPS.map((tip) => (
-            <button
-              key={tip.title}
-              onClick={() => setActiveTip(tip)}
-              className="w-full px-4 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors text-left"
-            >
-              <div className="flex items-start gap-2.5">
-                <span className="text-base mt-px shrink-0">{tip.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12px] font-semibold text-[var(--text-1)] mb-0.5">{tip.title}</p>
-                  <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{tip.body}</p>
-                </div>
-                <svg
-                  className="w-3.5 h-3.5 shrink-0 mt-0.5 text-[var(--text-3)]"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M6 4l4 4-4 4" />
-                </svg>
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {activeTip && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{
-            backgroundColor: 'rgba(0,0,0,0.6)',
-            backdropFilter: 'blur(4px)',
-            animation: 'fadeIn 200ms ease',
-          }}
-          onClick={() => setActiveTip(null)}
-        >
-          <div
-            className="relative bg-[var(--bg-card)] border border-[rgba(247,231,206,0.08)] rounded-2xl w-full max-w-md p-6 shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <button
-              onClick={() => setActiveTip(null)}
-              className="absolute top-4 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-[rgba(247,231,206,0.06)] hover:bg-[rgba(247,231,206,0.1)] transition-colors text-[var(--text-3)]"
-            >
-              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" className="w-3.5 h-3.5">
-                <path d="M4 4l8 8M12 4l-8 8" />
-              </svg>
-            </button>
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-2xl">{activeTip.icon}</span>
-              <h2 className="text-[15px] font-semibold text-[var(--text-1)]">{activeTip.title}</h2>
-            </div>
-            <p className="text-[12px] text-[var(--text-2)] leading-relaxed mb-4">{activeTip.body}</p>
-            <ul className="space-y-3">
-              {activeTip.details.map((point, j) => (
-                <li key={j} className="flex items-start gap-2.5">
-                  <span className="mt-[5px] w-1.5 h-1.5 rounded-full bg-[rgba(247,231,206,0.60)] shrink-0" />
-                  <p className="text-[12px] text-[var(--text-2)] leading-relaxed">{point}</p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-      )}
-    </>
-  );
 }
 
 interface Props {
@@ -241,9 +108,6 @@ export default function DashboardView({ posts }: Props) {
             accent={topPlatform ? PLATFORM_COLORS[topPlatform.platform] : '#6b7280'}
           />
         </div>
-
-        {/* Goals */}
-        <GoalsSection posts={filteredPosts} />
 
         {/* Views line chart */}
         <ViewsLineChart posts={filteredPosts} activePlatforms={activePlatforms} rangeLabel={selectedRange.label} />
@@ -349,8 +213,6 @@ export default function DashboardView({ posts }: Props) {
           </div>
         </div>
 
-        {/* Creator Tips */}
-        <CreatorTips />
       </div>
     </div>
   );
