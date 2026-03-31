@@ -4,125 +4,82 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedPost, DateRange } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
+import { getLatestPostsPerClip } from '@/lib/db';
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from 'recharts';
 
-type AnalyticsPlatform = 'youtube' | 'instagram' | 'both';
+type AnalyticsPlatform = 'youtube' | 'instagram';
+type SortDir = 'asc' | 'desc';
 
-type MetricKey =
-  | 'views'
-  | 'impressions'
-  | 'reach'
-  | 'likes'
-  | 'comments'
-  | 'shares'
-  | 'saves'
-  | 'engagement_rate'
-  | 'watch_time_minutes'
-  | 'avg_view_duration_seconds'
-  | 'avg_view_percentage'
-  | 'impression_ctr'
-  | 'card_ctr'
-  | 'end_screen_ctr'
-  | 'subscribers_gained'
-  | 'subscribers_lost'
-  | 'profile_visits'
-  | 'follows'
-  | 'accounts_reached'
-  | 'accounts_engaged';
-
-type AggType = 'sum' | 'avg';
-
-const METRIC_AGG: Record<MetricKey, AggType> = {
-  views: 'sum',
-  impressions: 'sum',
-  reach: 'sum',
-  likes: 'sum',
-  comments: 'sum',
-  shares: 'sum',
-  saves: 'sum',
-  engagement_rate: 'avg',
-  watch_time_minutes: 'sum',
-  avg_view_duration_seconds: 'avg',
-  avg_view_percentage: 'avg',
-  impression_ctr: 'avg',
-  card_ctr: 'avg',
-  end_screen_ctr: 'avg',
-  subscribers_gained: 'sum',
-  subscribers_lost: 'sum',
-  profile_visits: 'sum',
-  follows: 'sum',
-  accounts_reached: 'sum',
-  accounts_engaged: 'sum',
+const METRIC_LABELS: Record<string, string> = {
+  views: 'Views',
+  daily_engaged_views: 'Daily Engaged Views',
+  total_engaged_views: 'Total Engaged Views',
+  watch_time_hours: 'Watch Time (hrs)',
+  watch_time_minutes: 'Watch Time (min)',
+  avg_view_duration_seconds: 'Avg View Duration',
+  avg_view_percentage: 'Avg View %',
+  impressions: 'Impressions',
+  impression_ctr: 'Impression CTR',
+  likes: 'Likes',
+  dislikes: 'Dislikes',
+  shares: 'Shares',
+  comments: 'Comments',
+  subscribers_gained: 'Subscribers Gained',
+  subscribers_lost: 'Subscribers Lost',
+  unique_viewers: 'Unique Viewers',
+  youtube_premium_views: 'YouTube Premium Views',
+  duration_seconds: 'Duration (sec)',
+  stayed_to_watch_pct: 'Stayed to Watch %',
+  new_viewers: 'New Viewers',
+  returning_viewers: 'Returning Viewers',
+  casual_viewers: 'Casual Viewers',
+  regular_viewers: 'Regular Viewers',
+  hypes: 'Hypes',
+  hype_points: 'Hype Points',
+  post_subscribers: 'Post Subscribers',
+  plays: 'Plays',
+  reach: 'Reach',
+  saves: 'Saves',
+  profile_visits: 'Profile Visits',
+  follows: 'Follows',
+  accounts_reached: 'Accounts Reached',
+  accounts_engaged: 'Accounts Engaged',
+  engagement_rate: 'Engagement Rate',
 };
 
-interface MetricDef {
-  key: MetricKey;
-  label: string;
-  platform: 'both' | 'youtube' | 'instagram';
-}
-
-interface MetricGroup {
-  label: string;
-  metrics: MetricDef[];
-}
-
-const METRIC_GROUPS: MetricGroup[] = [
-  {
-    label: 'Reach',
-    metrics: [
-      { key: 'views', label: 'Views / Plays', platform: 'both' },
-      { key: 'impressions', label: 'Impressions', platform: 'both' },
-      { key: 'reach', label: 'Reach', platform: 'instagram' },
-    ],
-  },
-  {
-    label: 'Engagement',
-    metrics: [
-      { key: 'likes', label: 'Likes', platform: 'both' },
-      { key: 'comments', label: 'Comments', platform: 'both' },
-      { key: 'shares', label: 'Shares', platform: 'both' },
-      { key: 'saves', label: 'Saves', platform: 'instagram' },
-      { key: 'engagement_rate', label: 'Engagement Rate %', platform: 'instagram' },
-    ],
-  },
-  {
-    label: 'Retention',
-    metrics: [
-      { key: 'watch_time_minutes', label: 'Watch Time (min)', platform: 'youtube' },
-      { key: 'avg_view_duration_seconds', label: 'Avg View Duration (sec)', platform: 'youtube' },
-      { key: 'avg_view_percentage', label: 'Avg View %', platform: 'youtube' },
-    ],
-  },
-  {
-    label: 'Discovery',
-    metrics: [
-      { key: 'impression_ctr', label: 'Impression CTR %', platform: 'youtube' },
-      { key: 'card_ctr', label: 'Card CTR %', platform: 'youtube' },
-      { key: 'end_screen_ctr', label: 'End Screen CTR %', platform: 'youtube' },
-    ],
-  },
-  {
-    label: 'Growth',
-    metrics: [
-      { key: 'subscribers_gained', label: 'Subscribers Gained', platform: 'youtube' },
-      { key: 'subscribers_lost', label: 'Subscribers Lost', platform: 'youtube' },
-    ],
-  },
-  {
-    label: 'Conversion',
-    metrics: [
-      { key: 'profile_visits', label: 'Profile Visits', platform: 'instagram' },
-      { key: 'follows', label: 'Follows', platform: 'instagram' },
-      { key: 'accounts_reached', label: 'Accounts Reached', platform: 'instagram' },
-      { key: 'accounts_engaged', label: 'Accounts Engaged', platform: 'instagram' },
-    ],
-  },
+const YOUTUBE_METRICS = [
+  'views', 'daily_engaged_views', 'total_engaged_views', 'watch_time_hours',
+  'watch_time_minutes', 'avg_view_duration_seconds', 'avg_view_percentage',
+  'impressions', 'impression_ctr', 'likes', 'dislikes', 'shares', 'comments',
+  'subscribers_gained', 'subscribers_lost', 'unique_viewers', 'youtube_premium_views',
+  'duration_seconds', 'stayed_to_watch_pct', 'new_viewers', 'returning_viewers',
+  'casual_viewers', 'regular_viewers', 'hypes', 'hype_points', 'post_subscribers',
 ];
 
-const METRIC_LABEL: Record<MetricKey, string> = Object.fromEntries(
-  METRIC_GROUPS.flatMap((g) => g.metrics.map((m) => [m.key, m.label]))
-) as Record<MetricKey, string>;
+const INSTAGRAM_METRICS = [
+  'views', 'plays', 'likes', 'comments', 'shares', 'reach', 'saves',
+  'profile_visits', 'follows', 'accounts_reached', 'accounts_engaged', 'engagement_rate',
+];
 
-function getMetricValue(post: UnifiedPost, key: MetricKey): number {
+const YOUTUBE_DEFAULTS = [
+  'views', 'daily_engaged_views', 'impressions', 'impression_ctr', 'avg_view_duration_seconds', 'likes',
+];
+const INSTAGRAM_DEFAULTS = ['views', 'likes', 'comments', 'shares'];
+
+// Metrics that are averaged across clips rather than summed
+const AVG_METRICS = new Set([
+  'impression_ctr', 'avg_view_percentage', 'avg_view_duration_seconds',
+  'stayed_to_watch_pct', 'engagement_rate',
+]);
+
+// Metrics whose formatted value gets a % suffix
+const PCT_METRICS = new Set([
+  'impression_ctr', 'avg_view_percentage', 'stayed_to_watch_pct', 'engagement_rate',
+]);
+
+function getMetricValue(post: UnifiedPost, key: string): number {
   if (key === 'views') {
     return post.platform === 'instagram' ? (post.plays ?? post.views) : post.views;
   }
@@ -133,15 +90,56 @@ function getMetricValue(post: UnifiedPost, key: MetricKey): number {
   return typeof val === 'number' ? val : 0;
 }
 
-function isMetricApplicable(key: MetricKey, platform: AnalyticsPlatform): boolean {
-  const group = METRIC_GROUPS.flatMap((g) => g.metrics).find((m) => m.key === key);
-  if (!group) return false;
-  if (group.platform === 'both') return true;
-  if (platform === 'both') return true;
-  return group.platform === platform;
+function formatMetricValue(key: string, val: number): string {
+  if (key === 'avg_view_duration_seconds') {
+    const m = Math.floor(val / 60);
+    const s = Math.floor(val % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+  if (key === 'watch_time_hours' || key === 'watch_time_minutes') {
+    return val.toFixed(1);
+  }
+  if (PCT_METRICS.has(key)) {
+    return `${val.toFixed(2)}%`;
+  }
+  return formatNum(val);
 }
 
-type SortCol = 'date' | 'title' | MetricKey;
+function getShortCode(code: string): string {
+  const idx = code.indexOf('-');
+  return idx === -1 ? code : code.slice(idx + 1);
+}
+
+interface CardTooltipPayload {
+  clipCode: string;
+  formatted: string;
+}
+
+function CardTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: { payload: CardTooltipPayload }[];
+}) {
+  if (!active || !payload?.length) return null;
+  const d = payload[0].payload;
+  return (
+    <div
+      style={{
+        background: '#1d1d1d',
+        border: '1px solid rgba(247,231,206,0.1)',
+        borderRadius: 8,
+        padding: '6px 10px',
+        fontFamily: 'var(--font-mono)',
+        fontSize: 11,
+      }}
+    >
+      <p style={{ color: 'rgba(247,231,206,0.45)', marginBottom: 2 }}>{d.clipCode}</p>
+      <p style={{ color: 'rgba(247,231,206,0.9)', fontWeight: 600 }}>{d.formatted}</p>
+    </div>
+  );
+}
 
 interface Props {
   posts: UnifiedPost[];
@@ -149,13 +147,22 @@ interface Props {
 
 export default function AnalyticsView({ posts }: Props) {
   const { open: openModal } = useVideoModal();
-  const [analyticsPlat, setAnalyticsPlat] = useState<AnalyticsPlatform>('both');
+  const [platform, setPlatform] = useState<AnalyticsPlatform>('youtube');
   const [dateRange, setDateRange] = useState<Exclude<DateRange, '1d'>>('30d');
-  const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['views', 'likes', 'comments']);
+  const [selectedMetrics, setSelectedMetrics] = useState<string[]>(YOUTUBE_DEFAULTS);
   const [metricDropOpen, setMetricDropOpen] = useState(false);
-  const [sortCol, setSortCol] = useState<SortCol>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [sortCol, setSortCol] = useState<string>('date');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [clipData, setClipData] = useState<UnifiedPost[]>([]);
   const dropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getLatestPostsPerClip().then(setClipData).catch(console.error);
+  }, []);
+
+  useEffect(() => {
+    setSelectedMetrics(platform === 'youtube' ? YOUTUBE_DEFAULTS : INSTAGRAM_DEFAULTS);
+  }, [platform]);
 
   useEffect(() => {
     function handleMouseDown(e: MouseEvent) {
@@ -167,15 +174,15 @@ export default function AnalyticsView({ posts }: Props) {
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, []);
 
-  useEffect(() => {
-    setSelectedMetrics((prev) =>
-      prev.filter((m) => isMetricApplicable(m, analyticsPlat))
-    );
-  }, [analyticsPlat]);
+  // Clip data filtered by active platform (for metric cards)
+  const filteredClips = useMemo(
+    () => clipData.filter((p) => p.platform === platform),
+    [clipData, platform],
+  );
 
+  // Posts filtered by platform + date (for the table)
   const filtered = useMemo(() => {
-    let result = posts;
-    if (analyticsPlat !== 'both') result = result.filter((p) => p.platform === analyticsPlat);
+    let result = posts.filter((p) => p.platform === platform);
     if (dateRange !== 'all') {
       const cutoff = new Date();
       if (dateRange === '7d') cutoff.setDate(cutoff.getDate() - 7);
@@ -184,30 +191,7 @@ export default function AnalyticsView({ posts }: Props) {
       result = result.filter((p) => p.date >= cutoff.toISOString().slice(0, 10));
     }
     return result;
-  }, [posts, analyticsPlat, dateRange]);
-
-  const statCards = useMemo(() => {
-    return selectedMetrics.map((key) => {
-      const agg = METRIC_AGG[key];
-      const ytPosts = filtered.filter((p) => p.platform === 'youtube');
-      const igPosts = filtered.filter((p) => p.platform === 'instagram');
-
-      const computeValue = (arr: UnifiedPost[]): number => {
-        if (!arr.length) return 0;
-        if (agg === 'sum') return arr.reduce((s, p) => s + getMetricValue(p, key), 0);
-        return arr.reduce((s, p) => s + getMetricValue(p, key), 0) / arr.length;
-      };
-
-      const total = computeValue(filtered);
-      const ytVal = computeValue(ytPosts);
-      const igVal = computeValue(igPosts);
-
-      const formatValue = (v: number) =>
-        agg === 'sum' ? formatNum(v) : v.toFixed(2);
-
-      return { key, label: METRIC_LABEL[key], total, ytVal, igVal, formatValue, agg };
-    });
-  }, [selectedMetrics, filtered]);
+  }, [posts, platform, dateRange]);
 
   const sortedPosts = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -220,8 +204,8 @@ export default function AnalyticsView({ posts }: Props) {
         aVal = a.title;
         bVal = b.title;
       } else {
-        aVal = getMetricValue(a, sortCol as MetricKey);
-        bVal = getMetricValue(b, sortCol as MetricKey);
+        aVal = getMetricValue(a, sortCol);
+        bVal = getMetricValue(b, sortCol);
       }
       if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
@@ -229,7 +213,7 @@ export default function AnalyticsView({ posts }: Props) {
     });
   }, [filtered, sortCol, sortDir]);
 
-  function handleSort(col: SortCol) {
+  function handleSort(col: string) {
     if (sortCol === col) {
       setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
     } else {
@@ -239,7 +223,7 @@ export default function AnalyticsView({ posts }: Props) {
   }
 
   function exportCSV() {
-    const metricCols = selectedMetrics.map((k) => METRIC_LABEL[k]);
+    const metricCols = selectedMetrics.map((k) => METRIC_LABELS[k] ?? k);
     const headers = ['Title', 'Post Date', 'Platform', ...metricCols];
     const rows = sortedPosts.map((p) => [
       `"${p.title.replace(/"/g, '""')}"`,
@@ -257,101 +241,60 @@ export default function AnalyticsView({ posts }: Props) {
     URL.revokeObjectURL(url);
   }
 
-  const visibleGroups = useMemo(() => {
-    return METRIC_GROUPS
-      .map((g) => {
-        const visibleMetrics = g.metrics.filter((m) => isMetricApplicable(m.key, analyticsPlat));
-        return { ...g, metrics: visibleMetrics };
-      })
-      .filter((g) => g.metrics.length > 0);
-  }, [analyticsPlat]);
-
-  function toggleMetric(key: MetricKey) {
+  function toggleMetric(key: string) {
     setSelectedMetrics((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
     );
   }
+
+  const platformColor = platform === 'youtube' ? '#FF4444' : '#C855E8';
+  const platformMetrics = platform === 'youtube' ? YOUTUBE_METRICS : INSTAGRAM_METRICS;
 
   const pillBase =
     'px-3 py-1.5 rounded-full text-xs font-semibold transition-all cursor-pointer select-none';
 
   return (
     <div className="p-5 space-y-5">
-      {/* SECTION 1: Control Bar */}
+      {/* Platform toggle */}
       <div className="flex flex-wrap gap-3 items-center">
-        {/* Platform toggle */}
         <div className="flex gap-1 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-full p-1">
           {(
             [
               { val: 'youtube', label: 'YouTube' },
               { val: 'instagram', label: 'Instagram' },
-              { val: 'both', label: 'Both' },
             ] as { val: AnalyticsPlatform; label: string }[]
           ).map(({ val, label }) => {
-            const active = analyticsPlat === val;
-            const bg =
-              active && val === 'youtube'
+            const active = platform === val;
+            const bg = active
+              ? val === 'youtube'
                 ? '#FF4444'
-                : active && val === 'instagram'
-                ? '#C855E8'
-                : active
-                ? 'rgba(247,201,72,0.15)'
-                : 'transparent';
-            const color =
-              active && (val === 'youtube' || val === 'instagram')
-                ? '#fff'
-                : active
-                ? 'var(--text-1)'
-                : 'var(--text-3)';
+                : '#C855E8'
+              : 'transparent';
             return (
               <button
                 key={val}
-                onClick={() => setAnalyticsPlat(val)}
+                onClick={() => setPlatform(val)}
                 className={pillBase}
-                style={{ background: bg, color }}
+                style={{ background: bg, color: active ? '#fff' : 'var(--text-3)' }}
               >
                 {label}
               </button>
             );
           })}
         </div>
-
-        {/* Date range */}
-        <div className="flex gap-1 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-full p-1">
-          {(['7d', '30d', '90d', 'all'] as Exclude<DateRange, '1d'>[]).map((r) => (
-            <button
-              key={r}
-              onClick={() => setDateRange(r)}
-              className={pillBase}
-              style={{
-                background: dateRange === r ? 'var(--gold)' : 'transparent',
-                color: dateRange === r ? '#000' : 'var(--text-3)',
-              }}
-            >
-              {r === 'all' ? 'All' : r.toUpperCase()}
-            </button>
-          ))}
-        </div>
       </div>
 
-      {/* SECTION 2: Metric Selector */}
+      {/* Metric selector */}
       <div className="relative" ref={dropRef}>
         <button
           onClick={() => setMetricDropOpen((v) => !v)}
           className="flex items-center gap-2 flex-wrap bg-[var(--bg-card)] border border-[rgba(247,231,206,0.08)] rounded-xl px-3 py-2 hover:border-[rgba(247,231,206,0.15)] transition-colors min-w-[200px] text-left"
         >
-          <span className="text-[11px] text-[var(--text-3)] shrink-0">Metrics:</span>
-          {selectedMetrics.length === 0 ? (
-            <span className="text-[12px] text-[var(--text-3)]">Select metrics…</span>
-          ) : (
-            selectedMetrics.map((k) => (
-              <span
-                key={k}
-                className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[rgba(247,201,72,0.12)] text-[var(--gold)] border border-[rgba(247,201,72,0.2)]"
-              >
-                {METRIC_LABEL[k]}
-              </span>
-            ))
+          <span className="text-[11px] text-[var(--text-3)] shrink-0">Select Metrics</span>
+          {selectedMetrics.length > 0 && (
+            <span className="text-[11px] text-[var(--text-3)]">
+              ({selectedMetrics.length} selected)
+            </span>
           )}
           <svg
             className="w-3.5 h-3.5 ml-auto shrink-0 text-[var(--text-3)]"
@@ -365,82 +308,158 @@ export default function AnalyticsView({ posts }: Props) {
         </button>
 
         {metricDropOpen && (
-          <div className="absolute z-50 top-full mt-2 left-0 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.1)] rounded-2xl shadow-2xl p-4 min-w-[320px] max-h-[480px] overflow-y-auto">
-            <div className="space-y-4">
-              {visibleGroups.map((group, gi) => (
-                <div key={`${group.label}-${gi}`}>
-                  <p className="text-[10px] tracking-[0.14em] uppercase font-semibold text-[var(--text-3)] mb-2">
-                    {group.label}
-                  </p>
-                  <div className="space-y-1">
-                    {group.metrics.map((m) => (
-                      <label
-                        key={m.key}
-                        className="flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-[rgba(247,231,206,0.04)] transition-colors"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedMetrics.includes(m.key)}
-                          onChange={() => toggleMetric(m.key)}
-                          className="accent-[var(--gold)] w-3.5 h-3.5"
-                        />
-                        <span className="text-[13px] text-[var(--text-2)]">{m.label}</span>
-                      </label>
-                    ))}
-                  </div>
-                </div>
+          <div className="absolute z-50 top-full mt-2 left-0 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.1)] rounded-2xl shadow-2xl p-4 min-w-[260px] max-h-[400px] overflow-y-auto">
+            <div className="space-y-1">
+              {platformMetrics.map((key) => (
+                <label
+                  key={key}
+                  className="flex items-center gap-2.5 cursor-pointer rounded-lg px-2 py-1.5 hover:bg-[rgba(247,231,206,0.04)] transition-colors"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedMetrics.includes(key)}
+                    onChange={() => toggleMetric(key)}
+                    className="w-3.5 h-3.5"
+                    style={{ accentColor: platformColor }}
+                  />
+                  <span className="text-[13px] text-[var(--text-2)]">
+                    {METRIC_LABELS[key] ?? key}
+                  </span>
+                </label>
               ))}
             </div>
           </div>
         )}
       </div>
 
-      {/* SECTION 3: Stat Cards */}
-      {statCards.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-          {statCards.map(({ key, label, total, ytVal, igVal, formatValue }) => (
-            <div
-              key={key}
-              className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4 hover:border-[rgba(247,231,206,0.1)] transition-colors"
-            >
-              <p className="text-[10px] tracking-[0.14em] uppercase text-[var(--text-3)] mb-2 font-semibold">
-                {label}
-              </p>
-              <p
-                className="text-2xl font-bold leading-none tabular-nums"
-                style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}
+      {/* Metric card grid */}
+      {selectedMetrics.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {selectedMetrics.map((key) => {
+            const isAvg = AVG_METRICS.has(key);
+            const values = filteredClips.map((p) => getMetricValue(p, key));
+            const total = values.length === 0
+              ? 0
+              : isAvg
+              ? values.reduce((s, v) => s + v, 0) / values.length
+              : values.reduce((s, v) => s + v, 0);
+
+            const chartData = filteredClips
+              .filter((p) => p.clip_code)
+              .map((p) => {
+                const val = getMetricValue(p, key);
+                return {
+                  clipCode: p.clip_code!,
+                  shortCode: getShortCode(p.clip_code!),
+                  value: val,
+                  formatted: formatMetricValue(key, val),
+                };
+              });
+
+            const hasData = chartData.some((d) => d.value > 0);
+
+            return (
+              <div
+                key={key}
+                className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 pt-4 pb-3 hover:border-[rgba(247,231,206,0.1)] transition-colors overflow-hidden"
+                style={{
+                  borderLeft: `3px solid ${platform === 'youtube' ? 'rgba(255,68,68,0.25)' : 'rgba(200,85,232,0.25)'}`,
+                }}
               >
-                {formatValue(total)}
-              </p>
-              {analyticsPlat === 'both' && (
-                <div className="mt-2 flex flex-col gap-0.5">
-                  <span className="text-[11px] text-[var(--text-3)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>
-                    <span style={{ color: '#FF4444' }}>YT</span> {formatValue(ytVal)}
-                  </span>
-                  <span className="text-[11px] text-[var(--text-3)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>
-                    <span style={{ color: '#C855E8' }}>IG</span> {formatValue(igVal)}
-                  </span>
-                </div>
-              )}
-            </div>
-          ))}
+                <p className="text-[10px] tracking-[0.14em] uppercase text-[var(--text-3)] mb-1 font-semibold">
+                  {METRIC_LABELS[key] ?? key}
+                </p>
+                <p
+                  className="text-2xl font-bold leading-none tabular-nums mb-3"
+                  style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}
+                >
+                  {formatMetricValue(key, total)}
+                </p>
+
+                {hasData ? (
+                  <ResponsiveContainer width="100%" height={72}>
+                    <BarChart
+                      data={chartData}
+                      margin={{ top: 0, right: 0, left: 0, bottom: 0 }}
+                    >
+                      <XAxis
+                        dataKey="shortCode"
+                        tick={{
+                          fill: 'rgba(247,231,206,0.25)',
+                          fontSize: 8,
+                          fontFamily: 'JetBrains Mono',
+                        }}
+                        axisLine={false}
+                        tickLine={false}
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis hide />
+                      <Tooltip
+                        content={<CardTooltip />}
+                        cursor={{ fill: 'rgba(247,231,206,0.03)' }}
+                      />
+                      <Bar
+                        dataKey="value"
+                        fill={platformColor}
+                        fillOpacity={0.75}
+                        radius={[2, 2, 0, 0]}
+                        maxBarSize={24}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-[72px] flex items-center justify-center">
+                    <span className="text-[12px] text-[var(--text-3)]">No data</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* SECTION 5: Clip Table */}
+      {/* Clip details table */}
       <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
         <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.04)] flex items-center justify-between gap-3">
           <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Clip Details</h3>
-          <button
-            onClick={exportCSV}
-            disabled={sortedPosts.length === 0}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-[rgba(247,231,206,0.08)] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-[rgba(247,231,206,0.15)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export CSV
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Date range for table */}
+            <div className="flex gap-1 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-full p-0.5">
+              {(['7d', '30d', '90d', 'all'] as Exclude<DateRange, '1d'>[]).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setDateRange(r)}
+                  className="px-2.5 py-1 rounded-full text-[10px] font-semibold transition-all cursor-pointer select-none"
+                  style={{
+                    background: dateRange === r ? 'var(--gold)' : 'transparent',
+                    color: dateRange === r ? '#000' : 'var(--text-3)',
+                  }}
+                >
+                  {r === 'all' ? 'All' : r.toUpperCase()}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={exportCSV}
+              disabled={sortedPosts.length === 0}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-[rgba(247,231,206,0.08)] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-[rgba(247,231,206,0.15)] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            >
+              <svg
+                className="w-3.5 h-3.5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                />
+              </svg>
+              Export CSV
+            </button>
+          </div>
         </div>
 
         {sortedPosts.length === 0 ? (
@@ -473,7 +492,7 @@ export default function AnalyticsView({ posts }: Props) {
                       className="px-5 py-3 text-left text-[10px] font-medium text-[var(--text-3)] uppercase tracking-[0.12em] cursor-pointer hover:text-[var(--text-2)] transition-colors whitespace-nowrap"
                       onClick={() => handleSort(k)}
                     >
-                      {METRIC_LABEL[k]} {sortCol === k && (sortDir === 'asc' ? '↑' : '↓')}
+                      {METRIC_LABELS[k] ?? k} {sortCol === k && (sortDir === 'asc' ? '↑' : '↓')}
                     </th>
                   ))}
                 </tr>
@@ -510,15 +529,13 @@ export default function AnalyticsView({ posts }: Props) {
                     </td>
                     {selectedMetrics.map((k) => {
                       const val = getMetricValue(post, k);
-                      const display =
-                        METRIC_AGG[k] === 'sum' ? formatNum(val) : val.toFixed(2);
                       return (
                         <td
                           key={k}
                           className="px-5 py-3.5 text-[var(--text-2)] text-[13px] tabular-nums"
                           style={{ fontFamily: 'var(--font-mono)' }}
                         >
-                          {display}
+                          {formatMetricValue(k, val)}
                         </td>
                       );
                     })}
