@@ -77,16 +77,18 @@ function parsePublishDate(val: string | undefined): string {
 
 function normalizeYouTube(rows: RawRow[]): Omit<UnifiedPost, 'id'>[] {
   return rows.map((row, i) => {
-    const contentId = row['content_id'] || undefined;
-    const views = parseNum(row['total_views']);
-    const likes = parseNum(row['likes']);
-    const comments = parseNum(row['comments']);
-    const shares = parseNum(row['shares']);
-    const watchTimeHours = parseOptNum(row['watch_time_hours']);
-    const avgViewDurRaw = row['average_view_duration'];
+    const contentId = row['content_id'] || row['video_id'] || undefined;
+    const views = parseNum(row['views'] || row['Views'] || row['total_views']);
+    const likes = parseNum(row['likes'] || row['Likes']);
+    const comments = parseNum(row['comments'] || row['Comments added']);
+    const shares = parseNum(row['shares'] || row['Shares']);
+    const watchTimeHoursRaw = row['watch_time_hours'] || row['Watch time (hours)'];
+    const watchTimeHours = parseOptNum(watchTimeHoursRaw);
+    const avgViewDurSecondsRaw = row['avg_view_duration_seconds'];
+    const avgViewDurHMSRaw = row['Average view duration'] || row['average_view_duration'];
     return {
-      clip_code: row['clip_id'] || undefined,
-      stat_date: (row['date'] || new Date().toISOString()).slice(0, 10),
+      clip_code: row['clip_code'] || row['clip_id'] || undefined,
+      stat_date: (row['stat_date'] || row['date'] || new Date().toISOString()).slice(0, 10),
       content_id: contentId,
       platform: (row['platform'] ? row['platform'].toLowerCase() : 'youtube') as Platform,
       date: parsePublishDate(row['video_publish_time']),
@@ -100,18 +102,29 @@ function normalizeYouTube(rows: RawRow[]): Omit<UnifiedPost, 'id'>[] {
       engagementRate: calcEngagement(views, likes, comments, shares, 0),
       // YouTube daily stat fields
       duration_seconds: parseOptNum(row['duration_seconds']) !== undefined ? Math.round(parseNum(row['duration_seconds'])) : undefined,
-      daily_engaged_views: parseOptNum(row['daily_engaged_views']),
+      daily_engaged_views: parseOptNum(row['daily_engaged_views'] || row['Engaged views']),
       total_engaged_views: parseOptNum(row['total_engaged_views']),
       watch_time_hours: watchTimeHours,
-      watch_time_minutes: watchTimeHours !== undefined ? watchTimeHours * 60 : undefined,
-      avg_view_duration_seconds: avgViewDurRaw ? parseHMStoSeconds(avgViewDurRaw) : undefined,
-      avg_view_percentage: parseOptNum(row['average_percentage_viewed']),
-      impressions: parseOptNum(row['impressions']),
-      impression_ctr: parseOptNum(row['impressions_ctr']),
+      watch_time_minutes: watchTimeHours !== undefined ? watchTimeHours * 60 : parseOptNum(row['watch_time_minutes']),
+      avg_view_duration_seconds: avgViewDurSecondsRaw
+        ? parseOptNum(avgViewDurSecondsRaw)
+        : (avgViewDurHMSRaw ? parseHMStoSeconds(avgViewDurHMSRaw) : undefined),
+      avg_view_percentage: parseOptNum(row['avg_view_percentage'] || row['Average percentage viewed (%)'] || row['average_percentage_viewed']),
+      impressions: parseOptNum(row['impressions'] || row['Impressions']),
+      impression_ctr: parseOptNum(row['impression_ctr'] || row['impressions_ctr'] || row['Impressions click-through rate (%)']),
       unique_viewers: parseOptNum(row['unique_viewers']),
-      subscribers_gained: parseOptNum(row['subscribers_gained']),
-      subscribers_lost: parseOptNum(row['subscribers_lost']),
-      youtube_premium_views: parseOptNum(row['youtube_premium_views']),
+      subscribers_gained: parseOptNum(row['subscribers_gained'] || row['Subscribers gained']),
+      subscribers_lost: parseOptNum(row['subscribers_lost'] || row['Subscribers lost']),
+      youtube_premium_views: parseOptNum(row['youtube_premium_views'] || row['YouTube Premium views']),
+      dislikes: parseOptNum(row['dislikes']),
+      stayed_to_watch_pct: parseOptNum(row['stayed_to_watch_pct']),
+      new_viewers: parseOptNum(row['new_viewers']),
+      returning_viewers: parseOptNum(row['returning_viewers']),
+      casual_viewers: parseOptNum(row['casual_viewers']),
+      regular_viewers: parseOptNum(row['regular_viewers']),
+      hypes: parseOptNum(row['hypes']),
+      hype_points: parseOptNum(row['hype_points']),
+      post_subscribers: parseOptNum(row['post_subscribers']),
     };
   });
 }

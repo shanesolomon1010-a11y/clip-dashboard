@@ -38,6 +38,14 @@ export interface UnifiedPost {
   card_ctr?: number;
   end_screen_clicks?: number;
   end_screen_ctr?: number;
+  stayed_to_watch_pct?: number;
+  new_viewers?: number;
+  returning_viewers?: number;
+  casual_viewers?: number;
+  regular_viewers?: number;
+  hypes?: number;
+  hype_points?: number;
+  post_subscribers?: number;
   // Instagram-specific
   plays?: number;
   reach?: number;

@@ -148,6 +148,14 @@ function mapPostRow(row: Record<string, unknown>): UnifiedPost {
     total_engaged_views: row.total_engaged_views != null ? Number(row.total_engaged_views) : undefined,
     unique_viewers: row.unique_viewers != null ? Number(row.unique_viewers) : undefined,
     youtube_premium_views: row.youtube_premium_views != null ? Number(row.youtube_premium_views) : undefined,
+    stayed_to_watch_pct: row.stayed_to_watch_pct != null ? Number(row.stayed_to_watch_pct) : undefined,
+    new_viewers: row.new_viewers != null ? Number(row.new_viewers) : undefined,
+    returning_viewers: row.returning_viewers != null ? Number(row.returning_viewers) : undefined,
+    casual_viewers: row.casual_viewers != null ? Number(row.casual_viewers) : undefined,
+    regular_viewers: row.regular_viewers != null ? Number(row.regular_viewers) : undefined,
+    hypes: row.hypes != null ? Number(row.hypes) : undefined,
+    hype_points: row.hype_points != null ? Number(row.hype_points) : undefined,
+    post_subscribers: row.post_subscribers != null ? Number(row.post_subscribers) : undefined,
   };
 }
 
@@ -250,6 +258,17 @@ export async function deletePost(id: string): Promise<void> {
   if (error) throw error;
 }
 
+// Migration SQL — run manually in Supabase SQL editor:
+//
+// ALTER TABLE posts
+//   ADD COLUMN IF NOT EXISTS stayed_to_watch_pct NUMERIC,
+//   ADD COLUMN IF NOT EXISTS new_viewers INTEGER,
+//   ADD COLUMN IF NOT EXISTS returning_viewers INTEGER,
+//   ADD COLUMN IF NOT EXISTS casual_viewers INTEGER,
+//   ADD COLUMN IF NOT EXISTS regular_viewers INTEGER,
+//   ADD COLUMN IF NOT EXISTS hypes INTEGER,
+//   ADD COLUMN IF NOT EXISTS hype_points INTEGER,
+//   ADD COLUMN IF NOT EXISTS post_subscribers INTEGER;
 export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
   const rows = posts.map((p) => ({
     clip_code: p.clip_code ?? null,
@@ -280,6 +299,14 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
     youtube_premium_views: p.youtube_premium_views ?? null,
     subscribers_gained: p.subscribers_gained ?? null,
     subscribers_lost: p.subscribers_lost ?? null,
+    stayed_to_watch_pct: p.stayed_to_watch_pct ?? null,
+    new_viewers: p.new_viewers ?? null,
+    returning_viewers: p.returning_viewers ?? null,
+    casual_viewers: p.casual_viewers ?? null,
+    regular_viewers: p.regular_viewers ?? null,
+    hypes: p.hypes ?? null,
+    hype_points: p.hype_points ?? null,
+    post_subscribers: p.post_subscribers ?? null,
     // YouTube legacy fields
     dislikes: p.dislikes ?? null,
     card_clicks: p.card_clicks ?? null,
