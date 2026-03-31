@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import MetricCard from '@/components/MetricCard';
-import ViewsLineChart from '@/components/ViewsLineChart';
 import { IconEye, IconTrendUp, IconStar } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
@@ -48,11 +47,6 @@ export default function DashboardView({ posts }: Props) {
 
   const topPosts = useMemo(
     () => [...filteredPosts].sort((a, b) => b.views - a.views).slice(0, 6),
-    [filteredPosts]
-  );
-
-  const activePlatforms = useMemo<Platform[]>(
-    () => ALL_PLATFORMS.filter((pl) => filteredPosts.some((p) => p.platform === pl)),
     [filteredPosts]
   );
 
@@ -108,9 +102,6 @@ export default function DashboardView({ posts }: Props) {
             accent={topPlatform ? PLATFORM_COLORS[topPlatform.platform] : '#6b7280'}
           />
         </div>
-
-        {/* Views line chart */}
-        <ViewsLineChart posts={filteredPosts} activePlatforms={activePlatforms} rangeLabel={selectedRange.label} />
 
         {/* Top content */}
         <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">

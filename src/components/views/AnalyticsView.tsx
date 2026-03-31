@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import ViewsLineChart from '@/components/ViewsLineChart';
 import { UnifiedPost, DateRange } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
@@ -427,12 +426,6 @@ export default function AnalyticsView({ posts }: Props) {
           ))}
         </div>
       )}
-
-      {/* SECTION 4: Chart */}
-      <ViewsLineChart
-        posts={filtered}
-        rangeLabel={dateRange === 'all' ? 'All time' : dateRange.toUpperCase()}
-      />
 
       {/* SECTION 5: Clip Table */}
       <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
