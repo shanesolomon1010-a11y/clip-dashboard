@@ -1,14 +1,14 @@
 'use client';
 
 import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, Legend,
+  BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer,
 } from 'recharts';
-import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
+import { Platform, UnifiedPost } from '@/types';
 
 interface Props {
   posts: UnifiedPost[];
-  activePlatforms: Platform[];
+  activePlatforms?: Platform[];
   rangeLabel?: string;
 }
 
@@ -18,21 +18,29 @@ function formatViews(n: number): string {
   return String(n);
 }
 
-export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: Props) {
-  const dateMap: Record<string, Record<Platform, number>> = {};
+const COLOR_YT = '#FF4444';
+const COLOR_IG = '#C855E8';
+const COLOR_MIXED = '#E34C96';
+
+export default function ViewsLineChart({ posts, rangeLabel }: Props) {
+  const clipMap: Record<string, { ytViews: number; igViews: number }> = {};
 
   for (const p of posts) {
-    const key = p.stat_date || p.date;
-    if (!dateMap[key]) dateMap[key] = {} as Record<Platform, number>;
-    dateMap[key][p.platform] = (dateMap[key][p.platform] || 0) + p.views;
+    const key = p.clip_code || p.title;
+    if (!clipMap[key]) clipMap[key] = { ytViews: 0, igViews: 0 };
+    if (p.platform === 'youtube') clipMap[key].ytViews += p.views;
+    else clipMap[key].igViews += p.views;
   }
 
-  const data = Object.entries(dateMap)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, vals]) => ({
-      date: new Date(date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      ...vals,
-    }));
+  const data = Object.entries(clipMap)
+    .map(([clip, { ytViews, igViews }]) => {
+      const views = ytViews + igViews;
+      const color =
+        ytViews > 0 && igViews > 0 ? COLOR_MIXED :
+        ytViews > 0 ? COLOR_YT : COLOR_IG;
+      return { clip, views, color };
+    })
+    .sort((a, b) => b.views - a.views);
 
   const CustomTooltip = ({
     active,
@@ -40,26 +48,19 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
     label,
   }: {
     active?: boolean;
-    payload?: { dataKey: string; color: string; value: number }[];
+    payload?: { value: number }[];
     label?: string;
   }) => {
     if (!active || !payload?.length) return null;
     return (
       <div
-        className="border border-[rgba(247,231,206,0.09)] rounded-xl shadow-2xl px-3 py-2.5 min-w-[140px]"
+        className="border border-[rgba(247,231,206,0.09)] rounded-xl shadow-2xl px-3 py-2.5 min-w-[160px]"
         style={{ background: '#1d1d1d', fontFamily: 'var(--font-mono)', fontSize: 11 }}
       >
-        <p className="text-[var(--text-3)] mb-2 pb-2 border-b border-[rgba(247,231,206,0.06)]">{label}</p>
-        <div className="space-y-1.5">
-          {payload.map((entry) => (
-            <div key={entry.dataKey} className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full inline-block shrink-0" style={{ background: entry.color }} />
-                <span className="text-[var(--text-2)]">{PLATFORM_LABELS[entry.dataKey as Platform]}</span>
-              </div>
-              <span className="text-[var(--text-1)] font-semibold tabular-nums">{formatViews(entry.value)}</span>
-            </div>
-          ))}
+        <p className="text-[var(--text-3)] mb-2 pb-2 border-b border-[rgba(247,231,206,0.06)] truncate max-w-[200px]">{label}</p>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-[var(--text-2)]">Views</span>
+          <span className="text-[var(--text-1)] font-semibold tabular-nums">{formatViews(payload[0].value)}</span>
         </div>
       </div>
     );
@@ -69,7 +70,7 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
     <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5">
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-[15px] font-semibold text-[var(--text-1)] leading-none">
-          Views Over Time
+          Views by Clip
         </h2>
         {rangeLabel && (
           <span className="text-[10px] tracking-[0.12em] text-[var(--text-3)] uppercase" style={{ fontFamily: 'var(--font-mono)' }}>
@@ -78,22 +79,16 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
         )}
       </div>
       <ResponsiveContainer width="100%" height={260}>
-        <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <defs>
-            {activePlatforms.map((platform) => (
-              <linearGradient key={platform} id={`grad-${platform}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor={PLATFORM_COLORS[platform]} stopOpacity={0.12} />
-                <stop offset="95%" stopColor={PLATFORM_COLORS[platform]} stopOpacity={0} />
-              </linearGradient>
-            ))}
-          </defs>
-          <CartesianGrid strokeDasharray="2 6" stroke="rgba(247,231,206,0.03)" vertical={false} fill="none" />
+        <BarChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 60 }}>
+          <CartesianGrid strokeDasharray="2 6" stroke="rgba(247,231,206,0.03)" vertical={false} />
           <XAxis
-            dataKey="date"
-            tick={{ fill: '#47403a', fontSize: 10, fontFamily: 'JetBrains Mono' }}
+            dataKey="clip"
+            tick={{ fill: '#47403a', fontSize: 9, fontFamily: 'JetBrains Mono' }}
             axisLine={{ stroke: 'transparent' }}
             tickLine={false}
-            interval="preserveStartEnd"
+            angle={-45}
+            textAnchor="end"
+            interval={0}
             dy={6}
           />
           <YAxis
@@ -103,30 +98,13 @@ export default function ViewsLineChart({ posts, activePlatforms, rangeLabel }: P
             tickLine={false}
             width={40}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ stroke: 'rgba(247,231,206,0.05)', strokeWidth: 1 }} />
-          <Legend
-            iconType="circle"
-            iconSize={5}
-            formatter={(value) => (
-              <span style={{ color: 'var(--text-3)', fontSize: 10, fontFamily: 'var(--font-mono)' }}>
-                {PLATFORM_LABELS[value as Platform]}
-              </span>
-            )}
-            wrapperStyle={{ paddingTop: 14 }}
-          />
-          {activePlatforms.map((platform) => (
-            <Area
-              key={platform}
-              type="monotone"
-              dataKey={platform}
-              stroke={PLATFORM_COLORS[platform]}
-              strokeWidth={2}
-              fill={`url(#grad-${platform})`}
-              dot={{ r: 2.5, fill: PLATFORM_COLORS[platform], strokeWidth: 0 }}
-              activeDot={{ r: 5, strokeWidth: 0, fill: PLATFORM_COLORS[platform] }}
-            />
-          ))}
-        </AreaChart>
+          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(247,231,206,0.03)' }} />
+          <Bar dataKey="views" radius={[3, 3, 0, 0]}>
+            {data.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.85} />
+            ))}
+          </Bar>
+        </BarChart>
       </ResponsiveContainer>
     </div>
   );

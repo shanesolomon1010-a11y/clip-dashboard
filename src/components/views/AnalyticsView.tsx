@@ -1,21 +1,12 @@
 'use client';
 
 import { useState, useMemo, useRef, useEffect } from 'react';
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from 'recharts';
+import ViewsLineChart from '@/components/ViewsLineChart';
 import { UnifiedPost, DateRange } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 
 type AnalyticsPlatform = 'youtube' | 'instagram' | 'both';
-type TimeAxis = 'post_date' | 'days_since';
 
 type MetricKey =
   | 'views'
@@ -132,19 +123,6 @@ const METRIC_LABEL: Record<MetricKey, string> = Object.fromEntries(
   METRIC_GROUPS.flatMap((g) => g.metrics.map((m) => [m.key, m.label]))
 ) as Record<MetricKey, string>;
 
-const LINE_COLORS = [
-  '#F7C948',
-  '#38BDF8',
-  '#A78BFA',
-  '#34D399',
-  '#FB923C',
-  '#F472B6',
-  '#60A5FA',
-  '#4ADE80',
-  '#E879F9',
-  '#2DD4BF',
-];
-
 function getMetricValue(post: UnifiedPost, key: MetricKey): number {
   if (key === 'views') {
     return post.platform === 'instagram' ? (post.plays ?? post.views) : post.views;
@@ -170,46 +148,9 @@ interface Props {
   posts: UnifiedPost[];
 }
 
-interface TooltipPayloadEntry {
-  dataKey: string;
-  name?: string;
-  color: string;
-  value: number;
-}
-
-interface CustomTooltipProps {
-  active?: boolean;
-  label?: string | number;
-  payload?: TooltipPayloadEntry[];
-  timeAxis: TimeAxis;
-}
-
-function CustomTooltip({ active, label, payload, timeAxis }: CustomTooltipProps) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.12)] rounded-xl px-3 py-2.5 shadow-xl">
-      <p className="text-[11px] text-[var(--text-3)] mb-1.5 font-medium">
-        {timeAxis === 'days_since' ? `Day ${label}` : String(label)}
-      </p>
-      <div className="space-y-1">
-        {payload.map((entry) => (
-          <div key={entry.dataKey} className="flex items-center gap-2 text-[12px]">
-            <span className="w-2 h-2 rounded-full shrink-0" style={{ background: entry.color }} />
-            <span className="text-[var(--text-2)]">{entry.name ?? String(entry.dataKey)}:</span>
-            <span className="text-[var(--text-1)] font-semibold tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>
-              {typeof entry.value === 'number' ? entry.value.toLocaleString() : entry.value}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export default function AnalyticsView({ posts }: Props) {
   const { open: openModal } = useVideoModal();
   const [analyticsPlat, setAnalyticsPlat] = useState<AnalyticsPlatform>('both');
-  const [timeAxis, setTimeAxis] = useState<TimeAxis>('post_date');
   const [dateRange, setDateRange] = useState<Exclude<DateRange, '1d'>>('30d');
   const [selectedMetrics, setSelectedMetrics] = useState<MetricKey[]>(['views', 'likes', 'comments']);
   const [metricDropOpen, setMetricDropOpen] = useState(false);
@@ -268,98 +209,6 @@ export default function AnalyticsView({ posts }: Props) {
       return { key, label: METRIC_LABEL[key], total, ytVal, igVal, formatValue, agg };
     });
   }, [selectedMetrics, filtered]);
-
-  const chartData = useMemo(() => {
-    const today = new Date();
-    const map = new Map<string | number, Record<string, number> & { _counts: Record<string, number> }>();
-
-    for (const post of filtered) {
-      let xVal: string | number;
-      if (timeAxis === 'post_date') {
-        xVal = post.date;
-      } else {
-        const posted = new Date(post.date);
-        xVal = Math.floor((today.getTime() - posted.getTime()) / 86_400_000);
-      }
-
-      if (!map.has(xVal)) {
-        map.set(xVal, { _counts: {} } as Record<string, number> & { _counts: Record<string, number> });
-      }
-      const entry = map.get(xVal)!;
-
-      for (const metric of selectedMetrics) {
-        const val = getMetricValue(post, metric);
-        const fieldKey = analyticsPlat === 'both' ? `${metric}-${post.platform}` : metric;
-
-        if (METRIC_AGG[metric] === 'sum') {
-          entry[fieldKey] = (entry[fieldKey] ?? 0) + val;
-        } else {
-          entry[fieldKey] = (entry[fieldKey] ?? 0) + val;
-          entry._counts[fieldKey] = (entry._counts[fieldKey] ?? 0) + 1;
-        }
-      }
-    }
-
-    const entries = Array.from(map.entries())
-      .sort((a, b) => {
-        const av = a[0];
-        const bv = b[0];
-        if (typeof av === 'number' && typeof bv === 'number') return av - bv;
-        return String(av).localeCompare(String(bv));
-      })
-      .map(([xVal, data]) => {
-        const point: Record<string, string | number> = { xVal };
-        for (const metric of selectedMetrics) {
-          if (analyticsPlat === 'both') {
-            for (const pl of ['youtube', 'instagram'] as const) {
-              const fieldKey = `${metric}-${pl}`;
-              const count = data._counts[fieldKey] ?? 1;
-              const raw = data[fieldKey] ?? 0;
-              point[fieldKey] = METRIC_AGG[metric] === 'avg' && count > 0 ? raw / count : raw;
-            }
-          } else {
-            const count = data._counts[metric] ?? 1;
-            const raw = data[metric] ?? 0;
-            point[metric] = METRIC_AGG[metric] === 'avg' && count > 0 ? raw / count : raw;
-          }
-        }
-        return point;
-      });
-
-    return entries;
-  }, [filtered, selectedMetrics, timeAxis, analyticsPlat]);
-
-  const chartLines = useMemo(() => {
-    const lines: Array<{ dataKey: string; label: string; color: string; yAxisId: string }> = [];
-    let colorIndex = 0;
-    for (const metric of selectedMetrics) {
-      if (analyticsPlat === 'both') {
-        lines.push({
-          dataKey: `${metric}-youtube`,
-          label: `${METRIC_LABEL[metric]} (YouTube)`,
-          color: LINE_COLORS[colorIndex % LINE_COLORS.length],
-          yAxisId: metric,
-        });
-        colorIndex++;
-        lines.push({
-          dataKey: `${metric}-instagram`,
-          label: `${METRIC_LABEL[metric]} (Instagram)`,
-          color: LINE_COLORS[colorIndex % LINE_COLORS.length],
-          yAxisId: metric,
-        });
-        colorIndex++;
-      } else {
-        lines.push({
-          dataKey: metric,
-          label: METRIC_LABEL[metric],
-          color: LINE_COLORS[colorIndex % LINE_COLORS.length],
-          yAxisId: metric,
-        });
-        colorIndex++;
-      }
-    }
-    return lines;
-  }, [selectedMetrics, analyticsPlat]);
 
   const sortedPosts = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -466,28 +315,6 @@ export default function AnalyticsView({ posts }: Props) {
               </button>
             );
           })}
-        </div>
-
-        {/* Time axis toggle */}
-        <div className="flex gap-1 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-full p-1">
-          {(
-            [
-              { val: 'post_date', label: 'By Post Date' },
-              { val: 'days_since', label: 'Days Since Posted' },
-            ] as { val: TimeAxis; label: string }[]
-          ).map(({ val, label }) => (
-            <button
-              key={val}
-              onClick={() => setTimeAxis(val)}
-              className={pillBase}
-              style={{
-                background: timeAxis === val ? 'rgba(247,201,72,0.15)' : 'transparent',
-                color: timeAxis === val ? 'var(--text-1)' : 'var(--text-3)',
-              }}
-            >
-              {label}
-            </button>
-          ))}
         </div>
 
         {/* Date range */}
@@ -601,59 +428,11 @@ export default function AnalyticsView({ posts }: Props) {
         </div>
       )}
 
-      {/* SECTION 4: Main Chart */}
-      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5">
-        <h3 className="text-[13px] font-semibold text-[var(--text-2)] mb-4">Performance Over Time</h3>
-        {chartData.length === 0 ? (
-          <div className="flex items-center justify-center h-40 text-[var(--text-3)] text-sm">
-            No data for the current filters.
-          </div>
-        ) : (
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={chartData} margin={{ top: 5, right: 20, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(247,231,206,0.05)" />
-              <XAxis
-                dataKey="xVal"
-                tick={{ fill: 'var(--text-3)', fontSize: 11 }}
-                tickLine={false}
-                axisLine={{ stroke: 'rgba(247,231,206,0.08)' }}
-              />
-              {selectedMetrics.map((metric, idx) => (
-                <YAxis
-                  key={metric}
-                  yAxisId={metric}
-                  orientation={idx % 2 === 0 ? 'left' : 'right'}
-                  hide={idx >= 2}
-                  tick={{ fill: 'var(--text-3)', fontSize: 10 }}
-                  tickLine={false}
-                  axisLine={false}
-                  width={45}
-                />
-              ))}
-              <Tooltip
-                content={
-                  <CustomTooltip
-                    timeAxis={timeAxis}
-                  />
-                }
-              />
-              {chartLines.map((line) => (
-                <Line
-                  key={line.dataKey}
-                  type="monotone"
-                  dataKey={line.dataKey}
-                  yAxisId={line.yAxisId}
-                  stroke={line.color}
-                  strokeWidth={2}
-                  dot={false}
-                  activeDot={{ r: 4 }}
-                  name={line.label}
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        )}
-      </div>
+      {/* SECTION 4: Chart */}
+      <ViewsLineChart
+        posts={filtered}
+        rangeLabel={dateRange === 'all' ? 'All time' : dateRange.toUpperCase()}
+      />
 
       {/* SECTION 5: Clip Table */}
       <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
