@@ -214,6 +214,43 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
   return result;
 }
 
+// Returns total views per clip_code across all daily rows.
+export async function getTotalViewsPerClip(platform?: string): Promise<{
+  clip_code: string;
+  clip_details_code: string | undefined;
+  platform: string;
+  total_views: number;
+}[]> {
+  let query = supabase
+    .from('posts')
+    .select('clip_code, clip_details_code, platform, views')
+    .not('clip_code', 'is', null);
+
+  if (platform && platform !== 'all') query = query.eq('platform', platform);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  const map = new Map<string, { clip_code: string; clip_details_code: string | undefined; platform: string; total_views: number }>();
+
+  for (const row of data ?? []) {
+    const key = `${row.clip_code as string}::${row.platform as string}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.total_views += Number(row.views ?? 0);
+    } else {
+      map.set(key, {
+        clip_code: row.clip_code as string,
+        clip_details_code: row.clip_details_code as string | undefined,
+        platform: row.platform as string,
+        total_views: Number(row.views ?? 0),
+      });
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) => b.total_views - a.total_views);
+}
+
 // Returns all rows ordered by stat_date ASC — used by Analytics metric cards.
 export async function getAllPostsByDate(platform?: string): Promise<UnifiedPost[]> {
   let query = supabase

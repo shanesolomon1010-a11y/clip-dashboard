@@ -1,14 +1,23 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import MetricCard from '@/components/MetricCard';
 import { IconEye, IconTrendUp, IconStar } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter } from '@/context/FilterContext';
+import { getAllPostsByDate, getTotalViewsPerClip } from '@/lib/db';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
+
+const CLIP_COLORS = [
+  '#FF4444', '#FF8C42', '#FFD166', '#06D6A0',
+  '#118AB2', '#7B2FBE', '#F72585', '#4CC9F0',
+];
 
 const RANGES: { key: string; label: string; days: number | null }[] = [
   { key: '1d',  label: 'Last 24 hours', days: 1   },
@@ -30,6 +39,28 @@ function postInteractions(p: UnifiedPost): number {
   return p.likes + p.comments + p.shares + p.saves;
 }
 
+function fmtDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, n));
+}
+
+function healthColor(score: number): string {
+  if (score >= 75) return '#06D6A0';
+  if (score >= 50) return '#FFD166';
+  return '#FF4444';
+}
+
+interface ClipTotal {
+  clip_code: string;
+  clip_details_code: string | undefined;
+  platform: string;
+  total_views: number;
+}
+
 interface Props {
   posts: UnifiedPost[];
 }
@@ -38,6 +69,18 @@ export default function DashboardView({ posts }: Props) {
   const { open: openVideoModal } = useVideoModal();
   const { dateRange, platform } = useFilter();
 
+  const [allDailyPosts, setAllDailyPosts] = useState<UnifiedPost[]>([]);
+  const [clipTotals, setClipTotals] = useState<ClipTotal[]>([]);
+
+  useEffect(() => {
+    getAllPostsByDate('youtube').then(setAllDailyPosts).catch(() => setAllDailyPosts([]));
+  }, []);
+
+  useEffect(() => {
+    const pl = platform !== 'all' ? platform : undefined;
+    getTotalViewsPerClip(pl).then(setClipTotals).catch(() => setClipTotals([]));
+  }, [platform]);
+
   const selectedRange = RANGES.find((r) => r.key === dateRange) ?? RANGES[2];
 
   const filteredPosts = useMemo(() => {
@@ -45,10 +88,13 @@ export default function DashboardView({ posts }: Props) {
     return platform === 'all' ? byDate : byDate.filter((p) => p.platform === platform);
   }, [posts, selectedRange.days, platform]);
 
-  const topPosts = useMemo(
-    () => [...filteredPosts].sort((a, b) => b.views - a.views).slice(0, 6),
-    [filteredPosts]
-  );
+  // Top content ranked by total views across all daily rows
+  const topPosts = useMemo(() => {
+    if (clipTotals.length === 0) {
+      return [...filteredPosts].sort((a, b) => b.views - a.views).slice(0, 6);
+    }
+    return clipTotals.slice(0, 6);
+  }, [clipTotals, filteredPosts]);
 
   const totalViews = useMemo(() => filteredPosts.reduce((s, p) => s + p.views, 0), [filteredPosts]);
   const totalInteractions = useMemo(() => filteredPosts.reduce((s, p) => s + postInteractions(p), 0), [filteredPosts]);
@@ -63,6 +109,70 @@ export default function DashboardView({ posts }: Props) {
   );
 
   const topPlatform = platformTotals[0];
+
+  // Chart data: group allDailyPosts by stat_date, one value per clip_code
+  const { chartData, chartClips } = useMemo(() => {
+    const clipSet: Record<string, true> = {};
+    for (const p of allDailyPosts) {
+      if (p.clip_code && p.stat_date) clipSet[p.clip_code] = true;
+    }
+    const clips = Object.keys(clipSet);
+
+    const byDate = new Map<string, Record<string, number>>();
+    for (const p of allDailyPosts) {
+      if (!p.clip_code || !p.stat_date) continue;
+      if (!byDate.has(p.stat_date)) byDate.set(p.stat_date, {});
+      const entry = byDate.get(p.stat_date)!;
+      entry[p.clip_code] = (entry[p.clip_code] ?? 0) + p.views;
+    }
+
+    const data = Array.from(byDate.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, vals]) => ({ date: fmtDate(date), ...vals }));
+
+    return { chartData: data, chartClips: clips };
+  }, [allDailyPosts]);
+
+  // Peak day per clip_code from allDailyPosts
+  const peakByClip = useMemo(() => {
+    const map = new Map<string, { date: string; views: number }>();
+    for (const p of allDailyPosts) {
+      if (!p.clip_code || !p.stat_date) continue;
+      const existing = map.get(p.clip_code);
+      if (!existing || p.views > existing.views) {
+        map.set(p.clip_code, { date: p.stat_date, views: p.views });
+      }
+    }
+    return map;
+  }, [allDailyPosts]);
+
+  // Health score per clip_code: use latest stat_date row
+  const healthByClip = useMemo(() => {
+    const latestByClip = new Map<string, UnifiedPost>();
+    for (const p of allDailyPosts) {
+      if (!p.clip_code || !p.stat_date) continue;
+      const existing = latestByClip.get(p.clip_code);
+      if (!existing || p.stat_date > existing.stat_date!) {
+        latestByClip.set(p.clip_code, p);
+      }
+    }
+    const scores = new Map<string, number>();
+    Array.from(latestByClip.entries()).forEach(([clip, p]) => {
+      const ctr = p.impression_ctr ?? 0;
+      const avp = p.avg_view_percentage ?? 0;
+      const dev = p.daily_engaged_views ?? 0;
+      const v = p.views > 0 ? p.views : 1;
+      const score = clamp(
+        (ctr / 10) * 40 + (avp / 100) * 40 + (dev / v) * 20,
+        0, 100
+      );
+      scores.set(clip, Math.round(score));
+    });
+    return scores;
+  }, [allDailyPosts]);
+
+  const isClipTotal = (item: ClipTotal | UnifiedPost): item is ClipTotal =>
+    'total_views' in item;
 
   return (
     <div className="flex gap-5 p-5 min-h-full">
@@ -103,6 +213,58 @@ export default function DashboardView({ posts }: Props) {
           />
         </div>
 
+        {/* Views Over Time chart */}
+        {chartData.length > 0 && (
+          <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5">
+            <h3 className="text-[15px] font-semibold text-[var(--text-1)] mb-4">Views Over Time</h3>
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                <XAxis
+                  dataKey="date"
+                  tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
+                  axisLine={{ stroke: 'transparent' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  width={40}
+                  tickFormatter={formatNum}
+                  tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
+                  axisLine={{ stroke: 'transparent' }}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    background: '#1d1d1d',
+                    border: '1px solid rgba(247,231,206,0.09)',
+                    borderRadius: 10,
+                    fontSize: 11,
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                  labelStyle={{ color: '#9ca3af', marginBottom: 6 }}
+                  itemStyle={{ color: '#e5e7eb' }}
+                  formatter={(value) => formatNum(Number(value))}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: 10, fontFamily: 'var(--font-mono)', paddingTop: 12 }}
+                  formatter={(value) => <span style={{ color: '#9ca3af' }}>{value}</span>}
+                />
+                {chartClips.map((clip, i) => (
+                  <Line
+                    key={clip}
+                    type="monotone"
+                    dataKey={clip}
+                    stroke={CLIP_COLORS[i % CLIP_COLORS.length]}
+                    strokeWidth={1.5}
+                    dot={{ r: 2.5, strokeWidth: 0 }}
+                    activeDot={{ r: 4 }}
+                    connectNulls
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+
         {/* Top content */}
         <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)] flex items-center justify-between">
@@ -110,30 +272,69 @@ export default function DashboardView({ posts }: Props) {
             <span className="text-[11px] text-[var(--text-2)]">{selectedRange.label}</span>
           </div>
           <div className="divide-y divide-[rgba(247,231,206,0.03)]">
-            {topPosts.map((post, i) => (
-              <div key={post.id} data-testid="post-row" onClick={() => post.clip_code && openVideoModal(post, post.clip_code)} className="flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors group cursor-pointer">
-                <span className="text-[var(--text-3)] w-4 shrink-0 tabular-nums text-xs font-bold" style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
-                <span
-                  className="text-[10px] font-semibold px-2 py-1 rounded-lg shrink-0"
-                  style={{
-                    background: `${PLATFORM_COLORS[post.platform]}15`,
-                    color: PLATFORM_COLORS[post.platform],
-                  }}
+            {topPosts.map((item, i) => {
+              const clipCode = isClipTotal(item) ? item.clip_code : item.clip_code;
+              const plt = isClipTotal(item) ? (item.platform as Platform) : item.platform;
+              const views = isClipTotal(item) ? item.total_views : item.views;
+              const peak = clipCode ? peakByClip.get(clipCode) : undefined;
+              const health = clipCode ? healthByClip.get(clipCode) : undefined;
+              const hColor = health !== undefined ? healthColor(health) : undefined;
+
+              const handleClick = () => {
+                if (!isClipTotal(item) && item.clip_code) {
+                  openVideoModal(item, item.clip_code);
+                } else if (isClipTotal(item) && clipCode) {
+                  // Find a matching post from `posts` to open modal
+                  const match = posts.find((p) => p.clip_code === clipCode);
+                  if (match) openVideoModal(match, clipCode);
+                }
+              };
+
+              return (
+                <div
+                  key={isClipTotal(item) ? `${item.clip_code}::${item.platform}` : item.id}
+                  data-testid="post-row"
+                  onClick={handleClick}
+                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors group cursor-pointer relative"
                 >
-                  {PLATFORM_LABELS[post.platform]}
-                </span>
-                <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{post.clip_code}</span>
-                {post.url && (
-                  <svg className="w-3 h-3 shrink-0 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">
-                    <path d="M4 3l10 5-10 5V3z" />
-                  </svg>
-                )}
-                <div className="text-right shrink-0">
-                  <p className="text-sm font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(post.views)}</p>
-                  <p className="text-[10px] text-[var(--text-3)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(postInteractions(post))} interactions</p>
+                  <span className="text-[var(--text-3)] w-4 shrink-0 tabular-nums text-xs font-bold" style={{ fontFamily: 'var(--font-mono)' }}>{i + 1}</span>
+                  <span
+                    className="text-[10px] font-semibold px-2 py-1 rounded-lg shrink-0"
+                    style={{
+                      background: `${PLATFORM_COLORS[plt]}15`,
+                      color: PLATFORM_COLORS[plt],
+                    }}
+                  >
+                    {PLATFORM_LABELS[plt]}
+                  </span>
+                  <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{clipCode}</span>
+                  {!isClipTotal(item) && item.url && (
+                    <svg className="w-3 h-3 shrink-0 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">
+                      <path d="M4 3l10 5-10 5V3z" />
+                    </svg>
+                  )}
+                  <div className="text-right shrink-0 mr-20">
+                    <p className="text-sm font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(views)}</p>
+                    {peak && (
+                      <p className="text-[10px] text-[var(--text-3)]">
+                        Peak: {fmtDate(peak.date)} · {formatNum(peak.views)} views
+                      </p>
+                    )}
+                  </div>
+                  {hColor !== undefined && health !== undefined && (
+                    <span
+                      className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
+                      style={{
+                        background: `${hColor}33`,
+                        color: hColor,
+                      }}
+                    >
+                      Health: {health}
+                    </span>
+                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {topPosts.length === 0 && (
               <div className="px-5 py-8 text-center text-[var(--text-2)] text-sm">No posts for {selectedRange.label.toLowerCase()}</div>
             )}
