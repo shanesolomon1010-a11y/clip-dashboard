@@ -42,6 +42,19 @@ const SCHEDULE_TO_UNIFIED: Record<Platform, UnifiedPlatform> = {
 const ALL_PLATFORMS: Platform[] = ['yt', 'ig'];
 const DEFAULT_PLATFORMS = new Set<Platform>(['yt', 'ig']);
 
+const TIME_OPTIONS: string[] = (() => {
+  const opts: string[] = [];
+  for (let h = 9; h <= 21; h++) {
+    for (const min of [0, 30]) {
+      if (h === 21 && min === 30) break;
+      const period = h < 12 ? 'AM' : 'PM';
+      const display12 = h === 0 ? 12 : h > 12 ? h - 12 : h;
+      opts.push(`${display12}:${String(min).padStart(2, '0')} ${period}`);
+    }
+  }
+  return opts;
+})();
+
 const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const WEEKDAY_LONG  = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const MONTH_NAMES   = [
@@ -95,6 +108,7 @@ export default function PostingScheduleView() {
   const [clipSearch, setClipSearch]                   = useState('');
   const [selectedClip, setSelectedClip]               = useState<ClipDetail | null>(null);
   const [selectedPlatforms, setSelectedPlatforms]     = useState<Set<Platform>>(new Set(DEFAULT_PLATFORMS));
+  const [postTime, setPostTime]                       = useState('11:00 AM');
   const [submitting, setSubmitting]                   = useState(false);
   const [submitError, setSubmitError]                 = useState<string | null>(null);
 
@@ -172,6 +186,7 @@ export default function PostingScheduleView() {
     setSelectedClip(null);
     setClipSearch('');
     setSelectedPlatforms(new Set(DEFAULT_PLATFORMS));
+    setPostTime('11:00 AM');
     setSubmitError(null);
     setSchedulingMode(true);
     try {
@@ -210,7 +225,7 @@ export default function PostingScheduleView() {
       title: selectedClip.clip_code,
       platform,
       scheduled_date: selectedDate,
-      post_time: '11:00 AM CT',
+      post_time: `${postTime} CT`,
       status: 'scheduled',
     }));
 
@@ -516,7 +531,15 @@ export default function PostingScheduleView() {
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-[var(--text-3)]">Time</span>
-                        <span className="text-[var(--text-1)]">11:00 AM CT</span>
+                        <select
+                          value={postTime}
+                          onChange={e => setPostTime(e.target.value)}
+                          className="px-2 py-1 text-xs bg-[var(--bg-base)] border border-[var(--border)] rounded-lg text-[var(--text-1)] focus:outline-none focus:border-[var(--gold-border)]"
+                        >
+                          {TIME_OPTIONS.map(t => (
+                            <option key={t} value={t}>{t} CT</option>
+                          ))}
+                        </select>
                       </div>
                     </div>
 
@@ -556,7 +579,7 @@ export default function PostingScheduleView() {
                         ))}
                       </div>
                       <p className="text-[11px] text-[var(--text-2)] pt-0.5">
-                        {displayDate?.full} · 11:00 AM CT
+                        {displayDate?.full} · {postTime} CT
                       </p>
                     </div>
 
