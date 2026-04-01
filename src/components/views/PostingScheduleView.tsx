@@ -111,6 +111,8 @@ export default function PostingScheduleView() {
   const [postTime, setPostTime]                       = useState('11:00 AM');
   const [submitting, setSubmitting]                   = useState(false);
   const [submitError, setSubmitError]                 = useState<string | null>(null);
+  const [editingTimeId, setEditingTimeId]             = useState<string | null>(null);
+  const [editingTimeValue, setEditingTimeValue]       = useState('11:00 AM');
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -208,6 +210,22 @@ export default function PostingScheduleView() {
       else next.add(p);
       return next;
     });
+  }
+
+  function startTimeEdit(post: ScheduledPost) {
+    const stripped = post.post_time.replace(/\s*CT$/, '').trim();
+    const matched = TIME_OPTIONS.includes(stripped) ? stripped : '11:00 AM';
+    setEditingTimeValue(matched);
+    setEditingTimeId(post.id);
+  }
+
+  async function handleTimeSave(id: string) {
+    await supabase
+      .from('scheduled_posts')
+      .update({ post_time: `${editingTimeValue} CT` })
+      .eq('id', id);
+    setEditingTimeId(null);
+    refetchPosts();
   }
 
   async function handleDeletePost(id: string) {
@@ -634,7 +652,41 @@ export default function PostingScheduleView() {
                         />
                         {PLATFORM_LABELS[post.platform]}
                       </span>
-                      <span className="text-xs text-[var(--text-2)]">{post.post_time}</span>
+                      {editingTimeId === post.id ? (
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={editingTimeValue}
+                            onChange={e => setEditingTimeValue(e.target.value)}
+                            className="px-1.5 py-0.5 text-[10px] bg-[var(--bg-base)] border border-[var(--border)] rounded text-[var(--text-1)] focus:outline-none focus:border-[var(--gold-border)]"
+                          >
+                            {TIME_OPTIONS.map(t => (
+                              <option key={t} value={t}>{t} CT</option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => handleTimeSave(post.id)}
+                            aria-label="Save time"
+                            className="w-5 h-5 flex items-center justify-center rounded text-green-400 hover:bg-[rgba(247,231,206,0.06)] transition-colors text-[10px]"
+                          >
+                            ✓
+                          </button>
+                          <button
+                            onClick={() => setEditingTimeId(null)}
+                            aria-label="Cancel time edit"
+                            className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-3)] hover:bg-[rgba(247,231,206,0.06)] transition-colors text-[10px]"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => startTimeEdit(post)}
+                          className="flex items-center gap-1 text-xs text-[var(--text-2)] hover:text-[var(--text-1)] transition-colors group"
+                        >
+                          {post.post_time}
+                          <span className="opacity-0 group-hover:opacity-60 text-[9px] transition-opacity">✎</span>
+                        </button>
+                      )}
                     </div>
 
                     <button
