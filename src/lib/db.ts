@@ -214,6 +214,21 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
   return result;
 }
 
+// Returns all rows ordered by stat_date ASC — used by Analytics metric cards.
+export async function getAllPostsByDate(platform?: string): Promise<UnifiedPost[]> {
+  let query = supabase
+    .from('posts')
+    .select('*')
+    .order('stat_date', { ascending: true, nullsFirst: false });
+
+  if (platform) query = query.eq('platform', platform);
+
+  const { data, error } = await query;
+  if (error) throw error;
+
+  return (data ?? []).map((row) => mapPostRow(row as Record<string, unknown>));
+}
+
 // Returns all rows unfiltered — used by the Data Editor.
 export async function getAllPosts(platform?: string): Promise<UnifiedPost[]> {
   let query = supabase

@@ -4,10 +4,10 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedPost, DateRange } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getLatestPostsPerClip } from '@/lib/db';
+import { getAllPostsByDate } from '@/lib/db';
 import {
-  BarChart, Bar, AreaChart, Area, RadialBarChart, RadialBar,
-  XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Cell,
+  LineChart, Line,
+  XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 type AnalyticsPlatform = 'youtube' | 'instagram';
@@ -80,43 +80,6 @@ const PCT_METRICS = new Set([
   'impression_ctr', 'avg_view_percentage', 'stayed_to_watch_pct', 'engagement_rate',
 ]);
 
-// Chart type routing
-const HORIZONTAL_BAR_METRICS = new Set([
-  'views', 'impressions', 'likes', 'comments', 'shares', 'plays', 'reach', 'saves',
-  'profile_visits', 'follows', 'accounts_reached', 'accounts_engaged', 'unique_viewers',
-  'youtube_premium_views', 'daily_engaged_views', 'total_engaged_views', 'hypes',
-  'hype_points', 'duration_seconds', 'post_subscribers', 'dislikes',
-]);
-
-const RADIALBAR_METRICS = new Set([
-  'impression_ctr', 'avg_view_percentage', 'stayed_to_watch_pct',
-  'engagement_rate', 'avg_view_duration_seconds',
-]);
-
-const AREA_METRICS = new Set(['watch_time_hours', 'watch_time_minutes']);
-
-// Paired metrics that collapse into a single combined card
-const STACKED_PAIRS: Record<string, [string, string]> = {
-  new_returning: ['new_viewers', 'returning_viewers'],
-  casual_regular: ['casual_viewers', 'regular_viewers'],
-};
-
-const CANONICAL_LABELS: Record<string, string> = {
-  new_returning: 'New + Returning Viewers',
-  casual_regular: 'Casual + Regular Viewers',
-  subscribers_net: 'Subscriber Movement',
-};
-
-function getCanonicalKey(key: string): string {
-  if (key === 'new_viewers' || key === 'returning_viewers') return 'new_returning';
-  if (key === 'casual_viewers' || key === 'regular_viewers') return 'casual_regular';
-  if (key === 'subscribers_gained' || key === 'subscribers_lost') return 'subscribers_net';
-  return key;
-}
-
-function getCardLabel(canonicalKey: string): string {
-  return CANONICAL_LABELS[canonicalKey] ?? METRIC_LABELS[canonicalKey] ?? canonicalKey;
-}
 
 function getMetricValue(post: UnifiedPost, key: string): number {
   if (key === 'views') {
@@ -144,43 +107,19 @@ function formatMetricValue(key: string, val: number): string {
   return formatNum(val);
 }
 
-function getShortCode(code: string): string {
-  const idx = code.indexOf('-');
-  return idx === -1 ? code : code.slice(idx + 1);
+
+function getCardTotal(metric: string, rows: UnifiedPost[]): number {
+  if (AVG_METRICS.has(metric)) {
+    const nonZero = rows.map((p) => getMetricValue(p, metric)).filter((v) => v > 0);
+    return nonZero.length ? nonZero.reduce((s, v) => s + v, 0) / nonZero.length : 0;
+  }
+  return rows.reduce((s, p) => s + getMetricValue(p, metric), 0);
 }
 
-function getCardTotal(canonicalKey: string, clips: UnifiedPost[]): number {
-  if (canonicalKey === 'new_returning') {
-    return clips.reduce((s, p) => s + getMetricValue(p, 'new_viewers') + getMetricValue(p, 'returning_viewers'), 0);
-  }
-  if (canonicalKey === 'casual_regular') {
-    return clips.reduce((s, p) => s + getMetricValue(p, 'casual_viewers') + getMetricValue(p, 'regular_viewers'), 0);
-  }
-  if (canonicalKey === 'subscribers_net') {
-    return clips.reduce((s, p) => s + getMetricValue(p, 'subscribers_gained') - getMetricValue(p, 'subscribers_lost'), 0);
-  }
-  const isAvg = AVG_METRICS.has(canonicalKey);
-  const values = clips.map((p) => getMetricValue(p, canonicalKey));
-  if (!values.length) return 0;
-  return isAvg
-    ? values.reduce((s, v) => s + v, 0) / values.length
-    : values.reduce((s, v) => s + v, 0);
+function cardHasData(metric: string, rows: UnifiedPost[]): boolean {
+  return rows.some((p) => getMetricValue(p, metric) > 0);
 }
 
-function cardHasData(canonicalKey: string, clips: UnifiedPost[]): boolean {
-  if (canonicalKey === 'new_returning') {
-    return clips.some((p) => getMetricValue(p, 'new_viewers') > 0 || getMetricValue(p, 'returning_viewers') > 0);
-  }
-  if (canonicalKey === 'casual_regular') {
-    return clips.some((p) => getMetricValue(p, 'casual_viewers') > 0 || getMetricValue(p, 'regular_viewers') > 0);
-  }
-  if (canonicalKey === 'subscribers_net') {
-    return clips.some((p) => getMetricValue(p, 'subscribers_gained') > 0 || getMetricValue(p, 'subscribers_lost') > 0);
-  }
-  return clips.some((p) => p.clip_code && getMetricValue(p, canonicalKey) > 0);
-}
-
-// Shared tooltip style
 const TOOLTIP_STYLE: React.CSSProperties = {
   background: '#1d1d1d',
   border: '1px solid rgba(247,231,206,0.1)',
@@ -190,240 +129,100 @@ const TOOLTIP_STYLE: React.CSSProperties = {
   fontSize: 11,
 };
 
-interface CardTooltipPayload {
-  clipCode: string;
-  formatted: string;
+const LINE_COLORS = [
+  '#FF4444', '#FF8C42', '#FFD166', '#06D6A0',
+  '#118AB2', '#7B2FBE', '#F72585', '#4CC9F0',
+];
+
+function formatStatDate(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
-function CardTooltip({
-  active,
-  payload,
-}: {
-  active?: boolean;
-  payload?: { payload: CardTooltipPayload }[];
-}) {
-  if (!active || !payload?.length) return null;
-  const d = payload[0].payload;
+function CardLineChart({ metric, rows }: { metric: string; rows: UnifiedPost[] }) {
+  const clipCodes = Array.from(
+    new Set(rows.filter((p) => p.clip_code).map((p) => p.clip_code!))
+  );
+  const allDates = Array.from(
+    new Set(rows.filter((p) => p.stat_date).map((p) => p.stat_date!))
+  ).sort();
+
+  const chartData = allDates.map((date) => {
+    const entry: Record<string, string | number> = { date, label: formatStatDate(date) };
+    for (const code of clipCodes) {
+      const row = rows.find((p) => p.clip_code === code && p.stat_date === date);
+      if (row != null) entry[code] = getMetricValue(row, metric);
+    }
+    return entry;
+  });
+
   return (
-    <div style={TOOLTIP_STYLE}>
-      <p style={{ color: 'rgba(247,231,206,0.45)', marginBottom: 2 }}>{d.clipCode}</p>
-      <p style={{ color: 'rgba(247,231,206,0.9)', fontWeight: 600 }}>{d.formatted}</p>
+    <div>
+      <ResponsiveContainer width="100%" height={100}>
+        <LineChart data={chartData} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
+          <XAxis
+            dataKey="label"
+            tick={{ fill: 'rgba(247,231,206,0.25)', fontSize: 8, fontFamily: 'JetBrains Mono' }}
+            axisLine={false}
+            tickLine={false}
+            interval="preserveStartEnd"
+          />
+          <YAxis hide />
+          <Tooltip
+            content={(props) => {
+              if (!props.active || !props.payload?.length) return null;
+              return (
+                <div style={TOOLTIP_STYLE}>
+                  <p style={{ color: 'rgba(247,231,206,0.45)', marginBottom: 4 }}>{props.label as string}</p>
+                  {(props.payload as unknown as { name: string; value: number; color: string }[]).map((entry) => (
+                    <p key={entry.name} style={{ color: entry.color, fontWeight: 600 }}>
+                      {entry.name}: {formatMetricValue(metric, entry.value)}
+                    </p>
+                  ))}
+                </div>
+              );
+            }}
+          />
+          {clipCodes.map((code, i) => (
+            <Line
+              key={code}
+              dataKey={code}
+              stroke={LINE_COLORS[i % LINE_COLORS.length]}
+              strokeWidth={1.5}
+              dot={{ r: 2, fill: LINE_COLORS[i % LINE_COLORS.length] }}
+              activeDot={{ r: 3 }}
+              connectNulls={false}
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+      {clipCodes.length > 0 && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2">
+          {clipCodes.map((code, i) => (
+            <div key={code} className="flex items-center gap-1">
+              <div
+                style={{
+                  width: 12,
+                  height: 2,
+                  borderRadius: 1,
+                  background: LINE_COLORS[i % LINE_COLORS.length],
+                }}
+              />
+              <span
+                style={{
+                  fontSize: 9,
+                  color: 'rgba(247,231,206,0.4)',
+                  fontFamily: 'var(--font-mono)',
+                }}
+              >
+                {code}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
-}
-
-// Dispatches to the correct chart type based on canonicalKey
-function CardChart({
-  canonicalKey,
-  clips,
-  platformColor,
-}: {
-  canonicalKey: string;
-  clips: UnifiedPost[];
-  platformColor: string;
-}) {
-  const withCode = clips.filter((p) => p.clip_code);
-
-  // STACKED BAR — viewer composition pairs
-  if (STACKED_PAIRS[canonicalKey]) {
-    const [key1, key2] = STACKED_PAIRS[canonicalKey];
-    const data = withCode.map((p) => ({
-      clipCode: p.clip_code!,
-      shortCode: getShortCode(p.clip_code!),
-      series1: getMetricValue(p, key1),
-      series2: getMetricValue(p, key2),
-    }));
-    const label1 = METRIC_LABELS[key1] ?? key1;
-    const label2 = METRIC_LABELS[key2] ?? key2;
-    return (
-      <ResponsiveContainer width="100%" height={80}>
-        <BarChart data={data} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-          <XAxis
-            dataKey="shortCode"
-            tick={{ fill: 'rgba(247,231,206,0.25)', fontSize: 8, fontFamily: 'JetBrains Mono' }}
-            axisLine={false}
-            tickLine={false}
-            interval="preserveStartEnd"
-          />
-          <YAxis hide />
-          <Tooltip
-            cursor={{ fill: 'rgba(247,231,206,0.03)' }}
-            content={(props) => {
-              if (!props.active || !props.payload?.length) return null;
-              const row = props.payload[0].payload as { clipCode: string; series1: number; series2: number };
-              return (
-                <div style={TOOLTIP_STYLE}>
-                  <p style={{ color: 'rgba(247,231,206,0.45)', marginBottom: 4 }}>{row.clipCode}</p>
-                  <p style={{ color: 'rgba(247,231,206,0.9)', fontWeight: 600 }}>
-                    {label1}: {formatNum(row.series1)}
-                  </p>
-                  <p style={{ color: 'rgba(247,231,206,0.55)', fontWeight: 600 }}>
-                    {label2}: {formatNum(row.series2)}
-                  </p>
-                </div>
-              );
-            }}
-          />
-          <Bar dataKey="series1" stackId="a" fill={platformColor} fillOpacity={1} maxBarSize={24} />
-          <Bar dataKey="series2" stackId="a" fill={platformColor} fillOpacity={0.4} radius={[2, 2, 0, 0]} maxBarSize={24} />
-        </BarChart>
-      </ResponsiveContainer>
-    );
-  }
-
-  // DIVERGING BAR — subscriber movement
-  if (canonicalKey === 'subscribers_net') {
-    const data = withCode.map((p) => ({
-      clipCode: p.clip_code!,
-      shortCode: getShortCode(p.clip_code!),
-      gained: getMetricValue(p, 'subscribers_gained'),
-      lost: -getMetricValue(p, 'subscribers_lost'),
-    }));
-    const chartHeight = Math.max(80, Math.min(data.length * 22, 160));
-    return (
-      <ResponsiveContainer width="100%" height={chartHeight}>
-        <BarChart layout="vertical" data={data} margin={{ top: 0, right: 4, left: 0, bottom: 0 }}>
-          <XAxis type="number" domain={['auto', 'auto']} hide />
-          <YAxis
-            type="category"
-            dataKey="shortCode"
-            tick={{ fill: 'rgba(247,231,206,0.25)', fontSize: 8, fontFamily: 'JetBrains Mono' }}
-            axisLine={false}
-            tickLine={false}
-            width={52}
-          />
-          <ReferenceLine x={0} stroke="rgba(247,231,206,0.1)" />
-          <Tooltip
-            cursor={{ fill: 'rgba(247,231,206,0.03)' }}
-            content={(props) => {
-              if (!props.active || !props.payload?.length) return null;
-              const row = props.payload[0].payload as { clipCode: string; gained: number; lost: number };
-              return (
-                <div style={TOOLTIP_STYLE}>
-                  <p style={{ color: 'rgba(247,231,206,0.45)', marginBottom: 4 }}>{row.clipCode}</p>
-                  <p style={{ color: platformColor, fontWeight: 600 }}>
-                    +{formatNum(row.gained)} gained
-                  </p>
-                  <p style={{ color: '#cc6666', fontWeight: 600 }}>
-                    -{formatNum(Math.abs(row.lost))} lost
-                  </p>
-                </div>
-              );
-            }}
-          />
-          <Bar dataKey="gained" fill={platformColor} fillOpacity={0.75} radius={[0, 2, 2, 0]} maxBarSize={14} />
-          <Bar dataKey="lost" fill="#cc4444" fillOpacity={0.6} radius={[2, 0, 0, 2]} maxBarSize={14} />
-        </BarChart>
-      </ResponsiveContainer>
-    );
-  }
-
-  // HORIZONTAL BAR — volume metrics
-  if (HORIZONTAL_BAR_METRICS.has(canonicalKey)) {
-    const data = withCode.map((p) => {
-      const val = getMetricValue(p, canonicalKey);
-      return {
-        clipCode: p.clip_code!,
-        shortCode: getShortCode(p.clip_code!),
-        value: val,
-        formatted: formatMetricValue(canonicalKey, val),
-      };
-    });
-    const chartHeight = Math.max(80, Math.min(data.length * 22, 160));
-    return (
-      <ResponsiveContainer width="100%" height={chartHeight}>
-        <BarChart layout="vertical" data={data} margin={{ top: 0, right: 4, left: 0, bottom: 0 }}>
-          <XAxis type="number" hide />
-          <YAxis
-            type="category"
-            dataKey="shortCode"
-            tick={{ fill: 'rgba(247,231,206,0.25)', fontSize: 8, fontFamily: 'JetBrains Mono' }}
-            axisLine={false}
-            tickLine={false}
-            width={52}
-          />
-          <Tooltip content={<CardTooltip />} cursor={{ fill: 'rgba(247,231,206,0.03)' }} />
-          <Bar dataKey="value" fill={platformColor} fillOpacity={0.75} radius={[0, 2, 2, 0]} maxBarSize={14} />
-        </BarChart>
-      </ResponsiveContainer>
-    );
-  }
-
-  // RADIAL BAR — rate and quality metrics
-  if (RADIALBAR_METRICS.has(canonicalKey)) {
-    const data = withCode.map((p) => {
-      const val = getMetricValue(p, canonicalKey);
-      return {
-        clipCode: p.clip_code!,
-        shortCode: getShortCode(p.clip_code!),
-        value: val,
-        formatted: formatMetricValue(canonicalKey, val),
-      };
-    });
-    const n = data.length;
-    return (
-      <ResponsiveContainer width="100%" height={100}>
-        <RadialBarChart
-          cx="50%"
-          cy="50%"
-          innerRadius="25%"
-          outerRadius="90%"
-          data={data}
-          startAngle={180}
-          endAngle={0}
-        >
-          <RadialBar dataKey="value" background={{ fill: 'rgba(247,231,206,0.03)' }}>
-            {data.map((_, i) => (
-              <Cell
-                key={i}
-                fill={platformColor}
-                fillOpacity={n <= 1 ? 0.75 : 0.2 + 0.8 * ((i + 1) / n)}
-              />
-            ))}
-          </RadialBar>
-          <Tooltip content={<CardTooltip />} />
-        </RadialBarChart>
-      </ResponsiveContainer>
-    );
-  }
-
-  // AREA CHART — watch time metrics
-  if (AREA_METRICS.has(canonicalKey)) {
-    const data = withCode.map((p) => {
-      const val = getMetricValue(p, canonicalKey);
-      return {
-        clipCode: p.clip_code!,
-        shortCode: getShortCode(p.clip_code!),
-        value: val,
-        formatted: formatMetricValue(canonicalKey, val),
-      };
-    });
-    return (
-      <ResponsiveContainer width="100%" height={80}>
-        <AreaChart data={data} margin={{ top: 4, right: 4, left: 0, bottom: 0 }}>
-          <XAxis
-            dataKey="shortCode"
-            tick={{ fill: 'rgba(247,231,206,0.25)', fontSize: 8, fontFamily: 'JetBrains Mono' }}
-            axisLine={false}
-            tickLine={false}
-            interval="preserveStartEnd"
-          />
-          <YAxis hide />
-          <Tooltip content={<CardTooltip />} cursor={{ fill: 'rgba(247,231,206,0.03)' }} />
-          <Area
-            dataKey="value"
-            fill={platformColor}
-            fillOpacity={0.3}
-            stroke={platformColor}
-            strokeWidth={1.5}
-            dot={false}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    );
-  }
-
-  return null;
 }
 
 interface Props {
@@ -442,8 +241,8 @@ export default function AnalyticsView({ posts }: Props) {
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    getLatestPostsPerClip().then(setClipData).catch(console.error);
-  }, []);
+    getAllPostsByDate(platform).then(setClipData).catch(console.error);
+  }, [platform]);
 
   useEffect(() => {
     setSelectedMetrics(platform === 'youtube' ? YOUTUBE_DEFAULTS : INSTAGRAM_DEFAULTS);
@@ -459,11 +258,8 @@ export default function AnalyticsView({ posts }: Props) {
     return () => document.removeEventListener('mousedown', handleMouseDown);
   }, []);
 
-  // Clip data filtered by active platform (for metric cards)
-  const filteredClips = useMemo(
-    () => clipData.filter((p) => p.platform === platform),
-    [clipData, platform],
-  );
+  // Clip data for metric cards (already filtered by platform via getAllPostsByDate)
+  const filteredClips = clipData;
 
   // Posts filtered by platform + date (for the table)
   const filtered = useMemo(() => {
@@ -498,19 +294,7 @@ export default function AnalyticsView({ posts }: Props) {
     });
   }, [filtered, sortCol, sortDir]);
 
-  // Collapse paired metrics into canonical keys, preserving selection order
-  const cardList = useMemo(() => {
-    const seen = new Set<string>();
-    const result: string[] = [];
-    for (const key of selectedMetrics) {
-      const canonical = getCanonicalKey(key);
-      if (!seen.has(canonical)) {
-        seen.add(canonical);
-        result.push(canonical);
-      }
-    }
-    return result;
-  }, [selectedMetrics]);
+  const cardList = selectedMetrics;
 
   function handleSort(col: string) {
     if (sortCol === col) {
@@ -634,22 +418,16 @@ export default function AnalyticsView({ posts }: Props) {
       {/* Metric card grid */}
       {cardList.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {cardList.map((canonicalKey) => {
-            const total = getCardTotal(canonicalKey, filteredClips);
-            const hasData = cardHasData(canonicalKey, filteredClips);
-            const label = getCardLabel(canonicalKey);
-            const totalDisplay =
-              canonicalKey === 'subscribers_net'
-                ? total >= 0
-                  ? `+${formatNum(total)}`
-                  : `-${formatNum(Math.abs(total))}`
-                : canonicalKey === 'new_returning' || canonicalKey === 'casual_regular'
-                ? formatNum(total)
-                : formatMetricValue(canonicalKey, total);
+          {cardList.map((metric) => {
+            const total = getCardTotal(metric, filteredClips);
+            const hasData = cardHasData(metric, filteredClips);
+            const label = METRIC_LABELS[metric] ?? metric;
+            const totalDisplay = formatMetricValue(metric, total);
+            const totalLabel = AVG_METRICS.has(metric) ? 'Avg' : 'Total';
 
             return (
               <div
-                key={canonicalKey}
+                key={metric}
                 className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 pt-4 pb-3 hover:border-[rgba(247,231,206,0.1)] transition-colors overflow-hidden"
                 style={{
                   borderLeft: `3px solid ${platform === 'youtube' ? 'rgba(255,68,68,0.25)' : 'rgba(200,85,232,0.25)'}`,
@@ -658,18 +436,17 @@ export default function AnalyticsView({ posts }: Props) {
                 <p className="text-[10px] tracking-[0.14em] uppercase text-[var(--text-3)] mb-1 font-semibold">
                   {label}
                 </p>
-                <p
-                  className="text-2xl font-bold leading-none tabular-nums mb-3"
-                  style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}
-                >
-                  {totalDisplay}
-                </p>
+                <div className="flex items-baseline gap-1.5 mb-3">
+                  <p
+                    className="text-2xl font-bold leading-none tabular-nums"
+                    style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}
+                  >
+                    {totalDisplay}
+                  </p>
+                  <span className="text-[10px] text-[var(--text-3)]">{totalLabel}</span>
+                </div>
                 {hasData ? (
-                  <CardChart
-                    canonicalKey={canonicalKey}
-                    clips={filteredClips}
-                    platformColor={platformColor}
-                  />
+                  <CardLineChart metric={metric} rows={filteredClips} />
                 ) : (
                   <div className="h-[72px] flex items-center justify-center">
                     <span className="text-[12px] text-[var(--text-3)]">No data</span>
