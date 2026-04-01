@@ -139,6 +139,21 @@ function formatStatDate(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function yTickFormatter(metric: string, val: number): string {
+  if (metric === 'avg_view_duration_seconds') {
+    const m = Math.floor(val / 60);
+    const s = Math.floor(val % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  }
+  if (metric === 'watch_time_hours' || metric === 'watch_time_minutes') {
+    return val.toFixed(1);
+  }
+  if (PCT_METRICS.has(metric)) {
+    return `${val.toFixed(1)}%`;
+  }
+  return formatNum(val);
+}
+
 function CardLineChart({ metric, rows }: { metric: string; rows: UnifiedPost[] }) {
   const clipCodes = Array.from(
     new Set(rows.filter((p) => p.clip_code).map((p) => p.clip_code!))
@@ -167,7 +182,14 @@ function CardLineChart({ metric, rows }: { metric: string; rows: UnifiedPost[] }
             tickLine={false}
             interval="preserveStartEnd"
           />
-          <YAxis hide />
+          <YAxis
+            hide={false}
+            width={45}
+            tick={{ fontSize: 10, fill: '#9ca3af' }}
+            tickLine={false}
+            axisLine={false}
+            tickFormatter={(val: number) => yTickFormatter(metric, val)}
+          />
           <Tooltip
             content={(props) => {
               if (!props.active || !props.payload?.length) return null;
