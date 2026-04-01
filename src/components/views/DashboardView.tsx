@@ -5,8 +5,7 @@ import {
   LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
-import MetricCard from '@/components/MetricCard';
-import { IconEye, IconTrendUp, IconStar } from '@/components/Icons';
+import { IconEye } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter } from '@/context/FilterContext';
@@ -42,6 +41,12 @@ function postInteractions(p: UnifiedPost): number {
 function fmtDate(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00');
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function fmtDuration(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
 function clamp(n: number, min: number, max: number): number {
@@ -108,8 +113,6 @@ export default function DashboardView({ posts }: Props) {
     [filteredPosts]
   );
 
-  const topPlatform = platformTotals[0];
-
   // Chart data: group allDailyPosts by stat_date, one value per clip_code
   const { chartData, chartClips } = useMemo(() => {
     const clipSet: Record<string, true> = {};
@@ -171,6 +174,32 @@ export default function DashboardView({ posts }: Props) {
     return scores;
   }, [allDailyPosts]);
 
+  const statsGrid = useMemo(() => {
+    let sumViews = 0, sumImpressions = 0, sumWeightedCtr = 0;
+    let sumUniqueViewers = 0, sumLikes = 0, sumComments = 0, sumShares = 0;
+    let sumDuration = 0, countDuration = 0;
+    for (const p of allDailyPosts) {
+      sumViews += p.views;
+      sumImpressions += p.impressions ?? 0;
+      if (p.impressions && p.impression_ctr != null) sumWeightedCtr += p.impressions * p.impression_ctr;
+      sumUniqueViewers += p.unique_viewers ?? 0;
+      sumLikes += p.likes;
+      sumComments += p.comments;
+      sumShares += p.shares;
+      if (p.avg_view_duration_seconds != null) { sumDuration += p.avg_view_duration_seconds; countDuration++; }
+    }
+    return {
+      totalViews: sumViews,
+      totalImpressions: sumImpressions,
+      impressionCtr: sumImpressions > 0 ? sumWeightedCtr / sumImpressions : 0,
+      uniqueViewers: sumUniqueViewers,
+      totalLikes: sumLikes,
+      totalComments: sumComments,
+      totalShares: sumShares,
+      avgDuration: countDuration > 0 ? sumDuration / countDuration : 0,
+    };
+  }, [allDailyPosts]);
+
   const isClipTotal = (item: ClipTotal | UnifiedPost): item is ClipTotal =>
     'total_views' in item;
 
@@ -179,38 +208,23 @@ export default function DashboardView({ posts }: Props) {
       {/* ── Left column ─────────────────────────────────────── */}
       <div className="flex-1 min-w-0 space-y-6">
 
-        {/* Metric cards strip */}
-        <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
-          <MetricCard
-            label="Total Views"
-            value={formatNum(totalViews)}
-            sub={selectedRange.label.toLowerCase()}
-            icon={<IconEye className="w-4 h-4" />}
-            accent="#d4922a"
-          />
-          <MetricCard
-            label="Posts"
-            value={String(filteredPosts.length)}
-            sub={selectedRange.label.toLowerCase()}
-            icon={<IconStar className="w-4 h-4" />}
-            accent="#d4922a"
-          />
-          <MetricCard
-            label="Total Interactions"
-            value={formatNum(totalInteractions)}
-            sub="likes, comments, shares & saves"
-            icon={<IconTrendUp className="w-4 h-4" />}
-            accent="#F7E7CE"
-          />
-          <MetricCard
-            label="Top Platform"
-            value={topPlatform?.count ? PLATFORM_LABELS[topPlatform.platform] : '—'}
-            sub={topPlatform?.count ? `${formatNum(topPlatform.views)} views` : 'No data yet'}
-            icon={
-              <span className="w-3 h-3 rounded-full" style={{ background: topPlatform ? PLATFORM_COLORS[topPlatform.platform] : '#6b7280' }} />
-            }
-            accent={topPlatform ? PLATFORM_COLORS[topPlatform.platform] : '#6b7280'}
-          />
+        {/* Stat grid — 8 cards, 4 columns */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {([
+            { label: 'Total Views',       value: formatNum(statsGrid.totalViews) },
+            { label: 'Total Impressions', value: formatNum(statsGrid.totalImpressions) },
+            { label: 'Impression CTR',    value: `${statsGrid.impressionCtr.toFixed(1)}%` },
+            { label: 'Unique Viewers',    value: formatNum(statsGrid.uniqueViewers) },
+            { label: 'Total Likes',       value: formatNum(statsGrid.totalLikes) },
+            { label: 'Total Comments',    value: formatNum(statsGrid.totalComments) },
+            { label: 'Total Shares',      value: formatNum(statsGrid.totalShares) },
+            { label: 'Avg View Duration', value: fmtDuration(statsGrid.avgDuration) },
+          ] as { label: string; value: string }[]).map(({ label, value }) => (
+            <div key={label} className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-3)] mb-2">{label}</p>
+              <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{value}</p>
+            </div>
+          ))}
         </div>
 
         {/* Views Over Time chart */}
