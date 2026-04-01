@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   RadarChart,
   Radar,
@@ -11,6 +11,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
+import { getTotalViewsPerClip } from '@/lib/db';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -86,11 +87,21 @@ interface Props {
 export default function ComparisonView({ posts }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('views');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
+  const [viewsMap, setViewsMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    getTotalViewsPerClip().then((totals) => {
+      const map: Record<string, number> = {};
+      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t.total_views;
+      setViewsMap(map);
+    }).catch(() => setViewsMap({}));
+  }, []);
 
   const platformStats = useMemo<PlatformStats[]>(() => {
     return ALL_PLATFORMS.map((pl) => {
       const pp = posts.filter((p) => p.platform === pl);
-      const views = pp.reduce((s, p) => s + p.views, 0);
+      const clipViews = (p: UnifiedPost) => viewsMap[`${p.clip_code}::${p.platform}`] ?? p.views;
+      const views = pp.reduce((s, p) => s + clipViews(p), 0);
       const likes = pp.reduce((s, p) => s + p.likes, 0);
       const comments = pp.reduce((s, p) => s + p.comments, 0);
       const shares = pp.reduce((s, p) => s + p.shares, 0);
@@ -106,7 +117,7 @@ export default function ComparisonView({ posts }: Props) {
         avgViews: pp.length > 0 ? Math.round(views / pp.length) : 0,
       };
     });
-  }, [posts]);
+  }, [posts, viewsMap]);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));

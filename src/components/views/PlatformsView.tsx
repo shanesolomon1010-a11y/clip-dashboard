@@ -1,9 +1,10 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
+import { getTotalViewsPerClip } from '@/lib/db';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -17,18 +18,29 @@ interface Props { posts: UnifiedPost[] }
 
 export default function PlatformsView({ posts }: Props) {
   const { open } = useVideoModal();
+  const [viewsMap, setViewsMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    getTotalViewsPerClip().then((totals) => {
+      const map: Record<string, number> = {};
+      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t.total_views;
+      setViewsMap(map);
+    }).catch(() => setViewsMap({}));
+  }, []);
+
   const platformData = useMemo(() =>
     ALL_PLATFORMS.map((pl) => {
       const pp = posts.filter((p) => p.platform === pl);
-      const views = pp.reduce((s, p) => s + p.views, 0);
+      const clipViews = (p: UnifiedPost) => viewsMap[`${p.clip_code}::${p.platform}`] ?? p.views;
+      const views = pp.reduce((s, p) => s + clipViews(p), 0);
       const likes = pp.reduce((s, p) => s + p.likes, 0);
       const comments = pp.reduce((s, p) => s + p.comments, 0);
       const shares = pp.reduce((s, p) => s + p.shares, 0);
       const interactions = pp.reduce((s, p) => s + p.likes + p.comments + p.shares + p.saves, 0);
-      const best = [...pp].sort((a, b) => b.views - a.views)[0] ?? null;
+      const best = [...pp].sort((a, b) => clipViews(b) - clipViews(a))[0] ?? null;
       return { platform: pl, count: pp.length, views, likes, comments, shares, interactions, best };
     }),
-    [posts]
+    [posts, viewsMap]
   );
 
   return (
@@ -123,7 +135,7 @@ export default function PlatformsView({ posts }: Props) {
                         </div>
                         <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.clip_code}</p>
                         <div className="flex gap-4 text-[11px]">
-                          <span className="text-[var(--text-2)]">Views: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.views)}</span></span>
+                          <span className="text-[var(--text-2)]">Views: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(viewsMap[`${best.clip_code}::${best.platform}`] ?? best.views)}</span></span>
                           <span className="text-[var(--text-2)]">Interactions: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.likes + best.comments + best.shares + best.saves)}</span></span>
                         </div>
                       </div>

@@ -1,10 +1,12 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import TopPostsTable from '@/components/TopPostsTable';
 import UploadZone from '@/components/UploadZone';
 import { PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
+import { getTotalViewsPerClip } from '@/lib/db';
 
 interface Props {
   posts: UnifiedPost[];
@@ -15,6 +17,15 @@ interface Props {
 export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
   const recent = [...posts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
   const { open } = useVideoModal();
+  const [viewsMap, setViewsMap] = useState<Record<string, number>>({});
+
+  useEffect(() => {
+    getTotalViewsPerClip().then((totals) => {
+      const map: Record<string, number> = {};
+      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t.total_views;
+      setViewsMap(map);
+    }).catch(() => setViewsMap({}));
+  }, []);
 
   return (
     <div className="p-5 space-y-5">
@@ -50,16 +61,23 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
               </div>
               <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-[var(--text-1)] transition-colors">{post.clip_code}</p>
               <div className="space-y-1">
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-[var(--text-2)]">Views</span>
-                  <span className="text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono']">{formatNum(post.views)}</span>
-                </div>
-                <div className="flex justify-between text-[11px]">
-                  <span className="text-[var(--text-2)]">Eng. Rate</span>
-                  <span className="font-semibold tabular-nums text-[var(--text-2)] font-['JetBrains_Mono']">
-                    {post.views === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / post.views * 100).toFixed(1)}%`}
-                  </span>
-                </div>
+                {(() => {
+                  const v = viewsMap[`${post.clip_code}::${post.platform}`] ?? post.views;
+                  return (
+                    <>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-[var(--text-2)]">Views</span>
+                        <span className="text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono']">{formatNum(v)}</span>
+                      </div>
+                      <div className="flex justify-between text-[11px]">
+                        <span className="text-[var(--text-2)]">Eng. Rate</span>
+                        <span className="font-semibold tabular-nums text-[var(--text-2)] font-['JetBrains_Mono']">
+                          {v === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / v * 100).toFixed(1)}%`}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             </div>
           ))}
@@ -72,7 +90,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
       </div>
 
       {/* Full posts table */}
-      <TopPostsTable posts={posts} onContentTypeChange={onPostUpdate} />
+      <TopPostsTable posts={posts} onContentTypeChange={onPostUpdate} viewsTotals={viewsMap} />
 
       {/* Upload zone */}
       <UploadZone onUpload={onUpload} />

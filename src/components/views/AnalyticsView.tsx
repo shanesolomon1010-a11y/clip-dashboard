@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedPost, DateRange } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getAllPostsByDate } from '@/lib/db';
+import { getAllPostsByDate, getTotalViewsPerClip } from '@/lib/db';
 import {
   LineChart, Line,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -260,10 +260,16 @@ export default function AnalyticsView({ posts }: Props) {
   const [sortCol, setSortCol] = useState<string>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [clipData, setClipData] = useState<UnifiedPost[]>([]);
+  const [clipViewTotals, setClipViewTotals] = useState<Record<string, number>>({});
   const dropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getAllPostsByDate(platform).then(setClipData).catch(console.error);
+    getTotalViewsPerClip(platform).then((totals) => {
+      const map: Record<string, number> = {};
+      for (const t of totals) map[t.clip_code] = t.total_views;
+      setClipViewTotals(map);
+    }).catch(() => setClipViewTotals({}));
   }, [platform]);
 
   useEffect(() => {
@@ -306,6 +312,9 @@ export default function AnalyticsView({ posts }: Props) {
       } else if (sortCol === 'title') {
         aVal = a.title;
         bVal = b.title;
+      } else if (sortCol === 'views') {
+        aVal = clipViewTotals[a.clip_code ?? ''] ?? getMetricValue(a, sortCol);
+        bVal = clipViewTotals[b.clip_code ?? ''] ?? getMetricValue(b, sortCol);
       } else {
         aVal = getMetricValue(a, sortCol);
         bVal = getMetricValue(b, sortCol);
@@ -314,7 +323,7 @@ export default function AnalyticsView({ posts }: Props) {
       if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [filtered, sortCol, sortDir]);
+  }, [filtered, sortCol, sortDir, clipViewTotals]);
 
   const cardList = selectedMetrics;
 
@@ -590,7 +599,9 @@ export default function AnalyticsView({ posts }: Props) {
                       </span>
                     </td>
                     {selectedMetrics.map((k) => {
-                      const val = getMetricValue(post, k);
+                      const val = k === 'views' && post.clip_code
+                        ? (clipViewTotals[post.clip_code] ?? getMetricValue(post, k))
+                        : getMetricValue(post, k);
                       return (
                         <td
                           key={k}

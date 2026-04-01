@@ -20,10 +20,11 @@ const CONTENT_TYPE_COLORS: Record<string, string> = {
 interface Props {
   posts: UnifiedPost[];
   onContentTypeChange?: (postId: string, contentType: string | undefined) => void;
+  viewsTotals?: Record<string, number>;
 }
 
 
-export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
+export default function TopPostsTable({ posts, onContentTypeChange, viewsTotals }: Props) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const { open } = useVideoModal();
@@ -42,7 +43,8 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
     }
   };
 
-  const sorted = [...posts].sort((a, b) => b.views - a.views).slice(0, 10);
+  const clipViews = (p: UnifiedPost) => viewsTotals?.[`${p.clip_code}::${p.platform}`] ?? p.views;
+  const sorted = [...posts].sort((a, b) => clipViews(b) - clipViews(a)).slice(0, 10);
 
   return (
     <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
@@ -100,7 +102,7 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
                   <span className="text-[var(--text-3)] text-[11px]">{post.date}</span>
                 </td>
                 <td className="px-5 py-3.5 text-right">
-                  <span className="text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono']">{formatNum(post.views)}</span>
+                  <span className="text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono']">{formatNum(clipViews(post))}</span>
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   <span className="text-[var(--text-2)] tabular-nums font-['JetBrains_Mono']">{formatNum(post.likes)}</span>
@@ -110,7 +112,7 @@ export default function TopPostsTable({ posts, onContentTypeChange }: Props) {
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   <span className="text-[var(--text-2)] font-semibold tabular-nums font-['JetBrains_Mono'] text-[13px]">
-                    {post.views === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / post.views * 100).toFixed(1)}%`}
+                    {clipViews(post) === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / clipViews(post) * 100).toFixed(1)}%`}
                   </span>
                 </td>
                 <td className="px-5 py-3.5 relative">

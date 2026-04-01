@@ -97,7 +97,7 @@ export default function DashboardView({ posts }: Props) {
     return clipTotals.slice(0, 6);
   }, [clipTotals, filteredPosts]);
 
-  const totalViews = useMemo(() => filteredPosts.reduce((s, p) => s + p.views, 0), [filteredPosts]);
+  const totalViews = useMemo(() => clipTotals.reduce((s, c) => s + c.total_views, 0), [clipTotals]);
   const totalInteractions = useMemo(() => filteredPosts.reduce((s, p) => s + postInteractions(p), 0), [filteredPosts]);
 
   const platformTotals = useMemo(() =>
