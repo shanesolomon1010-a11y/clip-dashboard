@@ -113,6 +113,7 @@ export default function PostingScheduleView() {
   const [submitError, setSubmitError]                 = useState<string | null>(null);
   const [editingTimeId, setEditingTimeId]             = useState<string | null>(null);
   const [editingTimeValue, setEditingTimeValue]       = useState('11:00 AM');
+  const [timeEditError, setTimeEditError]             = useState<string | null>(null);
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -216,16 +217,32 @@ export default function PostingScheduleView() {
     const stripped = post.post_time.replace(/\s*CT$/, '').trim();
     const matched = TIME_OPTIONS.includes(stripped) ? stripped : '11:00 AM';
     setEditingTimeValue(matched);
+    setTimeEditError(null);
     setEditingTimeId(post.id);
   }
 
   async function handleTimeSave(id: string) {
-    await supabase
-      .from('scheduled_posts')
-      .update({ post_time: `${editingTimeValue} CT` })
-      .eq('id', id);
-    setEditingTimeId(null);
-    refetchPosts();
+    const newTime = `${editingTimeValue} CT`;
+    console.log('[TimeSave] updating post id:', id, '→', newTime);
+    setTimeEditError(null);
+    try {
+      const { error } = await supabase
+        .from('scheduled_posts')
+        .update({ post_time: newTime })
+        .eq('id', id);
+      if (error) {
+        console.error('[TimeSave] Supabase error:', error);
+        setTimeEditError(error.message);
+        return;
+      }
+      console.log('[TimeSave] update succeeded');
+      setPosts(prev => prev.map(p => p.id === id ? { ...p, post_time: newTime } : p));
+      setEditingTimeId(null);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[TimeSave] exception:', err);
+      setTimeEditError(msg);
+    }
   }
 
   async function handleDeletePost(id: string) {
@@ -653,6 +670,7 @@ export default function PostingScheduleView() {
                         {PLATFORM_LABELS[post.platform]}
                       </span>
                       {editingTimeId === post.id ? (
+                        <div className="flex flex-col items-end gap-1">
                         <div className="flex items-center gap-1">
                           <select
                             value={editingTimeValue}
@@ -671,12 +689,16 @@ export default function PostingScheduleView() {
                             ✓
                           </button>
                           <button
-                            onClick={() => setEditingTimeId(null)}
+                            onClick={() => { setEditingTimeId(null); setTimeEditError(null); }}
                             aria-label="Cancel time edit"
                             className="w-5 h-5 flex items-center justify-center rounded text-[var(--text-3)] hover:bg-[rgba(247,231,206,0.06)] transition-colors text-[10px]"
                           >
                             ✕
                           </button>
+                        </div>
+                        {timeEditError && (
+                          <p className="text-[9px] text-red-400">{timeEditError}</p>
+                        )}
                         </div>
                       ) : (
                         <button
