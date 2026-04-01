@@ -11,7 +11,6 @@ import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter } from '@/context/FilterContext';
 import { getAllPostsByDate, getTotalViewsPerClip } from '@/lib/db';
-import PostingHeatmap from '@/components/PostingHeatmap';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -265,9 +264,6 @@ export default function DashboardView({ posts }: Props) {
             </ResponsiveContainer>
           </div>
         )}
-
-        {/* Posting Cadence Heatmap */}
-        <PostingHeatmap />
 
         {/* Top content */}
         <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
