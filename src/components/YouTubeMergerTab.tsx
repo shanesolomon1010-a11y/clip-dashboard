@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Papa from 'papaparse';
+import { supabase } from '@/lib/supabase';
 
 interface ChartRow {
   Date: string;
@@ -71,6 +72,14 @@ function downloadCSV(content: string, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function todayString(): string {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export default function YouTubeMergerTab() {
   const [chartFile, setChartFile] = useState<File | null>(null);
   const [totalsFile, setTotalsFile] = useState<File | null>(null);
@@ -80,10 +89,26 @@ export default function YouTubeMergerTab() {
   const [scanning, setScanning] = useState(false);
   const [status, setStatus] = useState<{ type: 'error' | 'success'; message: string } | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<string>(todayString);
+  const [importedDates, setImportedDates] = useState<Set<string>>(new Set());
 
   const chartRef = useRef<HTMLInputElement>(null);
   const totalsRef = useRef<HTMLInputElement>(null);
   const tableRef = useRef<HTMLInputElement>(null);
+
+  async function fetchImportedDates() {
+    const { data } = await supabase
+      .from('posts')
+      .select('stat_date')
+      .eq('platform', 'youtube');
+    if (data) {
+      setImportedDates(new Set(data.map((r: { stat_date: string }) => r.stat_date)));
+    }
+  }
+
+  useEffect(() => {
+    fetchImportedDates();
+  }, []);
 
   useEffect(() => {
     if (!chartFile || !tableFile) {
@@ -166,6 +191,7 @@ export default function YouTubeMergerTab() {
       const outputRows = Array.from(chartByContent.values()).map(({ latestRow: chart, totalEngaged }) => {
         const table = tableMap.get(chart.Content) ?? {} as TableRow;
         return {
+          stat_date:                  selectedDate,
           clip_id:                    (clipMap[chart.Content] ?? '').trim(),
           date:                       chart.Date ?? '',
           content_id:                 chart.Content ?? '',
@@ -194,12 +220,77 @@ export default function YouTubeMergerTab() {
       const csv = buildCSV(outputRows);
       downloadCSV(csv, 'youtube-merged.csv');
       setStatus({ type: 'success', message: `Generated ${outputRows.length} rows.` });
+      fetchImportedDates();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setStatus({ type: 'error', message: msg });
     } finally {
       setProcessing(false);
     }
+  }
+
+  function renderCalendar() {
+    const today = todayString();
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed
+
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDayOfWeek = new Date(year, month, 1).getDay(); // 0=Sun
+
+    const dayNames = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+    const cells: (number | null)[] = [
+      ...Array(firstDayOfWeek).fill(null),
+      ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+    ];
+    // pad to full rows
+    while (cells.length % 7 !== 0) cells.push(null);
+
+    return (
+      <div className="space-y-2">
+        <p className="text-[11px] text-[var(--text-3)]">
+          {now.toLocaleString('default', { month: 'long', year: 'numeric' })} — imported dates
+        </p>
+        <div className="grid grid-cols-7 gap-0.5">
+          {dayNames.map(d => (
+            <div key={d} className="text-center text-[9px] text-[var(--text-3)] py-0.5">{d}</div>
+          ))}
+          {cells.map((day, i) => {
+            if (!day) {
+              return <div key={`empty-${i}`} />;
+            }
+            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            const isSelected = dateStr === selectedDate;
+            const hasData = importedDates.has(dateStr);
+            const isFuture = dateStr > today;
+
+            let bg = 'bg-[var(--bg-base)]';
+            if (isSelected) bg = 'bg-[#FF4444]';
+            else if (hasData) bg = 'bg-[#374151]';
+
+            return (
+              <button
+                key={dateStr}
+                type="button"
+                onClick={() => setSelectedDate(dateStr)}
+                className={[
+                  'relative flex items-center justify-center rounded text-[10px] aspect-square',
+                  bg,
+                  isSelected ? 'text-white font-semibold' : isFuture ? 'text-[var(--text-3)] opacity-50' : 'text-[var(--text-2)]',
+                  'hover:ring-1 hover:ring-[rgba(247,231,206,0.2)] transition-all',
+                ].join(' ')}
+              >
+                {day}
+                {hasData && !isSelected && (
+                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#6B7280]" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
   }
 
   const inputClass = 'w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]';
@@ -307,6 +398,21 @@ export default function YouTubeMergerTab() {
             </div>
           )}
 
+          {/* Date picker */}
+          <div className="space-y-1">
+            <label className={labelClass}>Data date</label>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              required
+              className={[inputClass, 'cursor-pointer'].join(' ')}
+            />
+          </div>
+
+          {/* Calendar */}
+          {renderCalendar()}
+
           {status && (
             <p className={['text-xs', status.type === 'success' ? 'text-green-400' : 'text-red-400'].join(' ')}>
               {status.message}
@@ -315,7 +421,7 @@ export default function YouTubeMergerTab() {
 
           <button
             onClick={handleGenerate}
-            disabled={processing || !chartFile || !tableFile || !allMapped}
+            disabled={processing || !chartFile || !tableFile || !allMapped || !selectedDate}
             className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
           >
             {processing ? 'Processing…' : 'Generate CSV'}
