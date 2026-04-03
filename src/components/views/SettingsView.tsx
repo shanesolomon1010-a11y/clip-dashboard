@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail, updatePostsClipDetailsCode } from '@/lib/db';
-import { syncInstagramReels } from '@/lib/apify';
 import type { ClipDetail } from '@/lib/db';
 import DataEditorTab from '@/components/DataEditorTab';
 import YouTubeMergerTab from '@/components/YouTubeMergerTab';
@@ -86,15 +85,6 @@ export default function SettingsView({ onClearData }: Props) {
   const [clipSubmitting, setClipSubmitting] = useState(false);
   const [clipStatus, setClipStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
-  // Connections / Apify state
-  const [apifyToken, setApifyToken]           = useState(() => localStorage.getItem('apify_token') ?? '');
-  const [apifyUsername, setApifyUsername]     = useState(() => localStorage.getItem('apify_instagram_username') ?? '');
-  const [apifySession, setApifySession]       = useState(() => localStorage.getItem('apify_instagram_session') ?? '');
-  const [apifySaveLabel, setApifySaveLabel]   = useState<'Save' | 'Saved'>('Save');
-  const [apifySyncing, setApifySyncing]       = useState(false);
-  const [apifyStatus, setApifyStatus]         = useState<{ type: 'success' | 'error'; message: string } | null>(null);
-  const [apifyLastSync, setApifyLastSync]     = useState(() => localStorage.getItem('apify_last_sync'));
-
   // YouTube API state
   const [ytConnected, setYtConnected]       = useState<boolean | null>(null);
   const [ytSyncing, setYtSyncing]           = useState(false);
@@ -126,30 +116,6 @@ export default function SettingsView({ onClearData }: Props) {
       .then((d: { connected: boolean }) => setYtConnected(d.connected))
       .catch(() => setYtConnected(false));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  function handleApifySave() {
-    localStorage.setItem('apify_token', apifyToken);
-    localStorage.setItem('apify_instagram_username', apifyUsername);
-    localStorage.setItem('apify_instagram_session', apifySession);
-    setApifySaveLabel('Saved');
-    setTimeout(() => setApifySaveLabel('Save'), 2000);
-  }
-
-  async function handleApifySync() {
-    setApifySyncing(true);
-    setApifyStatus(null);
-    try {
-      await syncInstagramReels();
-      const ts = localStorage.getItem('apify_last_sync');
-      setApifyLastSync(ts);
-      setApifyStatus({ type: 'success', message: 'Sync complete.' });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : JSON.stringify(err);
-      setApifyStatus({ type: 'error', message: msg });
-    } finally {
-      setApifySyncing(false);
-    }
-  }
 
   async function handleYouTubeSync() {
     setYtSyncing(true);
@@ -367,67 +333,6 @@ export default function SettingsView({ onClearData }: Props) {
             </div>
           </Section>
 
-          <Section title="Apify — Instagram Sync">
-            <div className="px-5 py-4 space-y-4">
-              <div className="space-y-1">
-                <label className="text-[11px] text-[var(--text-3)]">Apify API Token</label>
-                <input
-                  type="password"
-                  placeholder="apify_api_…"
-                  value={apifyToken}
-                  onChange={e => setApifyToken(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] text-[var(--text-3)]">Instagram Username (without @)</label>
-                <input
-                  type="text"
-                  placeholder="foundername"
-                  value={apifyUsername}
-                  onChange={e => setApifyUsername(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] text-[var(--text-3)]">Instagram Session Cookie</label>
-                <input
-                  type="password"
-                  placeholder="sessionid value from instagram.com cookies"
-                  value={apifySession}
-                  onChange={e => setApifySession(e.target.value)}
-                  className="w-full px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)]"
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleApifySave}
-                  className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity"
-                >
-                  {apifySaveLabel}
-                </button>
-                <button
-                  type="button"
-                  onClick={handleApifySync}
-                  disabled={apifySyncing}
-                  className="px-4 py-2 text-xs font-semibold text-[var(--text-2)] bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl hover:bg-[rgba(247,231,206,0.07)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {apifySyncing ? 'Syncing…' : 'Sync Instagram Now'}
-                </button>
-              </div>
-              {apifyStatus && (
-                <p className={`text-xs break-all whitespace-pre-wrap ${apifyStatus.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-                  {apifyStatus.message}
-                </p>
-              )}
-              <p className="text-[11px] text-[var(--text-3)]">
-                {apifyLastSync
-                  ? `Last synced: ${new Date(apifyLastSync).toLocaleString()}`
-                  : 'Never synced'}
-              </p>
-            </div>
-          </Section>
         </div>
       )}
 
