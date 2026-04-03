@@ -95,6 +95,13 @@ export default function SettingsView({ onClearData }: Props) {
   const [apifyStatus, setApifyStatus]         = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [apifyLastSync, setApifyLastSync]     = useState(() => localStorage.getItem('apify_last_sync'));
 
+  // YouTube API state
+  const [ytConnected, setYtConnected]       = useState<boolean | null>(null);
+  const [ytSyncing, setYtSyncing]           = useState(false);
+  const [ytSyncResult, setYtSyncResult]     = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [ytLastSync, setYtLastSync]         = useState<string | null>(() => localStorage.getItem('youtube_last_sync'));
+  const [ytConnectedBanner, setYtConnectedBanner] = useState(false);
+
   // Edit state
   const [editingClipCode, setEditingClipCode] = useState<string | null>(null);
   const [editForm, setEditForm]               = useState<ClipForm>(EMPTY_FORM);
@@ -106,6 +113,19 @@ export default function SettingsView({ onClearData }: Props) {
       .then(setClips)
       .catch(err => console.error('clip_details fetch error:', err));
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get('connected') === 'true') {
+      setYtConnectedBanner(true);
+      const params = new URLSearchParams(searchParams.toString());
+      params.delete('connected');
+      router.replace(`?${params.toString()}`, { scroll: false });
+    }
+    fetch('/api/youtube/status')
+      .then(r => r.json())
+      .then((d: { connected: boolean }) => setYtConnected(d.connected))
+      .catch(() => setYtConnected(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   function handleApifySave() {
     localStorage.setItem('apify_token', apifyToken);
@@ -128,6 +148,25 @@ export default function SettingsView({ onClearData }: Props) {
       setApifyStatus({ type: 'error', message: msg });
     } finally {
       setApifySyncing(false);
+    }
+  }
+
+  async function handleYouTubeSync() {
+    setYtSyncing(true);
+    setYtSyncResult(null);
+    try {
+      const res = await fetch('/api/youtube/sync', { method: 'POST' });
+      const data = await res.json() as { success: boolean; rowsUpserted?: number; error?: string };
+      if (!data.success) throw new Error(data.error ?? 'Sync failed');
+      const ts = new Date().toISOString();
+      localStorage.setItem('youtube_last_sync', ts);
+      setYtLastSync(ts);
+      setYtSyncResult({ type: 'success', message: `Synced ${data.rowsUpserted ?? 0} rows` });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setYtSyncResult({ type: 'error', message: msg });
+    } finally {
+      setYtSyncing(false);
     }
   }
 
@@ -253,7 +292,7 @@ export default function SettingsView({ onClearData }: Props) {
             { key: 'clips', label: 'Clip Library' },
             { key: 'data-editor', label: 'Data Editor' },
             { key: 'youtube-merger', label: 'YouTube Merger' },
-            // { key: 'connections', label: 'Connections' },
+            { key: 'connections', label: 'Connections' },
           ] as { key: typeof activeTab; label: string }[]).map(({ key, label }) => (
             <button
               key={key}
@@ -275,6 +314,59 @@ export default function SettingsView({ onClearData }: Props) {
 
       {activeTab === 'connections' && (
         <div className="max-w-2xl space-y-5">
+          {ytConnectedBanner && (
+            <div className="px-4 py-3 text-sm text-green-400 bg-[rgba(74,222,128,0.08)] border border-[rgba(74,222,128,0.15)] rounded-xl">
+              YouTube connected successfully.
+            </div>
+          )}
+
+          <Section title="YouTube Analytics API">
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-[11px] font-semibold px-2.5 py-1 rounded-lg"
+                  style={
+                    ytConnected
+                      ? { background: 'rgba(74,222,128,0.12)', color: '#4ade80' }
+                      : { background: 'rgba(247,231,206,0.06)', color: 'var(--text-3)' }
+                  }
+                >
+                  {ytConnected === null ? 'Checking…' : ytConnected ? 'Connected' : 'Not connected'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                {ytConnected === false && (
+                  <a
+                    href="/api/auth"
+                    className="px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity"
+                  >
+                    Connect YouTube
+                  </a>
+                )}
+                {ytConnected && (
+                  <button
+                    type="button"
+                    onClick={handleYouTubeSync}
+                    disabled={ytSyncing}
+                    className="px-4 py-2 text-xs font-semibold text-[var(--text-2)] bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl hover:bg-[rgba(247,231,206,0.07)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {ytSyncing ? 'Syncing…' : 'Sync Now'}
+                  </button>
+                )}
+              </div>
+              {ytSyncResult && (
+                <p className={`text-xs ${ytSyncResult.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                  {ytSyncResult.message}
+                </p>
+              )}
+              <p className="text-[11px] text-[var(--text-3)]">
+                {ytLastSync
+                  ? `Last synced: ${new Date(ytLastSync).toLocaleString()}`
+                  : 'Never synced'}
+              </p>
+            </div>
+          </Section>
+
           <Section title="Apify — Instagram Sync">
             <div className="px-5 py-4 space-y-4">
               <div className="space-y-1">
