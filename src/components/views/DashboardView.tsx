@@ -49,15 +49,6 @@ function fmtDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
-function clamp(n: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, n));
-}
-
-function healthColor(score: number): string {
-  if (score >= 75) return '#06D6A0';
-  if (score >= 50) return '#FFD166';
-  return '#FF4444';
-}
 
 interface ClipTotal {
   clip_code: string;
@@ -149,30 +140,6 @@ export default function DashboardView({ posts }: Props) {
     return map;
   }, [allDailyPosts]);
 
-  // Health score per clip_code: use latest stat_date row
-  const healthByClip = useMemo(() => {
-    const latestByClip = new Map<string, UnifiedPost>();
-    for (const p of allDailyPosts) {
-      if (!p.clip_code || !p.stat_date) continue;
-      const existing = latestByClip.get(p.clip_code);
-      if (!existing || p.stat_date > existing.stat_date!) {
-        latestByClip.set(p.clip_code, p);
-      }
-    }
-    const scores = new Map<string, number>();
-    Array.from(latestByClip.entries()).forEach(([clip, p]) => {
-      const ctr = p.impression_ctr ?? 0;
-      const avp = p.avg_view_percentage ?? 0;
-      const dev = p.daily_engaged_views ?? 0;
-      const v = p.views > 0 ? p.views : 1;
-      const score = clamp(
-        (ctr / 10) * 40 + (avp / 100) * 40 + (dev / v) * 20,
-        0, 100
-      );
-      scores.set(clip, Math.round(score));
-    });
-    return scores;
-  }, [allDailyPosts]);
 
   const statsGrid = useMemo(() => {
     let sumViews = 0, sumImpressions = 0, sumWeightedCtr = 0;
@@ -291,8 +258,6 @@ export default function DashboardView({ posts }: Props) {
               const plt = isClipTotal(item) ? (item.platform as Platform) : item.platform;
               const views = isClipTotal(item) ? item.total_views : item.views;
               const peak = clipCode ? peakByClip.get(clipCode) : undefined;
-              const health = clipCode ? healthByClip.get(clipCode) : undefined;
-              const hColor = health !== undefined ? healthColor(health) : undefined;
 
               const handleClick = () => {
                 if (!isClipTotal(item) && item.clip_code) {
@@ -335,17 +300,7 @@ export default function DashboardView({ posts }: Props) {
                       </p>
                     )}
                   </div>
-                  {hColor !== undefined && health !== undefined && (
-                    <span
-                      className="absolute right-5 top-1/2 -translate-y-1/2 text-[10px] font-semibold px-2 py-0.5 rounded-full shrink-0"
-                      style={{
-                        background: `${hColor}33`,
-                        color: hColor,
-                      }}
-                    >
-                      Health: {health}
-                    </span>
-                  )}
+
                 </div>
               );
             })}
