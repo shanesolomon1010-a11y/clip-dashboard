@@ -9,6 +9,7 @@ import {
   getReviewComments,
   addReviewComment,
   resolveComment,
+  deleteComment,
   addClipVersion,
   ClipVersion,
   ReviewComment,
@@ -152,6 +153,11 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const handleDelete = async (id: string) => {
+    await deleteComment(id);
+    if (activeVersion) loadComments(activeVersion.id);
   };
 
   const handleResolve = async (id: string, currentlyResolved: boolean) => {
@@ -523,19 +529,30 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                       </div>
                       <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{c.comment}</p>
                     </div>
-                    <button
-                      onClick={() => handleResolve(c.id, c.resolved)}
-                      title={c.resolved ? 'Mark unresolved' : 'Resolve'}
-                      className={`shrink-0 mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
-                        c.resolved
-                          ? 'border-[rgba(52,211,153,0.5)] bg-[rgba(52,211,153,0.15)] text-emerald-400 hover:bg-[rgba(52,211,153,0.05)]'
-                          : 'border-[rgba(52,211,153,0.3)] text-emerald-400 hover:bg-[rgba(52,211,153,0.1)]'
-                      }`}
-                    >
-                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                        <polyline points="20 6 9 17 4 12" />
-                      </svg>
-                    </button>
+                    <div className="flex items-center gap-1 shrink-0 mt-0.5">
+                      <button
+                        onClick={() => handleResolve(c.id, c.resolved)}
+                        title={c.resolved ? 'Mark unresolved' : 'Resolve'}
+                        className={`w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                          c.resolved
+                            ? 'border-[rgba(52,211,153,0.5)] bg-[rgba(52,211,153,0.15)] text-emerald-400 hover:bg-[rgba(52,211,153,0.05)]'
+                            : 'border-[rgba(52,211,153,0.3)] text-emerald-400 hover:bg-[rgba(52,211,153,0.1)]'
+                        }`}
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={() => handleDelete(c.id)}
+                        title="Delete"
+                        className="w-5 h-5 rounded-full border border-[rgba(247,231,206,0.08)] text-[var(--text-3)] hover:border-red-500/40 hover:text-red-400 flex items-center justify-center transition-colors"
+                      >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                          <polyline points="3 6 5 6 21 6" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v6M14 11v6" /><path d="M9 6V4h6v2" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))

@@ -634,6 +634,14 @@ export async function resolveComment(id: string): Promise<void> {
   if (error) throw error;
 }
 
+export async function deleteComment(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('review_comments')
+    .delete()
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // ── Clip stats ──────────────────────────────────────────────────────────────────
 
 export interface ClipStats {
