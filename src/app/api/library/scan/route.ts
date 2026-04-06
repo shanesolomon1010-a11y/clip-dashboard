@@ -18,8 +18,8 @@ export async function POST(): Promise<NextResponse> {
 
   // List all files recursively in the Clips bucket
   const { data: files, error: listError } = await supabaseAdmin.storage
-    .from(bucketName)
-    .list('', { limit: 1000, offset: 0, sortBy: { column: 'name', order: 'asc' } });
+    .from('Clips')
+    .list('', { limit: 1000, offset: 0 });
 
   console.log('Scan bucket:', bucketName);
   console.log('Storage list data:', JSON.stringify(files, null, 2));
