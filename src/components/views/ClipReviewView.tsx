@@ -302,10 +302,12 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
           {/* Video player */}
           <div className="bg-black rounded-xl overflow-hidden w-full">
             {clipDetailVideoUrl ? (
-              <iframe
-                src={clipDetailVideoUrl}
-                style={{ width: '100%', aspectRatio: '9/16', border: 'none' }}
-                allowFullScreen
+              <video
+                ref={videoRef}
+                key={clipDetailVideoUrl}
+                src={`/api/video-proxy?url=${encodeURIComponent(clipDetailVideoUrl)}`}
+                controls
+                style={{ width: '100%', aspectRatio: '9/16' }}
               />
             ) : (
               <div className="flex items-center justify-center" style={{ aspectRatio: '9/16' }}>
