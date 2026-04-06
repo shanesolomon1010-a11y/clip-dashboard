@@ -5,6 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchAllClipDetails } from '@/lib/db';
 import ClipGrid from './ClipGrid';
 
+type EpisodeClip = { code: string; videoUrl: string };
+
 function extractEpisodePrefix(clip_details_code: string | null): string | null {
   if (!clip_details_code) return null;
   const match = clip_details_code.match(/^([A-Z]+\d+)/);
@@ -31,20 +33,63 @@ export default function LibraryView() {
     searchParams.get('clip')
   );
   const [loading, setLoading] = useState(true);
+  const [clipsByEpisode, setClipsByEpisode] = useState<Record<string, EpisodeClip[]>>({});
+  const [folderThumbs, setFolderThumbs] = useState<Record<string, (string | null)[]>>({});
 
   useEffect(() => {
     fetchAllClipDetails()
       .then((rows) => {
         const prefixes = new Set<string>();
+        const byEpisode: Record<string, EpisodeClip[]> = {};
         for (const row of rows) {
           const prefix = extractEpisodePrefix(row.clip_details_code);
-          if (prefix) prefixes.add(prefix);
+          if (prefix) {
+            prefixes.add(prefix);
+            if (!byEpisode[prefix]) byEpisode[prefix] = [];
+            if (byEpisode[prefix].length < 4 && row.video_url) {
+              byEpisode[prefix].push({ code: row.clip_details_code ?? '', videoUrl: row.video_url });
+            }
+          }
         }
         setEpisodes(Array.from(prefixes).sort());
+        setClipsByEpisode(byEpisode);
       })
       .catch(() => setEpisodes([]))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    for (const [episode, clips] of Object.entries(clipsByEpisode)) {
+      if (clips.length === 0) continue;
+      const thumbs: (string | null)[] = new Array(clips.length).fill(null);
+      let resolved = 0;
+      clips.forEach((clip, idx) => {
+        const proxy = `/api/video-proxy?url=${encodeURIComponent(clip.videoUrl)}`;
+        const vid = document.createElement('video');
+        vid.muted = true;
+        vid.preload = 'metadata';
+        vid.crossOrigin = 'anonymous';
+        vid.src = proxy;
+        vid.currentTime = 0.1;
+        vid.addEventListener('seeked', () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = vid.videoWidth || 320;
+            canvas.height = vid.videoHeight || 568;
+            canvas.getContext('2d')?.drawImage(vid, 0, 0, canvas.width, canvas.height);
+            thumbs[idx] = canvas.toDataURL('image/jpeg', 0.7);
+          } catch {
+            thumbs[idx] = null;
+          }
+          resolved++;
+          if (resolved === clips.length) {
+            setFolderThumbs((prev) => ({ ...prev, [episode]: [...thumbs] }));
+          }
+        }, { once: true });
+        vid.load();
+      });
+    }
+  }, [clipsByEpisode]);
 
   const updateURL = (episode: string | null, clip: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -131,17 +176,43 @@ export default function LibraryView() {
         <p className="text-sm text-[var(--text-3)]">No episodes found.</p>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-          {episodes.map((episode) => (
-            <button
-              key={episode}
-              onClick={() => handleSelectEpisode(episode)}
-              className="bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl aspect-square flex items-center justify-center hover:border-[var(--gold-border)] hover:bg-[var(--gold-dim)] transition-all duration-150 group"
-            >
-              <span className="text-sm font-semibold text-[var(--text-2)] group-hover:text-[var(--gold)] transition-colors">
-                {episode}
-              </span>
-            </button>
-          ))}
+          {episodes.map((episode) => {
+            const thumbs = folderThumbs[episode];
+            const hasCollage = thumbs && thumbs.some(Boolean);
+            return (
+              <button
+                key={episode}
+                onClick={() => handleSelectEpisode(episode)}
+                className="bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl aspect-square overflow-hidden hover:border-[var(--gold-border)] transition-all duration-150 group relative"
+              >
+                {hasCollage ? (
+                  <>
+                    <div className="w-full h-full grid grid-cols-2 grid-rows-2">
+                      {[0, 1, 2, 3].map((i) => (
+                        <div key={i} className="overflow-hidden bg-[#0a0a0a]">
+                          {thumbs[i] ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={thumbs[i]!} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full bg-[rgba(247,231,206,0.03)]" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
+                      <span className="text-xs font-semibold text-white">{episode}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-sm font-semibold text-[var(--text-2)] group-hover:text-[var(--gold)] transition-colors">
+                      {episode}
+                    </span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

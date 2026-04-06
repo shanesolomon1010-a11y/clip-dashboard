@@ -160,13 +160,13 @@ export default function ClipGrid({ episodePrefix, selectedClip, onClipChange }: 
               onClick={() => setSelected(code)}
               className="group bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl overflow-hidden hover:border-[var(--gold-border)] transition-all duration-150 text-left"
             >
-              <div className="aspect-video w-full bg-[rgba(247,231,206,0.04)] flex items-center justify-center overflow-hidden relative">
+              <div className="aspect-video w-full bg-black flex items-center justify-center overflow-hidden relative">
                 {displayThumb ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={displayThumb}
                     alt={formatCode(clip.clip_details_code)}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 ) : (
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-8 h-8 text-[var(--text-3)]">

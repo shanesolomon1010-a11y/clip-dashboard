@@ -41,6 +41,10 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [loadingComments, setLoadingComments] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isMuted, setIsMuted] = useState(false);
 
   const videoUrl = activeVersion?.video_url ?? clipDetailVideoUrl;
   const proxySrc = videoUrl ? `/api/video-proxy?url=${encodeURIComponent(videoUrl)}` : null;
@@ -51,6 +55,9 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
     setClipDetailVideoUrl(null);
     setActiveVersion(null);
     setComments([]);
+    setCurrentTime(0);
+    setDuration(0);
+    setIsPlaying(false);
 
     supabase
       .from('clip_details')
@@ -284,12 +291,15 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
           {/* Video — centered, max 70vh, 9:16 */}
           <div className="flex-1 flex items-center justify-center min-h-0">
             {proxySrc ? (
-              // No onTimeUpdate/onSeeked/onProgress handlers — native controls handle everything
               <video
                 ref={videoRef}
                 key={videoUrl!}
                 src={proxySrc}
-                controls
+                muted={isMuted}
+                onTimeUpdate={() => setCurrentTime(videoRef.current?.currentTime ?? 0)}
+                onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
                 className="rounded-xl bg-black object-contain"
                 style={{ maxHeight: '70vh', aspectRatio: '9/16', width: 'auto', maxWidth: '100%', pointerEvents: 'auto' }}
               />
@@ -303,8 +313,52 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
             )}
           </div>
 
-          {/* Timeline */}
-          <div className="relative w-full shrink-0 h-9 bg-[var(--bg-elevated)] rounded-xl border border-[rgba(247,231,206,0.06)]" />
+          {/* Custom player bar */}
+          {proxySrc && (
+            <div className="w-full shrink-0 flex items-center gap-3 px-1">
+              <button
+                onClick={() => isPlaying ? videoRef.current?.pause() : videoRef.current?.play()}
+                className="shrink-0 w-7 h-7 rounded-full bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.08)] flex items-center justify-center hover:border-[var(--gold-border)] transition-colors"
+              >
+                {isPlaying ? (
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-[var(--text-2)]">
+                    <rect x="6" y="4" width="4" height="16" /><rect x="14" y="4" width="4" height="16" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 text-[var(--text-2)]">
+                    <polygon points="5 3 19 12 5 21 5 3" />
+                  </svg>
+                )}
+              </button>
+              <span className="text-[10px] font-mono text-[var(--text-3)] shrink-0 w-9 text-right">{formatTime(currentTime)}</span>
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                step={0.01}
+                value={currentTime}
+                onChange={(e) => { if (videoRef.current) videoRef.current.currentTime = Number(e.target.value); }}
+                className="flex-1 accent-[var(--gold)] h-1 cursor-pointer"
+              />
+              <span className="text-[10px] font-mono text-[var(--text-3)] shrink-0 w-9">{formatTime(duration)}</span>
+              <button
+                onClick={() => { if (videoRef.current) { videoRef.current.muted = !isMuted; setIsMuted(!isMuted); } }}
+                className="shrink-0 w-7 h-7 rounded-full bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.08)] flex items-center justify-center hover:border-[var(--gold-border)] transition-colors"
+              >
+                {isMuted ? (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-[var(--text-3)]">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <line x1="23" y1="9" x2="17" y2="15" /><line x1="17" y1="9" x2="23" y2="15" />
+                  </svg>
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5 text-[var(--text-2)]">
+                    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+                    <path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Right: comments */}
