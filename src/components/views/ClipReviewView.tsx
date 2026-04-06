@@ -32,6 +32,8 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanResult, setScanResult] = useState<string | null>(null);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [loadingComments, setLoadingComments] = useState(false);
 
@@ -87,6 +89,28 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
     setComments((prev) =>
       prev.map((c) => (c.id === id ? { ...c, resolved: true } : c))
     );
+  };
+
+  const handleScan = async () => {
+    setScanning(true);
+    setScanResult(null);
+    try {
+      const res = await fetch('/api/library/scan', { method: 'POST' });
+      const json = await res.json() as { inserted?: number; skipped?: number; total?: number; error?: string };
+      if (json.error) {
+        setScanResult(`Error: ${json.error}`);
+      } else {
+        setScanResult(`Done — ${json.inserted} inserted, ${json.skipped} skipped (${json.total} total)`);
+        // Reload versions in case new ones were added for this clip
+        const updated = await getClipVersions(clipDetailsCode);
+        setVersions(updated);
+        if (updated.length > 0 && !activeVersion) setActiveVersion(updated[updated.length - 1]);
+      }
+    } catch {
+      setScanResult('Scan failed');
+    } finally {
+      setScanning(false);
+    }
   };
 
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -151,6 +175,26 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
         </div>
 
         <div className="flex items-center gap-2">
+          {scanResult && (
+            <span className="text-[11px] text-[var(--text-3)] max-w-[220px] truncate" title={scanResult}>
+              {scanResult}
+            </span>
+          )}
+          <button
+            onClick={handleScan}
+            disabled={scanning}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[rgba(247,231,206,0.12)] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-[rgba(247,231,206,0.2)] transition-colors disabled:opacity-50"
+          >
+            {scanning ? (
+              <div className="w-3 h-3 border border-[var(--text-3)] border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            )}
+            {scanning ? 'Scanning…' : 'Scan Bucket'}
+          </button>
           <input
             ref={fileInputRef}
             type="file"
