@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { supabase } from '@/lib/supabase';
 import {
   getClipVersions,
@@ -31,8 +33,10 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const [comments, setComments] = useState<ReviewComment[]>([]);
   const [commentText, setCommentText] = useState('');
   const [submitting, setSubmitting] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadPhase, setUploadPhase] = useState<'compressing' | 'uploading' | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [scanning, setScanning] = useState(false);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [loadingComments, setLoadingComments] = useState(false);
@@ -116,28 +120,76 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    setUploading(true);
+
     try {
-      const ext = file.name.split('.').pop() ?? 'mp4';
-      const path = `${clipDetailsCode}/v${versions.length + 1}_${Date.now()}.${ext}`;
+      // — Compress with FFmpeg.wasm —
+      setUploadPhase('compressing');
+      setUploadProgress(0);
+
+      if (!ffmpegRef.current) {
+        ffmpegRef.current = new FFmpeg();
+      }
+      const ff = ffmpegRef.current;
+
+      if (!ff.loaded) {
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+        await ff.load({
+          coreURL:  await toBlobURL(`${baseURL}/ffmpeg-core.js`,   'text/javascript'),
+          wasmURL:  await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+      }
+
+      ff.on('progress', ({ progress }: { progress: number }) => {
+        setUploadProgress(Math.round(progress * 100));
+      });
+
+      const inputName  = 'input.mp4';
+      const outputName = 'output.mp4';
+
+      await ff.writeFile(inputName, await fetchFile(file));
+      await ff.exec([
+        '-i', inputName,
+        '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2',
+        '-crf', '28',
+        '-preset', 'fast',
+        '-movflags', '+faststart',
+        outputName,
+      ]);
+
+      const compressed = await ff.readFile(outputName);
+      // Copy into a plain ArrayBuffer — readFile may return a SharedArrayBuffer-backed Uint8Array
+      const raw = compressed as Uint8Array;
+      const plain = new Uint8Array(raw.byteLength);
+      plain.set(raw);
+      const blob = new Blob([plain], { type: 'video/mp4' });
+
+      // Clean up ffmpeg virtual FS
+      await ff.deleteFile(inputName);
+      await ff.deleteFile(outputName);
+
+      // — Upload to Supabase Storage —
+      setUploadPhase('uploading');
+      setUploadProgress(0);
+
+      const nextVersion = versions.length + 1;
+      const path = `${clipDetailsCode}-v${nextVersion}.mp4`;
+
       const { error: uploadError } = await supabase.storage
         .from('Clips')
-        .upload(path, file, { upsert: false });
+        .upload(path, blob, { upsert: true, contentType: 'video/mp4' });
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage.from('Clips').getPublicUrl(path);
-      const publicUrl = urlData.publicUrl;
-      const nextVersion = versions.length + 1;
-      await addClipVersion(clipDetailsCode, publicUrl, nextVersion);
+      await addClipVersion(clipDetailsCode, urlData.publicUrl, nextVersion);
 
       const updated = await getClipVersions(clipDetailsCode);
       setVersions(updated);
-      const newest = updated[updated.length - 1];
-      setActiveVersion(newest);
+      setActiveVersion(updated[updated.length - 1]);
     } catch {
       // non-fatal
     } finally {
-      setUploading(false);
+      setUploadPhase(null);
+      setUploadProgress(0);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
@@ -204,19 +256,26 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
           />
           <button
             onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--gold-border)] bg-[var(--gold-dim)] text-[var(--gold)] hover:bg-[rgba(212,146,42,0.12)] transition-colors disabled:opacity-50"
+            disabled={uploadPhase !== null}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--gold-border)] bg-[var(--gold-dim)] text-[var(--gold)] hover:bg-[rgba(212,146,42,0.12)] transition-colors disabled:opacity-50 min-w-[120px]"
           >
-            {uploading ? (
-              <div className="w-3 h-3 border border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
+            {uploadPhase ? (
+              <>
+                <div className="w-3 h-3 border border-[var(--gold)] border-t-transparent rounded-full animate-spin shrink-0" />
+                <span>
+                  {uploadPhase === 'compressing' ? `Compressing ${uploadProgress}%` : `Uploading…`}
+                </span>
+              </>
             ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
+              <>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 shrink-0">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                  <polyline points="17 8 12 3 7 8" />
+                  <line x1="12" y1="3" x2="12" y2="15" />
+                </svg>
+                Upload Version
+              </>
             )}
-            {uploading ? 'Uploading…' : 'Upload Version'}
           </button>
         </div>
       </div>
