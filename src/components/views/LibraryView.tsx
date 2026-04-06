@@ -25,24 +25,46 @@ async function getOrGenerateThumbnail(code: string, videoUrl: string): Promise<s
     vid.preload = 'metadata';
     vid.crossOrigin = 'anonymous';
     vid.src = proxy;
-    vid.currentTime = 0.1;
+
+    const timeout = setTimeout(() => resolve(null), 20000);
+
+    vid.addEventListener('error', () => { clearTimeout(timeout); resolve(null); }, { once: true });
+
     vid.addEventListener('seeked', () => {
-      const canvas = document.createElement('canvas');
-      canvas.width = vid.videoWidth || 320;
-      canvas.height = vid.videoHeight || 568;
-      canvas.getContext('2d')?.drawImage(vid, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(async (blob) => {
-        if (blob) {
-          await supabase.storage.from('thumbnails').upload(path, blob, {
-            contentType: 'image/jpeg',
-            upsert: false,
-          });
-        }
-        resolve(blob ? publicUrl : null);
-      }, 'image/jpeg', 0.8);
+      clearTimeout(timeout);
+      try {
+        const canvas = document.createElement('canvas');
+        canvas.width = vid.videoWidth || 320;
+        canvas.height = vid.videoHeight || 568;
+        canvas.getContext('2d')?.drawImage(vid, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            await supabase.storage.from('thumbnails').upload(path, blob, {
+              contentType: 'image/jpeg',
+              upsert: false,
+            }).catch(() => {});
+          }
+          resolve(blob ? publicUrl : null);
+        }, 'image/jpeg', 0.8);
+      } catch {
+        resolve(null);
+      }
     }, { once: true });
+
+    // Must wait for metadata before seeking — setting currentTime before load resolves is a no-op
+    vid.addEventListener('loadedmetadata', () => { vid.currentTime = 0.1; }, { once: true });
+
     vid.load();
   });
+}
+
+function ThumbCell({ src, className }: { src: string; className: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <div className={`${className} bg-[rgba(247,231,206,0.03)]`} />;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={src} alt="" className={`${className} object-cover`} onError={() => setFailed(true)} />
+  );
 }
 
 function extractEpisodePrefix(clip_details_code: string | null): string | null {
@@ -211,29 +233,20 @@ export default function LibraryView() {
                 {/* Collage: large left + two stacked right */}
                 <div className="w-full aspect-video bg-[#0a0a0a] flex overflow-hidden">
                   <div className="flex-[3] overflow-hidden">
-                    {thumbs?.[0] ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={thumbs[0]} alt="" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full bg-[rgba(247,231,206,0.03)]" />
-                    )}
+                    {thumbs?.[0]
+                      ? <ThumbCell src={thumbs[0]} className="w-full h-full" />
+                      : <div className="w-full h-full bg-[rgba(247,231,206,0.03)]" />}
                   </div>
                   <div className="flex-[2] flex flex-col border-l border-[rgba(0,0,0,0.4)]">
                     <div className="flex-1 overflow-hidden border-b border-[rgba(0,0,0,0.4)]">
-                      {thumbs?.[1] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={thumbs[1]} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-[rgba(247,231,206,0.02)]" />
-                      )}
+                      {thumbs?.[1]
+                        ? <ThumbCell src={thumbs[1]} className="w-full h-full" />
+                        : <div className="w-full h-full bg-[rgba(247,231,206,0.02)]" />}
                     </div>
                     <div className="flex-1 overflow-hidden">
-                      {thumbs?.[2] ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={thumbs[2]} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full bg-[rgba(247,231,206,0.02)]" />
-                      )}
+                      {thumbs?.[2]
+                        ? <ThumbCell src={thumbs[2]} className="w-full h-full" />
+                        : <div className="w-full h-full bg-[rgba(247,231,206,0.02)]" />}
                     </div>
                   </div>
                 </div>
