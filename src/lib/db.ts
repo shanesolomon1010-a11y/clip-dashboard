@@ -552,6 +552,88 @@ export async function deleteClipDetail(clipCode: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── Clip versions ─────────────────────────────────────────────────────────────
+
+export interface ClipVersion {
+  id: string;
+  clip_details_code: string;
+  version_number: number;
+  video_url: string;
+  created_at: string;
+}
+
+export async function getClipVersions(clip_details_code: string): Promise<ClipVersion[]> {
+  const { data, error } = await supabase
+    .from('clip_versions')
+    .select('*')
+    .eq('clip_details_code', clip_details_code)
+    .order('version_number', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ClipVersion[];
+}
+
+export async function addClipVersion(
+  clip_details_code: string,
+  video_url: string,
+  version_number: number
+): Promise<void> {
+  const { error } = await supabase
+    .from('clip_versions')
+    .insert({ clip_details_code, video_url, version_number });
+  if (error) throw error;
+}
+
+// ── Review comments ───────────────────────────────────────────────────────────
+
+export interface ReviewComment {
+  id: string;
+  clip_details_code: string;
+  version_id: string;
+  timestamp_start: number;
+  timestamp_end: number | null;
+  comment: string;
+  author: string;
+  resolved: boolean;
+  created_at: string;
+}
+
+export async function getReviewComments(
+  clip_details_code: string,
+  version_id: string
+): Promise<ReviewComment[]> {
+  const { data, error } = await supabase
+    .from('review_comments')
+    .select('*')
+    .eq('clip_details_code', clip_details_code)
+    .eq('version_id', version_id)
+    .order('timestamp_start', { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as ReviewComment[];
+}
+
+export async function addReviewComment(payload: {
+  clip_details_code: string;
+  version_id: string;
+  timestamp_start: number;
+  timestamp_end: number | null;
+  comment: string;
+}): Promise<void> {
+  const { error } = await supabase.from('review_comments').insert({
+    ...payload,
+    author: 'User',
+    resolved: false,
+  });
+  if (error) throw error;
+}
+
+export async function resolveComment(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('review_comments')
+    .update({ resolved: true })
+    .eq('id', id);
+  if (error) throw error;
+}
+
 // ── Clip stats ──────────────────────────────────────────────────────────────────
 
 export interface ClipStats {
