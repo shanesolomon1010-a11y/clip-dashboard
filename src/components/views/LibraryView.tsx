@@ -34,6 +34,7 @@ export default function LibraryView() {
   );
   const [loading, setLoading] = useState(true);
   const [clipsByEpisode, setClipsByEpisode] = useState<Record<string, EpisodeClip[]>>({});
+  const [clipCounts, setClipCounts] = useState<Record<string, number>>({});
   const [folderThumbs, setFolderThumbs] = useState<Record<string, (string | null)[]>>({});
 
   useEffect(() => {
@@ -41,18 +42,21 @@ export default function LibraryView() {
       .then((rows) => {
         const prefixes = new Set<string>();
         const byEpisode: Record<string, EpisodeClip[]> = {};
+        const counts: Record<string, number> = {};
         for (const row of rows) {
           const prefix = extractEpisodePrefix(row.clip_details_code);
           if (prefix) {
             prefixes.add(prefix);
+            counts[prefix] = (counts[prefix] ?? 0) + 1;
             if (!byEpisode[prefix]) byEpisode[prefix] = [];
-            if (byEpisode[prefix].length < 4 && row.video_url) {
+            if (byEpisode[prefix].length < 3 && row.video_url) {
               byEpisode[prefix].push({ code: row.clip_details_code ?? '', videoUrl: row.video_url });
             }
           }
         }
         setEpisodes(Array.from(prefixes).sort());
         setClipsByEpisode(byEpisode);
+        setClipCounts(counts);
       })
       .catch(() => setEpisodes([]))
       .finally(() => setLoading(false));
@@ -178,38 +182,46 @@ export default function LibraryView() {
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
           {episodes.map((episode) => {
             const thumbs = folderThumbs[episode];
-            const hasCollage = thumbs && thumbs.some(Boolean);
             return (
               <button
                 key={episode}
                 onClick={() => handleSelectEpisode(episode)}
-                className="bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl aspect-square overflow-hidden hover:border-[var(--gold-border)] transition-all duration-150 group relative"
+                className="bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl overflow-hidden hover:border-[var(--gold-border)] transition-all duration-150 group text-left"
               >
-                {hasCollage ? (
-                  <>
-                    <div className="w-full h-full grid grid-cols-2 grid-rows-2">
-                      {[0, 1, 2, 3].map((i) => (
-                        <div key={i} className="overflow-hidden bg-[#0a0a0a]">
-                          {thumbs[i] ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={thumbs[i]!} alt="" className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-[rgba(247,231,206,0.03)]" />
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5 bg-gradient-to-t from-black/80 to-transparent">
-                      <span className="text-xs font-semibold text-white">{episode}</span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-sm font-semibold text-[var(--text-2)] group-hover:text-[var(--gold)] transition-colors">
-                      {episode}
-                    </span>
+                {/* Collage: large left + two stacked right */}
+                <div className="w-full aspect-video bg-[#0a0a0a] flex overflow-hidden">
+                  <div className="flex-[3] overflow-hidden">
+                    {thumbs?.[0] ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={thumbs[0]} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-[rgba(247,231,206,0.03)]" />
+                    )}
                   </div>
-                )}
+                  <div className="flex-[2] flex flex-col border-l border-[rgba(0,0,0,0.4)]">
+                    <div className="flex-1 overflow-hidden border-b border-[rgba(0,0,0,0.4)]">
+                      {thumbs?.[1] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={thumbs[1]} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-[rgba(247,231,206,0.02)]" />
+                      )}
+                    </div>
+                    <div className="flex-1 overflow-hidden">
+                      {thumbs?.[2] ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={thumbs[2]} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full bg-[rgba(247,231,206,0.02)]" />
+                      )}
+                    </div>
+                  </div>
+                </div>
+                {/* Info */}
+                <div className="px-3 py-2.5">
+                  <p className="text-sm font-semibold text-[var(--text-1)] group-hover:text-[var(--gold)] transition-colors">{episode}</p>
+                  <p className="text-[11px] text-[var(--text-3)] mt-0.5">{clipCounts[episode] ?? 0} clips</p>
+                </div>
               </button>
             );
           })}
