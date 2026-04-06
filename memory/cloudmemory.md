@@ -3,3 +3,1056 @@
 _This file is appended automatically after every git commit._
 _Read at session start to understand full project history._
 
+
+## 2026-03-15 15:19:40 — 0e7ab07
+**chore: add self-learning memory enhancements (primer, lessons, cloudmemory)**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
+
+## 2026-03-17 14:13:36 — 0d9af17
+**feat: add Script Analyzer with platform-specific scoring and audio transcription**
+
+Changed files:
+  - src/app/api/analyze-script/route.ts
+  - src/app/page.tsx
+  - src/components/Icons.tsx
+  - src/components/ScriptAnalyzer/PlatformScoreCard.tsx
+  - src/components/ScriptAnalyzer/ScoreBreakdown.tsx
+  - src/components/ScriptAnalyzer/ScriptInput.tsx
+  - src/components/ScriptAnalyzer/TranscriptionUploader.tsx
+  - src/components/Sidebar.tsx
+  - src/components/views/ScriptAnalyzerView.tsx
+  - src/lib/db.ts
+  - src/lib/transcribe.ts
+  - src/types/scriptAnalyzer.ts
+
+
+## 2026-03-17 14:27:36 — a6fcba0
+**fix: full site audit — fix all broken features**
+
+Changed files:
+  - src/components/views/CaptionView.tsx
+
+
+## 2026-03-17 14:40:17 — 60454e2
+**feat: add Transcriber as standalone page, split from Script Analyzer**
+
+Changed files:
+  - src/app/page.tsx
+  - src/components/Icons.tsx
+  - src/components/Sidebar.tsx
+  - src/components/views/ScriptAnalyzerView.tsx
+  - src/components/views/TranscriberView.tsx
+
+
+## 2026-03-17 14:46:34 — 213f57b
+**reorder sidebar: Transcriber before Script Analyzer**
+
+Changed files:
+  - src/components/Sidebar.tsx
+
+
+## 2026-03-17 15:31:23 — 8bedfa4
+**Apply Deep Forest + Champagne color scheme globally**
+
+Changed files:
+  - src/app/globals.css
+  - src/components/BestTimeCard.tsx
+  - src/components/GoalsSection.tsx
+  - src/components/MetricCard.tsx
+  - src/components/PlatformBarChart.tsx
+  - src/components/ScriptAnalyzer/PlatformScoreCard.tsx
+  - src/components/ScriptAnalyzer/ScoreBreakdown.tsx
+  - src/components/ScriptAnalyzer/ScriptInput.tsx
+  - src/components/ScriptAnalyzer/TranscriptionUploader.tsx
+  - src/components/Sidebar.tsx
+  - src/components/TopBar.tsx
+  - src/components/TopPostsTable.tsx
+  - src/components/UploadZone.tsx
+  - src/components/VideoPreviewModal.tsx
+  - src/components/ViewsLineChart.tsx
+  - src/components/views/AIInsightsView.tsx
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/CaptionView.tsx
+  - src/components/views/ComparisonView.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/EditorView.tsx
+  - src/components/views/PlatformsView.tsx
+  - src/components/views/ScriptAnalyzerView.tsx
+  - src/components/views/SettingsView.tsx
+  - src/components/views/TranscriberView.tsx
+
+
+## 2026-03-26 18:27:50 — e05d869
+**revert: restore original dark theme, remove Deep Forest/Champagne color scheme**
+
+Changed files:
+  - src/app/globals.css
+
+
+## 2026-03-26 18:38:23 — a9e0b7d
+**docs: add Posting Schedule design spec**
+
+Changed files:
+  - docs/superpowers/specs/2026-03-26-posting-schedule-design.md
+
+
+## 2026-03-26 18:40:13 — bf48fee
+**docs: fix spec issues — row count, migration path, sequencing note**
+
+Changed files:
+  - docs/superpowers/specs/2026-03-26-posting-schedule-design.md
+
+
+## 2026-03-26 18:51:45 — 35da95d
+**docs: add Posting Schedule implementation plan**
+
+Changed files:
+  - docs/superpowers/plans/2026-03-26-posting-schedule.md
+
+
+## 2026-03-26 18:53:32 — 1f354ab
+**feat: add scheduled_posts migration with seed data**
+
+Changed files:
+  - supabase/migrations/20260326_scheduled_posts.sql
+
+
+## 2026-03-26 18:55:22 — 69436eb
+**feat: add IconCalendar SVG to Icons**
+
+Changed files:
+  - src/components/Icons.tsx
+
+
+## 2026-03-26 18:57:14 — 33cd22a
+**feat: add Posting Schedule nav item to sidebar**
+
+Changed files:
+  - src/components/Sidebar.tsx
+
+
+## 2026-03-26 18:58:55 — 9cbcd2a
+**feat: wire PostingScheduleView into app shell**
+
+Changed files:
+  - src/app/page.tsx
+
+
+## 2026-03-26 19:02:20 — cea7c58
+**feat: add PostingScheduleView — calendar grid with slide-in drawer**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-03-26 19:06:00 — e4f3bb5
+**fix: show error state when scheduled_posts fetch fails**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-03-26 19:10:46 — 91543a3
+**refactor: freeze todayStr at mount with useState initializer**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-03-26 19:25:23 — 1c0f5de
+**feat: add clip_details table migration and seed data**
+
+Changed files:
+  - supabase/migrations/20260326_clip_details.sql
+
+
+## 2026-03-26 19:27:19 — 2b47355
+**fix: use NULL instead of empty string for video_url seed rows**
+
+Changed files:
+  - supabase/migrations/20260326_clip_details.sql
+
+
+## 2026-03-26 19:28:09 — e60186c
+**feat: add ClipDetail interface and fetchClipDetails to db.ts**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-03-26 19:37:32 — 8f8ec6b
+**feat: upgrade VideoPreviewModal to full clip detail screen with banner and caption copy**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+  - src/context/VideoModalContext.tsx
+
+
+## 2026-03-26 19:41:08 — 3d43162
+**fix: guard stale fetch responses with cancelled flag in VideoPreviewModal**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+
+
+## 2026-03-26 19:43:38 — 2bd510e
+**feat: wire PostingScheduleView post card titles to open clip detail modal**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-03-26 19:47:19 — d6bf936
+**fix: add webServer config to playwright so e2e tests start the dev server automatically**
+
+Changed files:
+  - playwright.config.ts
+
+
+## 2026-03-26 19:55:38 — d8d7bd5
+**refactor: extract detectEmbed to eliminate URL-parsing duplication between VideoPlayer and MiniPlayer**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+
+
+## 2026-03-26 23:14:22 — 15bba72
+**feat: add scheduling form, clip library, and RLS migration**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+  - supabase/migrations/20260326_rls_policies.sql
+
+
+## 2026-03-27 09:45:33 — 141ddb6
+**Fix Add Clip form: RLS error visibility, optional fields, type safety**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-27 09:59:54 — 4d5ded9
+**Add delete button to scheduled post cards in drawer**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-03-27 11:45:14 — 4fb195c
+**Hide Content nav item and Tools section from sidebar**
+
+Changed files:
+  - src/components/Sidebar.tsx
+  - tests/e2e/captions.spec.ts
+  - tests/e2e/filters.spec.ts
+
+
+## 2026-03-27 11:48:17 — 53638c2
+**Hide platforms and comparison nav items from sidebar**
+
+Changed files:
+  - src/components/Sidebar.tsx
+
+
+## 2026-03-27 11:59:59 — 8423f8e
+**fix: show real empty state when posts table is empty, not sample data**
+
+Changed files:
+  - src/app/page.tsx
+  - tests/e2e/analytics.spec.ts
+  - tests/e2e/dashboard.spec.ts
+  - tests/e2e/modal.spec.ts
+
+
+## 2026-03-27 14:56:15 — 1ec8a3c
+**chore: remove TikTok and Twitter/X, scope to YouTube and Instagram only**
+
+Changed files:
+  - src/app/layout.tsx
+  - src/components/BestTimeCard.tsx
+  - src/components/GoalsSection.tsx
+  - src/components/ScriptAnalyzer/PlatformScoreCard.tsx
+  - src/components/ScriptAnalyzer/ScoreBreakdown.tsx
+  - src/components/TopBar.tsx
+  - src/components/UploadZone.tsx
+  - src/components/VideoPreviewModal.tsx
+  - src/components/views/AIInsightsView.tsx
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/CaptionView.tsx
+  - src/components/views/ComparisonView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/PlatformsView.tsx
+  - src/components/views/PostingScheduleView.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/normalizers.ts
+  - src/lib/sampleData.ts
+  - src/types/index.ts
+  - src/types/scriptAnalyzer.ts
+
+
+## 2026-03-27 15:02:50 — 7b08933
+**feat: redesign CSV import for expanded YouTube and Instagram schema**
+
+Changed files:
+  - src/components/UploadZone.tsx
+  - src/lib/db.ts
+  - src/lib/normalizers.ts
+  - src/types/index.ts
+
+
+## 2026-03-27 15:19:39 — 9292b31
+**feat: redesign analytics view with dynamic metric selector and expanded schema**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-27 15:40:49 — 6d7cc8e
+**feat: update CSV importer for full YouTube daily stats schema**
+
+Changed files:
+  - src/components/UploadZone.tsx
+  - src/lib/db.ts
+  - src/lib/normalizers.ts
+  - src/lib/utils.ts
+  - src/types/index.ts
+
+
+## 2026-03-27 15:49:59 — 8951912
+**fix: correct aggregation for cumulative metrics, add Data Editor to Settings**
+
+Changed files:
+  - src/app/page.tsx
+  - src/components/DataEditorTab.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-27 16:04:13 — 492432f
+**fix: remove top bar, remove welcome text, standardize clip modal, add stats to clip detail**
+
+Changed files:
+  - src/app/page.tsx
+  - src/components/TopPostsTable.tsx
+  - src/components/VideoPreviewModal.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/PlatformsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-27 16:22:09 — b20adfb
+**fix: consolidate clip detail into single unified screen**
+
+Changed files:
+  - src/app/page.tsx
+  - src/components/VideoPreviewModal.tsx
+  - src/context/VideoModalContext.tsx
+
+
+## 2026-03-27 16:23:05 — 4e49420
+**fix: add type guards for optional clip_code in modal open calls**
+
+Changed files:
+  - src/components/TopPostsTable.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/PlatformsView.tsx
+
+
+## 2026-03-27 16:25:17 — 4ea9040
+**fix: remove dead updatePostUrl function**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-03-27 16:34:51 — 96884f8
+**feat: add clip_details_code to UnifiedPost type**
+
+Changed files:
+  - src/types/index.ts
+
+
+## 2026-03-27 16:35:43 — de61602
+**feat: add clip_details_code to posts type and db layer**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-03-27 16:38:38 — 9d66ae7
+**feat: add optional Clip Details Code field to CSV import preview**
+
+Changed files:
+  - src/components/UploadZone.tsx
+
+
+## 2026-03-27 20:14:49 — 342de31
+**fix: resolve clip_details via clip_details_code when available**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-03-27 20:46:54 — 864e0ea
+**Add inline edit for clips in Settings → Clip Library**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-27 20:57:59 — 3e9719d
+**Add bulk link-posts tool in Settings → Clip Library**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-27 21:09:11 — 1807d0f
+**Add mp4/Supabase video support to VideoPreviewModal**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+
+
+## 2026-03-27 21:13:23 — fa0b2c9
+**Allow Supabase Storage media in Content-Security-Policy**
+
+Changed files:
+  - next.config.mjs
+
+
+## 2026-03-27 21:15:34 — 1870ac4
+**Remove Cross-Origin-Embedder-Policy header**
+
+Changed files:
+  - next.config.mjs
+
+
+## 2026-03-27 21:23:56 — fcaf71c
+**Add YouTube Title field to clip forms; persist activeNav to URL**
+
+Changed files:
+  - src/app/page.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+  - supabase/migrations/20260327_add_caption_youtube_title.sql
+
+
+## 2026-03-27 21:38:53 — 4eb8398
+**Restore clips list to top of Clip Library section**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-03-27 21:47:08 — 3762ccc
+**Remove tiktok/linkedin/twitter caption fields from clip forms**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-03-27 21:55:11 — 8624d22
+**feat: merge Link Posts tool into Clip Library add/edit forms**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+  - supabase/migrations/20260327_clip_details_add_code.sql
+
+
+## 2026-03-27 22:13:29 — c8006df
+**feat: remove Title field from Clip Library forms and list**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+  - supabase/migrations/20260327_clip_details_title_nullable.sql
+
+
+## 2026-03-27 22:19:13 — 3fa2446
+**feat: replace clip title displays with clip_code across UI**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+  - src/components/views/PostingScheduleView.tsx
+  - supabase/migrations/20260327_fix_clip_details_title_dot.sql
+
+
+## 2026-03-27 22:27:25 — aae7c1b
+**feat: replace all clip title displays with clip_code across app**
+
+Changed files:
+  - src/components/TopPostsTable.tsx
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/PlatformsView.tsx
+  - src/components/views/PostingScheduleView.tsx
+  - supabase/migrations/20260327_fix_placeholder_titles.sql
+
+
+## 2026-03-27 22:45:54 — 4233352
+**Add YouTube Merger tab to Settings**
+
+Changed files:
+  - src/components/YouTubeMergerTab.tsx
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-03-27 22:49:47 — 48ca0c8
+**YouTube Merger: add Totals CSV input, fix Clip ID placeholder**
+
+Changed files:
+  - src/components/YouTubeMergerTab.tsx
+
+
+## 2026-03-27 23:01:27 — a17b20a
+**YouTube Merger: one row per video with summed engaged views**
+
+Changed files:
+  - src/components/YouTubeMergerTab.tsx
+
+
+## 2026-03-28 11:25:17 — 7319560
+**feat: per-video clip ID mapping in YouTube Merger**
+
+Changed files:
+  - src/components/YouTubeMergerTab.tsx
+
+
+## 2026-03-28 11:59:46 — 4a1de9d
+**fix: normalize platform to lowercase before upsert to prevent duplicates**
+
+Changed files:
+  - src/components/YouTubeMergerTab.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-28 19:20:14 — 7c7258e
+**Make Analytics rows clickable + rebuild VideoPreviewModal layout**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+  - src/components/views/AnalyticsView.tsx
+
+
+## 2026-03-28 19:24:05 — aefb9d0
+**Add platform color accents to VideoPreviewModal caption fields**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+
+
+## 2026-03-29 15:52:58 — 351318a
+**feat: add Apify Instagram Reel sync via Connections tab**
+
+Changed files:
+  - docs/superpowers/plans/2026-03-29-apify-instagram-sync.md
+  - src/components/views/SettingsView.tsx
+  - src/lib/apify.ts
+
+
+## 2026-03-29 15:59:28 — 909aff2
+**fix: route Apify calls through server-side proxy to resolve CORS**
+
+Changed files:
+  - src/app/api/apify/route.ts
+  - src/lib/apify.ts
+
+
+## 2026-03-29 16:01:13 — e9c0126
+**fix: correct Apify actor input format for instagram-reel-scraper**
+
+Changed files:
+  - src/app/api/apify/route.ts
+
+
+## 2026-03-29 16:08:44 — 1c8b48b
+**fix: try Option A input format and add full error logging for apify start**
+
+Changed files:
+  - src/app/api/apify/route.ts
+
+
+## 2026-03-29 16:17:02 — 5afdf19
+**feat: add Instagram session cookie support for Apify sync**
+
+Changed files:
+  - src/app/api/apify/route.ts
+  - src/components/views/SettingsView.tsx
+  - src/lib/apify.ts
+
+
+## 2026-03-29 16:20:29 — 0ef147a
+**fix: surface full Apify error text in UI**
+
+Changed files:
+  - src/app/api/apify/route.ts
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-03-29 16:22:06 — fb4a4ca
+**fix: use username string (not directUrls) in Apify actor input**
+
+Changed files:
+  - src/app/api/apify/route.ts
+
+
+## 2026-03-29 16:24:17 — 572f773
+**fix: wrap username in array for Apify actor input**
+
+Changed files:
+  - src/app/api/apify/route.ts
+
+
+## 2026-03-29 16:27:08 — 036bfa4
+**fix: full error logging and propagation across Apify sync**
+
+Changed files:
+  - src/app/api/apify/route.ts
+  - src/components/views/SettingsView.tsx
+  - src/lib/apify.ts
+
+
+## 2026-03-29 16:28:51 — 8bba017
+**fix: use JSON.stringify fallback for non-Error apify catch**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-03-29 16:41:31 — f0e88a5
+**fix: robust error throws and step logging in apify.ts**
+
+Changed files:
+  - src/lib/apify.ts
+
+
+## 2026-03-29 17:04:10 — d3f99d5
+**refactor: explicit UnifiedPost mapping in apify.ts, only valid DB columns**
+
+Changed files:
+  - src/lib/apify.ts
+
+
+## 2026-03-29 17:16:54 — 40bd259
+**fix: upsert ignoreDuplicates, apify whitelist filter, settings stab URL persistence**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+  - src/lib/apify.ts
+  - src/lib/db.ts
+
+
+## 2026-03-31 13:25:49 — 2b15080
+**feat: dual-source CSV column mapping + new viewer/engagement fields**
+
+Changed files:
+  - src/lib/db.ts
+  - src/lib/normalizers.ts
+  - src/types/index.ts
+
+
+## 2026-03-31 17:28:34 — 41b63db
+**fix: hide Connections tab, remove Goals/CreatorTips, fix views chart x-axis**
+
+Changed files:
+  - src/components/ViewsLineChart.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-03-31 17:44:45 — f59073e
+**feat: replace line charts with Views by Clip bar chart in Dashboard + Analytics**
+
+Changed files:
+  - src/components/ViewsLineChart.tsx
+  - src/components/views/AnalyticsView.tsx
+
+
+## 2026-03-31 17:48:07 — 1f6beab
+**remove: Views by Clip bar chart from Dashboard and Analytics views**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-03-31 18:11:49 — bc03f4a
+**Redesign Analytics tab with per-metric bar chart cards**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+
+
+## 2026-03-31 22:23:05 — be7b1a9
+**Add per-metric chart types to Analytics cards**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+
+
+## 2026-03-31 23:07:52 — cb05c55
+**Redesign analytics metric cards to use line charts by date**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-31 23:13:23 — b75c734
+**Add Y axis labels to analytics line chart cards**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+
+
+## 2026-03-31 23:29:14 — 0f14254
+**Dashboard: fix top content ranking + add chart, peak day, and health badges**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+  - src/lib/db.ts
+
+
+## 2026-03-31 23:32:02 — 8602350
+**Dashboard: add PostingHeatmap cadence component**
+
+Changed files:
+  - src/components/PostingHeatmap.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-03-31 23:41:17 — e225117
+**Fix view count aggregation across Dashboard and all views**
+
+Changed files:
+  - src/components/TopPostsTable.tsx
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/ComparisonView.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/PlatformsView.tsx
+
+
+## 2026-03-31 23:44:00 — 658ca14
+**Remove PostingHeatmap from Dashboard**
+
+Changed files:
+  - src/components/PostingHeatmap.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-04-01 00:00:22 — 7877fe3
+**Dashboard: replace 4-card stat bar with 8-card metric grid**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-04-01 14:19:24 — 40d590e
+**YouTube Merger: add date picker, imported-dates calendar, and stat_date output**
+
+Changed files:
+  - src/components/YouTubeMergerTab.tsx
+
+
+## 2026-04-01 14:32:09 — 7945c13
+**Posting schedule: replace hardcoded time with 30-min interval dropdown**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-04-01 14:40:02 — 302d34b
+**Posting schedule: inline time editing on existing post cards**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-04-01 14:43:45 — 5b81bf7
+**Fix inline time save: error handling, optimistic state update, logging**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-04-03 11:21:28 — 3c1f12a
+**YouTube Analytics API: OAuth flow, token sync, Settings UI**
+
+Changed files:
+  - src/app/api/auth/callback/route.ts
+  - src/app/api/auth/route.ts
+  - src/app/api/youtube/status/route.ts
+  - src/app/api/youtube/sync/route.ts
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-03 11:25:57 — 91d4b17
+**Remove Apify Instagram sync (lib, API route, Settings card)**
+
+Changed files:
+  - src/app/api/apify/route.ts
+  - src/components/views/SettingsView.tsx
+  - src/lib/apify.ts
+
+
+## 2026-04-04 12:33:44 — 89156e9
+**Remove health score badge from top content clip cards**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-04-05 23:51:25 — 9c83feb
+**Add clip versions and review comments DB functions**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-04-05 23:54:15 — b0c9209
+**Add Library tab with episode folder grid**
+
+Changed files:
+  - src/app/page.tsx
+  - src/components/Icons.tsx
+  - src/components/Sidebar.tsx
+  - src/components/views/ClipGrid.tsx
+  - src/components/views/LibraryView.tsx
+
+
+## 2026-04-05 23:58:00 — 063c1db
+**Build out Library ClipGrid and ClipReviewView**
+
+Changed files:
+  - src/components/views/ClipGrid.tsx
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 00:05:25 — a06668a
+**Add Scan Bucket API route and button to ClipReviewView**
+
+Changed files:
+  - src/app/api/library/scan/route.ts
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 00:08:19 — d5ab3f9
+**Add FFmpeg.wasm compress-then-upload flow to ClipReviewView**
+
+Changed files:
+  - next.config.mjs
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 00:09:26 — 50474ca
+**Fix clip_details_code extraction in scan route**
+
+Changed files:
+  - src/app/api/library/scan/route.ts
+
+
+## 2026-04-06 00:12:09 — d331717
+**Add temporary debug logging to scan route**
+
+Changed files:
+  - src/app/api/library/scan/route.ts
+
+
+## 2026-04-06 00:19:30 — 7fc5a00
+**Fix Storage list call in scan route**
+
+Changed files:
+  - src/app/api/library/scan/route.ts
+
+
+## 2026-04-06 00:26:12 — 5369f0b
+**Use service role key in scan route**
+
+Changed files:
+  - src/app/api/library/scan/route.ts
+
+
+## 2026-04-06 00:26:42 — fc1f7fc
+**Move supabase client creation inside handler to fix build**
+
+Changed files:
+  - src/app/api/library/scan/route.ts
+
+
+## 2026-04-06 00:33:42 — 62539a6
+**Three Library fixes: batch upsert, scan reload, URL state persistence**
+
+Changed files:
+  - src/app/api/library/scan/route.ts
+  - src/components/views/ClipGrid.tsx
+  - src/components/views/ClipReviewView.tsx
+  - src/components/views/LibraryView.tsx
+
+
+## 2026-04-06 00:41:01 — 23e3f7e
+**Fix ClipGrid query to ilike and ClipReviewView to prefer clip_details video_url**
+
+Changed files:
+  - src/components/views/ClipGrid.tsx
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 00:44:08 — be838b8
+**Fix video element to use clip_details.video_url directly with logging**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 00:48:02 — 0fdf896
+**Match VideoPreviewModal video element pattern in ClipReviewView**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 00:50:29 — 127459a
+**Replace video element with iframe to bypass COEP restriction**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 00:53:13 — d47687d
+**Add video-proxy API route and switch ClipReviewView back to video element**
+
+Changed files:
+  - src/app/api/video-proxy/route.ts
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 01:01:31 — acea05f
+**Redesign ClipReviewView layout and add video thumbnails to clip grid**
+
+Changed files:
+  - src/components/views/ClipGrid.tsx
+  - src/components/views/ClipReviewView.tsx
+  - src/components/views/LibraryView.tsx
+
+
+## 2026-04-06 01:05:57 — 0f68096
+**Fix comment input and confirm video scrubbing is unblocked**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 12:39:42 — b8ffefe
+**Add custom video scrubber, fix thumbnail sizing, add episode folder collage**
+
+Changed files:
+  - src/components/views/ClipGrid.tsx
+  - src/components/views/ClipReviewView.tsx
+  - src/components/views/LibraryView.tsx
+
+
+## 2026-04-06 12:51:52 — 64df3f5
+**Fix video scrubber seek conflict and redesign episode folder cards**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+  - src/components/views/LibraryView.tsx
+
+
+## 2026-04-06 12:56:09 — 1460e43
+**Replace controlled scrubber with uncontrolled ref-based input**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 12:59:22 — 0e27b2c
+**Cache episode folder thumbnails in Supabase Storage**
+
+Changed files:
+  - src/components/views/LibraryView.tsx
+
+
+## 2026-04-06 13:08:37 — ffea8ec
+**Fix video-proxy range request support for scrubbing**
+
+Changed files:
+  - src/app/api/video-proxy/route.ts
+
+
+## 2026-04-06 13:15:10 — 1f9474c
+**Rebuild comment system: fix add button, add timeline markers, range selection**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 13:31:37 — 49b7f03
+**Fix timeline seek, resolved appearance, and toggle unresolve**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 13:38:04 — 8d36486
+**Click video to play/pause; align timeline dots with scrubber**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-06 13:42:28 — 71ee10e
+**Add comment deletion**
+
+Changed files:
+  - src/components/views/ClipReviewView.tsx
+  - src/lib/db.ts
+
+
+## 2026-04-06 13:52:52 — 3dcbb2f
+**Fix episode folder thumbnail loading**
+
+Changed files:
+  - src/components/views/LibraryView.tsx
+
+
+## 2026-04-06 13:54:18 — cc21f6e
+**Route VideoPreviewModal mp4 src through video-proxy**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+
+
+## 2026-04-06 13:59:49 — a130687
+**Store thumbnails in clip_details.thumbnail_base64 instead of Storage bucket**
+
+Changed files:
+  - src/components/views/LibraryView.tsx
+  - src/lib/db.ts
+
+
+## 2026-04-06 14:02:45 — 34f21af
+**Add 'Generate All Thumbnails' button to Library page**
+
+Changed files:
+  - src/components/views/LibraryView.tsx
+

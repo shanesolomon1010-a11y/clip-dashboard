@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Color Scheme Mockup — Cherry Red + Butter Yellow</title>
+<style>
+  /* ─── NEW COLOR SYSTEM ──────────────────────────────── */
+  :root {
+    --bg-base:       #0a0a0a;
+    --bg-elevated:   #111111;
+    --bg-card:       #161616;
+    --bg-hover:      #1d1d1d;
+
+    --border:        rgba(255,255,255,0.06);
+    --border-md:     rgba(255,255,255,0.09);
+    --border-hi:     rgba(255,255,255,0.14);
+
+    /* PRIMARY — Cherry Red (replaces gold) */
+    --red:           #FF4747;
+    --red-hi:        #FF6B6B;
+    --red-dim:       rgba(255,71,71,0.08);
+    --red-border:    rgba(255,71,71,0.22);
+
+    /* SECONDARY — Butter Yellow (highlights, badges, hovers) */
+    --yellow:        #F7E998;
+    --yellow-dim:    rgba(247,233,152,0.10);
+    --yellow-border: rgba(247,233,152,0.28);
+
+    --text-1:  #f2ede6;
+    --text-2:  #7a7068;
+    --text-3:  #47403a;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-base);
+    color: var(--text-1);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ─── COMPARISON STRIP AT TOP ───────────────────────── */
+  .comparison {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: #0d0d0d;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    display: flex;
+    align-items: center;
+    gap: 32px;
+    padding: 10px 24px;
+    z-index: 100;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-2);
+  }
+  .swatch { display: flex; align-items: center; gap: 8px; }
+  .dot { width: 14px; height: 14px; border-radius: 50%; }
+  .dot-old   { background: #d4922a; }
+  .dot-red   { background: #FF4747; }
+  .dot-yellow{ background: #F7E998; }
+  .arrow { color: var(--text-3); margin: 0 4px; }
+
+  /* ─── LAYOUT ─────────────────────────────────────────── */
+  .shell {
+    display: flex;
+    width: 100%;
+    margin-top: 41px; /* height of comparison bar */
+    height: calc(100vh - 41px);
+  }
+
+  /* ─── SIDEBAR ────────────────────────────────────────── */
+  aside {
+    width: 192px;
+    flex-shrink: 0;
+    height: 100%;
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+  .wordmark {
+    padding: 24px 20px 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .wordmark h1 {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-1);
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .wordmark p {
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    color: var(--text-3);
+    text-transform: uppercase;
+    margin-top: 6px;
+    font-weight: 500;
+  }
+  nav {
+    flex: 1;
+    padding: 20px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+    overflow-y: auto;
+  }
+  .nav-group-label {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    padding: 0 8px;
+    margin-bottom: 4px;
+  }
+  .nav-items { display: flex; flex-direction: column; gap: 1px; }
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-2);
+    cursor: pointer;
+    position: relative;
+    transition: all 0.1s;
+  }
+  .nav-item:hover {
+    color: var(--text-1);
+    background: var(--bg-hover);
+  }
+  .nav-item.active {
+    color: var(--red);
+    background: var(--red-dim);
+  }
+  .nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 6px; bottom: 6px;
+    width: 2px;
+    background: var(--red);
+    border-radius: 99px;
+  }
+  .nav-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    color: var(--text-3);
+  }
+  .nav-item.active .nav-icon { color: var(--red); }
+  .nav-item:hover .nav-icon  { color: var(--text-2); }
+  /* AI badge — Butter Yellow */
+  .badge {
+    font-size: 9px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--yellow-dim);
+    color: var(--yellow);
+    border: 1px solid var(--yellow-border);
+    line-height: 1;
+    margin-left: auto;
+  }
+  .nav-item.active .badge { display: none; }
+
+  /* Sidebar import CTA */
+  .sidebar-cta {
+    padding: 0 12px 20px;
+  }
+  .sidebar-cta-inner {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .sidebar-cta-inner h4 {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-2);
+    margin-bottom: 6px;
+  }
+  .sidebar-cta-inner p {
+    font-size: 10px;
+    color: var(--text-3);
+    line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .btn-cta {
+    width: 100%;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--red);
+    border: 1px solid var(--red-border);
+    background: var(--red-dim);
+    border-radius: 8px;
+    padding: 8px;
+    cursor: pointer;
+  }
+
+  /* ─── MAIN ───────────────────────────────────────────── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    overflow: hidden;
+  }
+  .topbar {
+    height: 52px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    gap: 16px;
+    flex-shrink: 0;
+    background: var(--bg-base);
+  }
+  .topbar-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-1);
+  }
+  .topbar-pill {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text-3);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 99px;
+    padding: 3px 10px;
+  }
+  .content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* ─── STAT CARDS ─────────────────────────────────────── */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .stat-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 10px;
+  }
+  .stat-value {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--text-1);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .stat-delta {
+    font-size: 11px;
+    font-weight: 600;
+    color: #34d399;
+  }
+  /* One highlighted stat with red accent */
+  .stat-card.featured {
+    border-color: var(--red-border);
+    background: var(--red-dim);
+  }
+  .stat-card.featured .stat-value {
+    color: var(--red);
+  }
+
+  /* ─── SECTION LABEL ─────────────────────────────────── */
+  .section-head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 2px;
+  }
+  .section-head h2 {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text-1);
+  }
+  .section-head p {
+    font-size: 12px;
+    color: var(--text-3);
+  }
+
+  /* ─── PLATFORM SCORE CARDS ───────────────────────────── */
+  .platform-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+  }
+  .platform-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+  .platform-bar { height: 3px; }
+  .platform-body { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .platform-header { display: flex; align-items: center; justify-content: space-between; }
+  .platform-name { font-size: 12px; font-weight: 600; color: var(--text-2); }
+  .platform-delta {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+  .delta-pos { background: rgba(52,211,153,0.1); color: #34d399; border-color: rgba(52,211,153,0.2); }
+  .delta-neg { background: rgba(255,71,71,0.08); color: var(--red); border-color: var(--red-border); }
+  .score-num { font-size: 42px; font-weight: 900; line-height: 1; }
+  .score-bar-track { background: rgba(255,255,255,0.06); border-radius: 99px; height: 5px; overflow: hidden; margin-top: 4px; }
+  .score-bar-fill { height: 100%; border-radius: 99px; }
+  .platform-summary { font-size: 10px; color: var(--text-3); line-height: 1.5; }
+
+  /* ─── CAPTION GENERATOR PREVIEW ─────────────────────── */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .card h3 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-1);
+    margin-bottom: 14px;
+  }
+  .field-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-3);
+    margin-bottom: 6px;
+  }
+  textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-size: 13px;
+    color: var(--text-2);
+    resize: none;
+    font-family: inherit;
+    margin-bottom: 12px;
+  }
+  textarea:focus { outline: 1.5px solid rgba(255,71,71,0.5); border-color: var(--red-border); }
+  .chip-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .chip {
+    padding: 5px 12px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--text-2);
+    background: transparent;
+    cursor: pointer;
+  }
+  /* Active chip — Cherry Red */
+  .chip.active {
+    background: var(--red-dim);
+    border-color: var(--red-border);
+    color: var(--red);
+  }
+  /* Hover chip — Butter Yellow */
+  .chip.hover {
+    background: var(--yellow-dim);
+    border-color: var(--yellow-border);
+    color: var(--yellow);
+  }
+  .btn-primary {
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--red);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-secondary {
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    background: var(--yellow-dim);
+    color: var(--yellow);
+    border: 1px solid var(--yellow-border);
+    cursor: pointer;
+  }
+  .btn-row { display: flex; gap: 8px; margin-top: 14px; }
+
+  /* History row item */
+  .history-item { padding: 14px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  .history-tags { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .tag {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 5px;
+  }
+  /* Platform tag — Cherry Red */
+  .tag.platform {
+    background: var(--red-dim);
+    color: var(--red);
+    border: 1px solid var(--red-border);
+  }
+  /* Tone tag — Butter Yellow */
+  .tag.tone {
+    background: var(--yellow-dim);
+    color: var(--yellow);
+    border: 1px solid var(--yellow-border);
+  }
+  .tag.time {
+    background: transparent;
+    color: var(--text-3);
+    border: 1px solid rgba(255,255,255,0.06);
+    margin-left: auto;
+  }
+  .history-text { font-size: 12px; color: var(--text-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+  .history-caption { font-size: 13px; color: var(--text-1); line-height: 1.4; }
+
+  /* ─── SCORE RING ─────────────────────────────────────── */
+  .ring-card {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+  .ring-meta { flex: 1; }
+  .ring-meta h3 { font-size: 15px; font-weight: 700; color: var(--text-1); margin-bottom: 2px; }
+  .ring-meta p  { font-size: 11px; font-weight: 600; color: var(--red); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; }
+  .badge-row { display: flex; flex-wrap: wrap; gap: 6px; }
+  .badge-item {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 4px 8px;
+    border-radius: 5px;
+    border: 1px solid;
+  }
+  /* Hook excellent — yellow */
+  .badge-excellent { background: var(--yellow-dim); color: var(--yellow); border-color: var(--yellow-border); }
+  /* CTA present — green */
+  .badge-green { background: rgba(52,211,153,0.1); color: #34d399; border-color: rgba(52,211,153,0.2); }
+  /* Length ideal — green */
+  /* Duration — neutral */
+  .badge-neutral { background: rgba(255,255,255,0.05); color: var(--text-2); border-color: rgba(255,255,255,0.10); }
+
+  /* Focus ring */
+  :focus-visible { outline: 1.5px solid rgba(255,71,71,0.5); outline-offset: 2px; }
+
+  /* ─── LEGEND ─────────────────────────────────────────── */
+  .legend {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #1a1a1a;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-2);
+    line-height: 2;
+    z-index: 100;
+  }
+  .legend strong { color: var(--text-1); font-weight: 700; display: block; margin-bottom: 4px; }
+  .legend .l-row { display: flex; align-items: center; gap: 8px; }
+  .l-dot { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- Comparison strip -->
+<div class="comparison">
+  <span style="color:#f2ede6; font-weight:700;">COLOR SCHEME PREVIEW</span>
+  <div class="swatch"><div class="dot dot-old"></div> Current: Gold #d4922a</div>
+  <span class="arrow">→</span>
+  <div class="swatch"><div class="dot dot-red"></div> Primary: Cherry Red #FF4747</div>
+  <span style="color:rgba(255,255,255,0.2)">+</span>
+  <div class="swatch"><div class="dot dot-yellow"></div> Secondary: Butter Yellow #F7E998</div>
+</div>
+
+<div class="shell">
+  <!-- SIDEBAR -->
+  <aside>
+    <div class="wordmark">
+      <h1>Clip Studio</h1>
+      <p>Creator Analytics</p>
+    </div>
+    <nav>
+      <div>
+        <div class="nav-group-label">Analytics</div>
+        <div class="nav-items">
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+            Dashboard
+          </div>
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+            Content
+          </div>
+          <div class="nav-item active">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 16 4-5 4 3 4-6"/></svg>
+            Analytics
+          </div>
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            Platforms
+          </div>
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-3"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+            Comparison
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="nav-group-label">Tools</div>
+        <div class="nav-items">
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.88 5.76a1 1 0 00.95.69H21l-4.94 3.59a1 1 0 00-.36 1.12L17.58 20 12 16.41 6.42 20l1.88-5.84a1 1 0 00-.36-1.12L3 9.45h6.17a1 1 0 00.95-.69L12 3z"/></svg>
+            Captions
+            <span class="badge">AI</span>
+          </div>
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.88 5.76a1 1 0 00.95.69H21l-4.94 3.59a1 1 0 00-.36 1.12L17.58 20 12 16.41 6.42 20l1.88-5.84a1 1 0 00-.36-1.12L3 9.45h6.17a1 1 0 00.95-.69L12 3z"/></svg>
+            AI Insights
+            <span class="badge">AI</span>
+          </div>
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+            Transcriber
+            <span class="badge">AI</span>
+          </div>
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
+            Script Analyzer
+            <span class="badge">AI</span>
+          </div>
+          <div class="nav-item">
+            <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg>
+            Editor
+            <span class="badge">AI</span>
+          </div>
+        </div>
+      </div>
+    </nav>
+    <div class="sidebar-cta">
+      <div class="sidebar-cta-inner">
+        <h4>Import Data</h4>
+        <p>Upload CSV exports from any platform.</p>
+        <button class="btn-cta">Upload CSV</button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="topbar">
+      <span class="topbar-title">Analytics</span>
+      <span class="topbar-pill">247 posts</span>
+    </div>
+
+    <div class="content">
+
+      <!-- STAT CARDS -->
+      <div class="stat-grid">
+        <div class="stat-card featured">
+          <div class="stat-label">Total Views</div>
+          <div class="stat-value">4.2M</div>
+          <div class="stat-delta">↑ 18% this month</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Avg Engagement</div>
+          <div class="stat-value">8.4%</div>
+          <div class="stat-delta">↑ 3% vs last</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Posts Published</div>
+          <div class="stat-value">247</div>
+          <div style="font-size:11px;color:var(--text-3)">All platforms</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Top Platform</div>
+          <div class="stat-value" style="font-size:20px;margin-top:4px">TikTok</div>
+          <div style="font-size:11px;color:var(--text-3)">2.1M views</div>
+        </div>
+      </div>
+
+      <!-- SCRIPT ANALYZER SCORE -->
+      <div>
+        <div class="section-head">
+          <h2>Script Analysis</h2>
+          <p>Platform Algorithm Scores</p>
+        </div>
+      </div>
+
+      <!-- Score ring + badges -->
+      <div class="ring-card">
+        <!-- SVG ring — Cherry Red -->
+        <svg width="100" height="100" viewBox="0 0 120 120" style="transform:rotate(-90deg);flex-shrink:0">
+          <circle cx="60" cy="60" r="46" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
+          <circle cx="60" cy="60" r="46" fill="none" stroke="#FF4747" stroke-width="8"
+            stroke-linecap="round"
+            stroke-dasharray="289"
+            stroke-dashoffset="72"
+            style="transition:stroke-dashoffset 1s ease"/>
+        </svg>
+        <div style="position:absolute;display:flex;flex-direction:column;align-items:center;margin-left:20px;transform:translate(-50%,0);left:136px">
+          <span style="font-size:26px;font-weight:900;color:#FF4747;line-height:1">75</span>
+          <span style="font-size:9px;color:var(--text-3);letter-spacing:0.12em;text-transform:uppercase;margin-top:2px">/ 100</span>
+        </div>
+        <div class="ring-meta" style="margin-left:16px">
+          <h3>Content Quality Score</h3>
+          <p>Platform Independent</p>
+          <div class="badge-row">
+            <span class="badge-item badge-excellent">Hook: Excellent</span>
+            <span class="badge-item badge-neutral">~45 seconds</span>
+            <span class="badge-item badge-green">Ideal Length</span>
+            <span class="badge-item badge-green">CTA: Present</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- PLATFORM SCORE CARDS -->
+      <div class="platform-grid">
+        <!-- TikTok -->
+        <div class="platform-card">
+          <div class="platform-bar" style="background:#FF004F"></div>
+          <div class="platform-body">
+            <div class="platform-header">
+              <span class="platform-name">🎵 TikTok</span>
+              <span class="platform-delta delta-pos">+12</span>
+            </div>
+            <div>
+              <div class="score-num" style="color:#FF004F">87</div>
+              <div class="score-bar-track"><div class="score-bar-fill" style="width:87%;background:#FF004F"></div></div>
+            </div>
+            <div class="platform-summary">Strong hook and completion signals with viral potential.</div>
+          </div>
+        </div>
+        <!-- YT Shorts -->
+        <div class="platform-card">
+          <div class="platform-bar" style="background:#FF0000"></div>
+          <div class="platform-body">
+            <div class="platform-header">
+              <span class="platform-name">📺 YT Shorts</span>
+              <span class="platform-delta delta-pos">+5</span>
+            </div>
+            <div>
+              <div class="score-num" style="color:#FF0000">80</div>
+              <div class="score-bar-track"><div class="score-bar-fill" style="width:80%;background:#FF0000"></div></div>
+            </div>
+            <div class="platform-summary">Good topic clarity boosts search discovery potential.</div>
+          </div>
+        </div>
+        <!-- Instagram -->
+        <div class="platform-card">
+          <div class="platform-bar" style="background:#C13584"></div>
+          <div class="platform-body">
+            <div class="platform-header">
+              <span class="platform-name">📸 Instagram</span>
+              <span class="platform-delta delta-neg">-8</span>
+            </div>
+            <div>
+              <div class="score-num" style="color:#C13584">67</div>
+              <div class="score-bar-track"><div class="score-bar-fill" style="width:67%;background:#C13584"></div></div>
+            </div>
+            <div class="platform-summary">Low save-worthiness — needs a clear tip or insight.</div>
+          </div>
+        </div>
+        <!-- LinkedIn -->
+        <div class="platform-card">
+          <div class="platform-bar" style="background:#0A66C2"></div>
+          <div class="platform-body">
+            <div class="platform-header">
+              <span class="platform-name">💼 LinkedIn</span>
+              <span class="platform-delta delta-neg">-20</span>
+            </div>
+            <div>
+              <div class="score-num" style="color:#0A66C2">55</div>
+              <div class="score-bar-track"><div class="score-bar-fill" style="width:55%;background:#0A66C2"></div></div>
+            </div>
+            <div class="platform-summary">Tone too casual; lacks professional business takeaway.</div>
+          </div>
+        </div>
+        <!-- Twitter/X -->
+        <div class="platform-card">
+          <div class="platform-bar" style="background:#1D9BF0"></div>
+          <div class="platform-body">
+            <div class="platform-header">
+              <span class="platform-name">🐦 Twitter/X</span>
+              <span class="platform-delta delta-pos">+3</span>
+            </div>
+            <div>
+              <div class="score-num" style="color:#1D9BF0">78</div>
+              <div class="score-bar-track"><div class="score-bar-fill" style="width:78%;background:#1D9BF0"></div></div>
+            </div>
+            <div class="platform-summary">Punchy hook works well; add a quotable moment.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- CAPTION GENERATOR + HISTORY -->
+      <div class="two-col">
+        <!-- Caption Generator -->
+        <div class="card">
+          <h3>Caption Generator</h3>
+          <div class="field-label">Platform</div>
+          <div class="chip-row">
+            <button class="chip active">TikTok</button>
+            <button class="chip">Instagram</button>
+            <button class="chip hover">LinkedIn</button>
+            <button class="chip">X</button>
+            <button class="chip">YouTube</button>
+          </div>
+          <div class="field-label">Tone</div>
+          <div class="chip-row">
+            <button class="chip active">Engaging</button>
+            <button class="chip">Professional</button>
+            <button class="chip">Casual</button>
+            <button class="chip">Viral</button>
+          </div>
+          <div class="field-label" style="margin-top:6px">Clip Description</div>
+          <textarea rows="3" placeholder="Describe your clip…"></textarea>
+          <div class="btn-row">
+            <button class="btn-primary">Generate Caption</button>
+            <button class="btn-secondary">Save</button>
+          </div>
+        </div>
+
+        <!-- History panel -->
+        <div class="card">
+          <h3>History</h3>
+          <div class="history-item">
+            <div class="history-tags">
+              <span class="tag platform">TikTok</span>
+              <span class="tag tone">Viral</span>
+              <span class="tag time">2h ago</span>
+            </div>
+            <div class="history-text">Morning routine transformation — before and after reveal</div>
+            <div class="history-caption">POV: You started waking up at 5am and your whole life changed ✨ #morningroutine #glow</div>
+          </div>
+          <div class="history-item">
+            <div class="history-tags">
+              <span class="tag platform">Instagram</span>
+              <span class="tag tone">Engaging</span>
+              <span class="tag time">1d ago</span>
+            </div>
+            <div class="history-text">Behind the scenes of my content creation setup</div>
+            <div class="history-caption">Save this if you want to build a studio on a budget 💡 Full breakdown in bio</div>
+          </div>
+          <div class="history-item" style="border-bottom:none">
+            <div class="history-tags">
+              <span class="tag platform">LinkedIn</span>
+              <span class="tag tone">Professional</span>
+              <span class="tag time">3d ago</span>
+            </div>
+            <div class="history-text">Lessons from 1 year of consistent content creation</div>
+            <div class="history-caption">I posted every day for 365 days. Here's what actually changed…</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <strong>Color Usage</strong>
+  <div class="l-row"><div class="l-dot" style="background:#FF4747"></div> Cherry Red — active nav, primary buttons, score rings, featured stats</div>
+  <div class="l-row"><div class="l-dot" style="background:#F7E998"></div> Butter Yellow — AI badges, hover states, secondary buttons, Save action</div>
+</div>
+
+</body>
+</html>
