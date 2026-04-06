@@ -11,6 +11,14 @@ function extractEpisodePrefix(clip_details_code: string | null): string | null {
   return match ? match[1] : null;
 }
 
+function ChevronRight() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 text-[var(--text-3)]">
+      <path d="m9 18 6-6-6-6" />
+    </svg>
+  );
+}
+
 export default function LibraryView() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -70,30 +78,50 @@ export default function LibraryView() {
     );
   }
 
+  // Episode or clip selected — full-height layout with breadcrumb header
   if (selectedEpisode) {
     return (
-      <div className="p-8">
-        <button
-          onClick={handleBackToLibrary}
-          className="flex items-center gap-2 text-[var(--text-2)] hover:text-[var(--text-1)] text-sm font-medium mb-8 transition-colors"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-          Back to Library
-        </button>
-        <h2 className="text-xl font-semibold text-[var(--text-1)] mb-6">{selectedEpisode}</h2>
-        <ClipGrid
-          episodePrefix={selectedEpisode}
-          selectedClip={selectedClip}
-          onClipChange={handleClipChange}
-        />
+      <div className="flex flex-col h-full overflow-hidden">
+        {/* Breadcrumb header */}
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-[rgba(247,231,206,0.06)] shrink-0">
+          <button
+            onClick={handleBackToLibrary}
+            className="text-xs text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors"
+          >
+            Library
+          </button>
+          <ChevronRight />
+          {selectedClip ? (
+            <>
+              <button
+                onClick={() => handleClipChange(null)}
+                className="text-xs text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors"
+              >
+                {selectedEpisode}
+              </button>
+              <ChevronRight />
+              <span className="text-xs text-[var(--text-1)] font-medium">{selectedClip}</span>
+            </>
+          ) : (
+            <span className="text-xs text-[var(--text-1)] font-medium">{selectedEpisode}</span>
+          )}
+        </div>
+
+        {/* Content area */}
+        <div className="flex-1 min-h-0 overflow-hidden">
+          <ClipGrid
+            episodePrefix={selectedEpisode}
+            selectedClip={selectedClip}
+            onClipChange={handleClipChange}
+          />
+        </div>
       </div>
     );
   }
 
+  // Episode grid
   return (
-    <div className="p-8">
+    <div className="p-8 overflow-y-auto h-full">
       <h1 className="text-xl font-semibold text-[var(--text-1)] mb-1">Library</h1>
       <p className="text-sm text-[var(--text-3)] mb-8">
         {episodes.length} episode{episodes.length !== 1 ? 's' : ''}

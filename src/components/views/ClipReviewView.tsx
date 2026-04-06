@@ -27,6 +27,7 @@ function formatTime(seconds: number): string {
 export default function ClipReviewView({ clipDetailsCode }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const ffmpegRef = useRef<FFmpeg | null>(null);
 
   const [clipDetailVideoUrl, setClipDetailVideoUrl] = useState<string | null>(null);
   const [versions, setVersions] = useState<ClipVersion[]>([]);
@@ -37,16 +38,19 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const [uploadPhase, setUploadPhase] = useState<'compressing' | 'uploading' | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [scanning, setScanning] = useState(false);
-  const ffmpegRef = useRef<FFmpeg | null>(null);
   const [scanResult, setScanResult] = useState<string | null>(null);
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [loadingComments, setLoadingComments] = useState(false);
 
-  // Load video URL from clip_details and versions on mount / code change
+  const videoUrl = activeVersion?.video_url ?? clipDetailVideoUrl;
+  const proxySrc = videoUrl ? `/api/video-proxy?url=${encodeURIComponent(videoUrl)}` : null;
+
+  // Load clip_details.video_url + versions on mount / code change
   useEffect(() => {
     setLoadingVersions(true);
     setClipDetailVideoUrl(null);
     setActiveVersion(null);
+    setComments([]);
 
     supabase
       .from('clip_details')
@@ -61,14 +65,12 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
     getClipVersions(clipDetailsCode)
       .then((v) => {
         setVersions(v);
-        // Only use clip_versions if clip_details.video_url is absent; otherwise versions are supplementary
         if (v.length > 0) setActiveVersion(v[v.length - 1]);
       })
       .catch(() => {})
       .finally(() => setLoadingVersions(false));
   }, [clipDetailsCode]);
 
-  // Load comments when active version changes
   const loadComments = useCallback(() => {
     if (!activeVersion) return;
     setLoadingComments(true);
@@ -105,9 +107,11 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
 
   const handleResolve = async (id: string) => {
     await resolveComment(id);
-    setComments((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, resolved: true } : c))
-    );
+    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, resolved: true } : c)));
+  };
+
+  const seekTo = (time: number) => {
+    if (videoRef.current) videoRef.current.currentTime = time;
   };
 
   const handleScan = async () => {
@@ -119,8 +123,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
       if (json.error) {
         setScanResult(`Error: ${json.error}`);
       } else {
-        setScanResult(`Done — ${json.inserted} inserted, ${json.skipped} skipped (${json.total} total)`);
-        // Reload versions in case new ones were added for this clip
+        setScanResult(`${json.inserted} inserted, ${json.skipped} skipped`);
         const updated = await getClipVersions(clipDetailsCode);
         setVersions(updated);
         if (updated.length > 0) setActiveVersion(updated[updated.length - 1]);
@@ -135,68 +138,38 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     try {
-      // — Compress with FFmpeg.wasm —
       setUploadPhase('compressing');
       setUploadProgress(0);
-
-      if (!ffmpegRef.current) {
-        ffmpegRef.current = new FFmpeg();
-      }
+      if (!ffmpegRef.current) ffmpegRef.current = new FFmpeg();
       const ff = ffmpegRef.current;
-
       if (!ff.loaded) {
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
         await ff.load({
-          coreURL:  await toBlobURL(`${baseURL}/ffmpeg-core.js`,   'text/javascript'),
-          wasmURL:  await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
         });
       }
-
       ff.on('progress', ({ progress }: { progress: number }) => {
         setUploadProgress(Math.round(progress * 100));
       });
-
-      const inputName  = 'input.mp4';
-      const outputName = 'output.mp4';
-
-      await ff.writeFile(inputName, await fetchFile(file));
-      await ff.exec([
-        '-i', inputName,
-        '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2',
-        '-crf', '28',
-        '-preset', 'fast',
-        '-movflags', '+faststart',
-        outputName,
-      ]);
-
-      const compressed = await ff.readFile(outputName);
-      // Copy into a plain ArrayBuffer — readFile may return a SharedArrayBuffer-backed Uint8Array
+      await ff.writeFile('input.mp4', await fetchFile(file));
+      await ff.exec(['-i', 'input.mp4', '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2', '-crf', '28', '-preset', 'fast', '-movflags', '+faststart', 'output.mp4']);
+      const compressed = await ff.readFile('output.mp4');
       const raw = compressed as Uint8Array;
       const plain = new Uint8Array(raw.byteLength);
       plain.set(raw);
       const blob = new Blob([plain], { type: 'video/mp4' });
-
-      // Clean up ffmpeg virtual FS
-      await ff.deleteFile(inputName);
-      await ff.deleteFile(outputName);
-
-      // — Upload to Supabase Storage —
+      await ff.deleteFile('input.mp4');
+      await ff.deleteFile('output.mp4');
       setUploadPhase('uploading');
       setUploadProgress(0);
-
       const nextVersion = versions.length + 1;
       const path = `${clipDetailsCode}-v${nextVersion}.mp4`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('Clips')
-        .upload(path, blob, { upsert: true, contentType: 'video/mp4' });
+      const { error: uploadError } = await supabase.storage.from('Clips').upload(path, blob, { upsert: true, contentType: 'video/mp4' });
       if (uploadError) throw uploadError;
-
       const { data: urlData } = supabase.storage.from('Clips').getPublicUrl(path);
       await addClipVersion(clipDetailsCode, urlData.publicUrl, nextVersion);
-
       const updated = await getClipVersions(clipDetailsCode);
       setVersions(updated);
       setActiveVersion(updated[updated.length - 1]);
@@ -211,28 +184,30 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
 
   if (loadingVersions) {
     return (
-      <div className="flex items-center justify-center py-16">
+      <div className="flex h-full items-center justify-center">
         <div className="w-6 h-6 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-0 h-full">
-      {/* Top bar */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-1.5">
+    <div className="flex flex-col h-full overflow-hidden">
+
+      {/* ── Top bar ── */}
+      <div className="flex items-center justify-between px-5 py-2.5 border-b border-[rgba(247,231,206,0.06)] shrink-0">
+        {/* Version tabs */}
+        <div className="flex items-center gap-1">
           {versions.length === 0 ? (
-            <span className="text-xs text-[var(--text-3)]">No versions yet</span>
+            <span className="text-[11px] text-[var(--text-3)]">No versions</span>
           ) : (
             versions.map((v) => (
               <button
                 key={v.id}
                 onClick={() => setActiveVersion(v)}
-                className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
                   activeVersion?.id === v.id
                     ? 'bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)]'
-                    : 'text-[var(--text-3)] hover:text-[var(--text-2)] border border-transparent hover:border-[rgba(247,231,206,0.06)]'
+                    : 'text-[var(--text-3)] hover:text-[var(--text-2)] border border-transparent hover:border-[rgba(247,231,206,0.08)]'
                 }`}
               >
                 v{v.version_number}
@@ -241,142 +216,115 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
           )}
         </div>
 
+        {/* Actions */}
         <div className="flex items-center gap-2">
           {scanResult && (
-            <span className="text-[11px] text-[var(--text-3)] max-w-[220px] truncate" title={scanResult}>
+            <span className="text-[10px] text-[var(--text-3)] max-w-[160px] truncate" title={scanResult}>
               {scanResult}
             </span>
           )}
           <button
             onClick={handleScan}
             disabled={scanning}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[rgba(247,231,206,0.12)] text-[var(--text-2)] hover:text-[var(--text-1)] hover:border-[rgba(247,231,206,0.2)] transition-colors disabled:opacity-50"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-[var(--text-3)] hover:text-[var(--text-2)] border border-transparent hover:border-[rgba(247,231,206,0.08)] transition-colors disabled:opacity-40"
           >
-            {scanning ? (
-              <div className="w-3 h-3 border border-[var(--text-3)] border-t-transparent rounded-full animate-spin" />
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-                <path d="M3 3v5h5" />
-              </svg>
-            )}
-            {scanning ? 'Scanning…' : 'Scan Bucket'}
+            {scanning
+              ? <div className="w-2.5 h-2.5 border border-[var(--text-3)] border-t-transparent rounded-full animate-spin" />
+              : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" /><path d="M3 3v5h5" /></svg>
+            }
+            {scanning ? 'Scanning…' : 'Scan'}
           </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="video/*"
-            className="hidden"
-            onChange={handleUpload}
-          />
+          <input ref={fileInputRef} type="file" accept="video/*" className="hidden" onChange={handleUpload} />
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={uploadPhase !== null}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border border-[var(--gold-border)] bg-[var(--gold-dim)] text-[var(--gold)] hover:bg-[rgba(212,146,42,0.12)] transition-colors disabled:opacity-50 min-w-[120px]"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-[11px] text-[var(--text-3)] hover:text-[var(--text-2)] border border-[rgba(247,231,206,0.08)] hover:border-[rgba(247,231,206,0.16)] transition-colors disabled:opacity-40 min-w-[76px]"
           >
             {uploadPhase ? (
               <>
-                <div className="w-3 h-3 border border-[var(--gold)] border-t-transparent rounded-full animate-spin shrink-0" />
-                <span>
-                  {uploadPhase === 'compressing' ? `Compressing ${uploadProgress}%` : `Uploading…`}
-                </span>
+                <div className="w-2.5 h-2.5 border border-[var(--text-3)] border-t-transparent rounded-full animate-spin shrink-0" />
+                {uploadPhase === 'compressing' ? `${uploadProgress}%` : 'Uploading…'}
               </>
             ) : (
               <>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3 shrink-0">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                  <polyline points="17 8 12 3 7 8" />
-                  <line x1="12" y1="3" x2="12" y2="15" />
-                </svg>
-                Upload Version
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-2.5 h-2.5 shrink-0"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><polyline points="17 8 12 3 7 8" /><line x1="12" y1="3" x2="12" y2="15" /></svg>
+                Upload
               </>
             )}
           </button>
         </div>
       </div>
 
-      {/* Three-panel layout */}
-      <div className="flex gap-5 min-h-0 flex-1">
-        {/* Left: video + timeline + comment input */}
-        <div className="flex-1 flex flex-col gap-4 min-w-0">
-          {/* Video player */}
-          <div className="bg-black rounded-xl overflow-hidden w-full">
-            {clipDetailVideoUrl ? (
+      {/* ── Main panels ── */}
+      <div className="flex flex-1 min-h-0 overflow-hidden">
+
+        {/* Left: video + timeline */}
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-6 py-5 gap-3">
+          {/* Video — centered, max 70vh, 9:16 */}
+          <div className="flex-1 flex items-center justify-center min-h-0">
+            {proxySrc ? (
               <video
                 ref={videoRef}
-                key={clipDetailVideoUrl}
-                src={`/api/video-proxy?url=${encodeURIComponent(clipDetailVideoUrl)}`}
+                key={videoUrl!}
+                src={proxySrc}
                 controls
-                style={{ width: '100%', aspectRatio: '9/16' }}
+                className="rounded-xl bg-black object-contain"
+                style={{ maxHeight: '70vh', aspectRatio: '9/16', width: 'auto', maxWidth: '100%' }}
               />
             ) : (
-              <div className="flex items-center justify-center" style={{ aspectRatio: '9/16' }}>
-                <p className="text-sm text-[var(--text-3)]">No video — upload a version to get started</p>
+              <div
+                className="rounded-xl bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] flex items-center justify-center"
+                style={{ maxHeight: '70vh', aspectRatio: '9/16', width: 'auto', minWidth: '180px' }}
+              >
+                <p className="text-xs text-[var(--text-3)]">No video yet</p>
               </div>
             )}
           </div>
 
-          {/* Timeline bar */}
-          <div className="relative w-full h-10 bg-[var(--bg-elevated)] rounded-xl border border-[rgba(247,231,206,0.06)]" />
-
-          {/* Comment input */}
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
-              placeholder="Add a comment at current playback time…"
-              disabled={!activeVersion || submitting}
-              className="flex-1 bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-lg px-3 py-2 text-sm text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] disabled:opacity-40 transition-colors"
-            />
-            <button
-              onClick={handleAddComment}
-              disabled={!commentText.trim() || !activeVersion || submitting}
-              className="px-4 py-2 rounded-lg text-xs font-semibold bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)] hover:bg-[rgba(212,146,42,0.12)] disabled:opacity-40 transition-colors"
-            >
-              {submitting ? '…' : 'Add'}
-            </button>
-          </div>
+          {/* Timeline */}
+          <div className="relative w-full shrink-0 h-9 bg-[var(--bg-elevated)] rounded-xl border border-[rgba(247,231,206,0.06)]" />
         </div>
 
-        {/* Right: comments panel */}
-        <div className="w-72 shrink-0 flex flex-col gap-3">
-          <p className="text-xs font-semibold text-[var(--text-3)] uppercase tracking-widest">
-            Comments
-            {comments.length > 0 && (
-              <span className="ml-2 text-[var(--text-3)] font-normal normal-case tracking-normal">
-                ({comments.filter((c) => !c.resolved).length} open)
+        {/* Right: comments */}
+        <div className="w-80 shrink-0 flex flex-col border-l border-[rgba(247,231,206,0.06)] overflow-hidden">
+          {/* Header */}
+          <div className="px-4 py-3 border-b border-[rgba(247,231,206,0.06)] shrink-0 flex items-center justify-between">
+            <span className="text-[11px] font-semibold text-[var(--text-2)] uppercase tracking-widest">Comments</span>
+            {comments.filter((c) => !c.resolved).length > 0 && (
+              <span className="text-[10px] text-[var(--text-3)]">
+                {comments.filter((c) => !c.resolved).length} open
               </span>
             )}
-          </p>
+          </div>
 
-          <div className="flex flex-col gap-2 overflow-y-auto flex-1">
+          {/* Scrollable comment list */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-2">
             {loadingComments ? (
               <div className="flex justify-center pt-6">
-                <div className="w-5 h-5 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : comments.length === 0 ? (
-              <p className="text-xs text-[var(--text-3)] pt-2">No comments yet.</p>
+              <p className="text-[11px] text-[var(--text-3)] pt-2">No comments yet.</p>
             ) : (
               comments.map((c) => (
                 <div
                   key={c.id}
                   className={`bg-[var(--bg-elevated)] border rounded-xl px-3 py-2.5 transition-opacity ${
-                    c.resolved
-                      ? 'border-[rgba(247,231,206,0.03)] opacity-40'
-                      : 'border-[rgba(247,231,206,0.06)]'
+                    c.resolved ? 'border-[rgba(247,231,206,0.03)] opacity-35' : 'border-[rgba(247,231,206,0.06)]'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] font-mono text-[var(--gold)] bg-[var(--gold-dim)] px-1.5 py-px rounded">
+                        <button
+                          onClick={() => seekTo(c.timestamp_start)}
+                          className="text-[10px] font-mono text-[var(--gold)] bg-[var(--gold-dim)] px-1.5 py-px rounded hover:brightness-110 transition-all"
+                        >
                           {formatTime(c.timestamp_start)}
-                        </span>
+                        </button>
                         <span className="text-[10px] text-[var(--text-3)]">{c.author}</span>
                       </div>
-                      <p className="text-xs text-[var(--text-2)] leading-relaxed">{c.comment}</p>
+                      <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{c.comment}</p>
                     </div>
                     {!c.resolved && (
                       <button
@@ -393,6 +341,26 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                 </div>
               ))
             )}
+          </div>
+
+          {/* Comment input — pinned to bottom */}
+          <div className="px-3 py-3 border-t border-[rgba(247,231,206,0.06)] shrink-0 flex flex-col gap-2">
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
+              placeholder="Comment at current time…"
+              disabled={!activeVersion || submitting}
+              rows={2}
+              className="w-full bg-[var(--bg-base)] border border-[rgba(247,231,206,0.06)] rounded-lg px-3 py-2 text-xs text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] disabled:opacity-40 transition-colors resize-none"
+            />
+            <button
+              onClick={handleAddComment}
+              disabled={!commentText.trim() || !activeVersion || submitting}
+              className="w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)] hover:bg-[rgba(212,146,42,0.12)] disabled:opacity-40 transition-colors"
+            >
+              {submitting ? 'Adding…' : 'Add Comment'}
+            </button>
           </div>
         </div>
       </div>

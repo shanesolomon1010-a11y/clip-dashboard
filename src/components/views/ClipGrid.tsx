@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { ClipDetail } from '@/lib/db';
 import ClipReviewView from './ClipReviewView';
@@ -23,6 +23,10 @@ export default function ClipGrid({ episodePrefix, selectedClip, onClipChange }: 
   const [clips, setClips] = useState<ClipWithThumb[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalSelected, setInternalSelected] = useState<string | null>(null);
+  const [videoThumbnails, setVideoThumbnails] = useState<Record<string, string>>({});
+
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const generatedRef = useRef<Set<string>>(new Set());
 
   const selected = selectedClip !== undefined ? selectedClip : internalSelected;
   const setSelected = (clip: string | null) => {
@@ -30,9 +34,55 @@ export default function ClipGrid({ episodePrefix, selectedClip, onClipChange }: 
     onClipChange?.(clip);
   };
 
+  // Set up IntersectionObserver for lazy thumbnail generation
   useEffect(() => {
-    setSelected(null);
+    generatedRef.current.clear();
+    observerRef.current?.disconnect();
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          const el = entry.target as HTMLElement;
+          const code = el.dataset.clipCode;
+          const videoUrl = el.dataset.videoUrl;
+          if (!code || !videoUrl || generatedRef.current.has(code)) continue;
+          generatedRef.current.add(code);
+          observerRef.current?.unobserve(el);
+
+          // Generate thumbnail via hidden video + canvas
+          const proxy = `/api/video-proxy?url=${encodeURIComponent(videoUrl)}`;
+          const vid = document.createElement('video');
+          vid.muted = true;
+          vid.preload = 'metadata';
+          vid.crossOrigin = 'anonymous';
+          vid.src = proxy;
+          vid.currentTime = 0.1;
+          vid.addEventListener('seeked', () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = vid.videoWidth || 320;
+              canvas.height = vid.videoHeight || 568;
+              canvas.getContext('2d')?.drawImage(vid, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              setVideoThumbnails((prev) => ({ ...prev, [code]: dataUrl }));
+            } catch {
+              // non-fatal — canvas taint or decode error
+            }
+          }, { once: true });
+          vid.load();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    return () => observerRef.current?.disconnect();
+  }, [episodePrefix]);
+
+  useEffect(() => {
+    setInternalSelected(null);
     setLoading(true);
+    setVideoThumbnails({});
 
     async function load() {
       const { data, error } = await supabase
@@ -44,7 +94,7 @@ export default function ClipGrid({ episodePrefix, selectedClip, onClipChange }: 
       if (error) throw error;
       const rows = (data ?? []) as unknown as ClipDetail[];
 
-      // For each clip, look up thumbnail_url from posts
+      // Look up thumbnail_url from posts for each clip
       const withThumbs: ClipWithThumb[] = await Promise.all(
         rows.map(async (clip) => {
           if (!clip.clip_details_code) return { ...clip, thumbnail_url: null };
@@ -68,6 +118,11 @@ export default function ClipGrid({ episodePrefix, selectedClip, onClipChange }: 
     load().catch(() => setClips([])).finally(() => setLoading(false));
   }, [episodePrefix]);
 
+  // When a clip is selected, render ClipReviewView filling the parent container
+  if (selected) {
+    return <ClipReviewView clipDetailsCode={selected} />;
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -76,61 +131,63 @@ export default function ClipGrid({ episodePrefix, selectedClip, onClipChange }: 
     );
   }
 
-  if (selected) {
+  if (clips.length === 0) {
     return (
-      <>
-        <button
-          onClick={() => setSelected(null)}
-          className="flex items-center gap-2 text-[var(--text-2)] hover:text-[var(--text-1)] text-sm font-medium mb-6 transition-colors"
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
-            <path d="m15 18-6-6 6-6" />
-          </svg>
-          Back to {episodePrefix}
-        </button>
-        <ClipReviewView clipDetailsCode={selected} />
-      </>
+      <div className="p-8">
+        <p className="text-sm text-[var(--text-3)]">No clips found for {episodePrefix}.</p>
+      </div>
     );
   }
 
-  if (clips.length === 0) {
-    return <p className="text-sm text-[var(--text-3)]">No clips found for {episodePrefix}.</p>;
-  }
-
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-      {clips.map((clip) => (
-        <button
-          key={clip.clip_details_code ?? clip.clip_code}
-          onClick={() => setSelected(clip.clip_details_code ?? clip.clip_code)}
-          className="group bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl overflow-hidden hover:border-[var(--gold-border)] transition-all duration-150 text-left"
-        >
-          <div className="aspect-video w-full bg-[rgba(247,231,206,0.04)] flex items-center justify-center overflow-hidden">
-            {clip.thumbnail_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={clip.thumbnail_url}
-                alt={formatCode(clip.clip_details_code)}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-8 h-8 text-[var(--text-3)]">
-                <rect x="2" y="3" width="20" height="14" rx="2" />
-                <path d="M8 21h8M12 17v4" />
-                <path d="m10 10 4-2.5v5L10 10z" fill="currentColor" stroke="none" />
-              </svg>
-            )}
-          </div>
-          <div className="px-3 py-2.5">
-            <p className="text-xs font-semibold text-[var(--text-2)] group-hover:text-[var(--gold)] transition-colors truncate">
-              {formatCode(clip.clip_details_code)}
-            </p>
-            {clip.title && (
-              <p className="text-[11px] text-[var(--text-3)] truncate mt-0.5">{clip.title}</p>
-            )}
-          </div>
-        </button>
-      ))}
+    <div className="p-6 overflow-y-auto h-full">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        {clips.map((clip) => {
+          const code = clip.clip_details_code ?? clip.clip_code;
+          const videoThumb = code ? videoThumbnails[code] : null;
+          const displayThumb = clip.thumbnail_url ?? videoThumb ?? null;
+
+          return (
+            <button
+              key={code}
+              data-clip-code={code}
+              data-video-url={(!clip.thumbnail_url && clip.video_url) ? clip.video_url : ''}
+              ref={(el) => {
+                if (el && !clip.thumbnail_url && clip.video_url && observerRef.current) {
+                  observerRef.current.observe(el);
+                }
+              }}
+              onClick={() => setSelected(code)}
+              className="group bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl overflow-hidden hover:border-[var(--gold-border)] transition-all duration-150 text-left"
+            >
+              <div className="aspect-video w-full bg-[rgba(247,231,206,0.04)] flex items-center justify-center overflow-hidden relative">
+                {displayThumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={displayThumb}
+                    alt={formatCode(clip.clip_details_code)}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="w-8 h-8 text-[var(--text-3)]">
+                    <rect x="2" y="3" width="20" height="14" rx="2" />
+                    <path d="M8 21h8M12 17v4" />
+                    <path d="m10 10 4-2.5v5L10 10z" fill="currentColor" stroke="none" />
+                  </svg>
+                )}
+              </div>
+              <div className="px-3 py-2.5">
+                <p className="text-xs font-semibold text-[var(--text-2)] group-hover:text-[var(--gold)] transition-colors truncate">
+                  {formatCode(clip.clip_details_code)}
+                </p>
+                {clip.title && (
+                  <p className="text-[11px] text-[var(--text-3)] truncate mt-0.5">{clip.title}</p>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
