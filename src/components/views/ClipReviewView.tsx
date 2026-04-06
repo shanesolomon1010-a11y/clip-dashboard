@@ -300,21 +300,15 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
         {/* Left: video + timeline + comment input */}
         <div className="flex-1 flex flex-col gap-4 min-w-0">
           {/* Video player */}
-          <div className="bg-black rounded-xl overflow-hidden aspect-video w-full">
+          <div className="bg-black rounded-xl overflow-hidden w-full">
             {clipDetailVideoUrl ? (
-              <video
-                ref={videoRef}
-                key={clipDetailVideoUrl}
-                controls
-                playsInline
-                width="100%"
-                height="100%"
-                style={{ width: '100%', height: '100%' }}
-              >
-                <source src={clipDetailVideoUrl} type="video/mp4" />
-              </video>
+              <iframe
+                src={clipDetailVideoUrl}
+                style={{ width: '100%', aspectRatio: '9/16', border: 'none' }}
+                allowFullScreen
+              />
             ) : (
-              <div className="w-full h-full flex items-center justify-center">
+              <div className="flex items-center justify-center" style={{ aspectRatio: '9/16' }}>
                 <p className="text-sm text-[var(--text-3)]">No video — upload a version to get started</p>
               </div>
             )}
