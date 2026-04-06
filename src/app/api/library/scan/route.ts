@@ -14,13 +14,19 @@ function extractClipDetailsCode(filename: string): string {
 }
 
 export async function POST(): Promise<NextResponse> {
+  const bucketName = 'Clips';
+
   // List all files recursively in the Clips bucket
   const { data: files, error: listError } = await supabaseAdmin.storage
-    .from('Clips')
+    .from(bucketName)
     .list('', { limit: 1000, offset: 0, sortBy: { column: 'name', order: 'asc' } });
 
+  console.log('Scan bucket:', bucketName);
+  console.log('Storage list data:', JSON.stringify(files, null, 2));
+  console.log('Storage list error:', JSON.stringify(listError, null, 2));
+
   if (listError) {
-    return NextResponse.json({ error: listError.message }, { status: 500 });
+    return NextResponse.json({ bucketName, rawData: null, rawError: listError, error: listError.message }, { status: 500 });
   }
 
   // Flatten: top-level may be folders, so list each subfolder too
@@ -67,5 +73,5 @@ export async function POST(): Promise<NextResponse> {
     }
   }
 
-  return NextResponse.json({ inserted, skipped, total: allPaths.length });
+  return NextResponse.json({ inserted, skipped, total: allPaths.length, bucketName, rawData: files, rawError: listError });
 }
