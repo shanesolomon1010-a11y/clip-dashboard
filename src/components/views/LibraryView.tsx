@@ -3,9 +3,47 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchAllClipDetails } from '@/lib/db';
+import { supabase } from '@/lib/supabase';
 import ClipGrid from './ClipGrid';
 
 type EpisodeClip = { code: string; videoUrl: string };
+
+async function getOrGenerateThumbnail(code: string, videoUrl: string): Promise<string | null> {
+  const path = `${code}.jpg`;
+  const { data: urlData } = supabase.storage.from('thumbnails').getPublicUrl(path);
+  const publicUrl = urlData.publicUrl;
+
+  try {
+    const res = await fetch(publicUrl, { method: 'HEAD' });
+    if (res.ok) return publicUrl;
+  } catch { /* fall through to generate */ }
+
+  return new Promise((resolve) => {
+    const proxy = `/api/video-proxy?url=${encodeURIComponent(videoUrl)}`;
+    const vid = document.createElement('video');
+    vid.muted = true;
+    vid.preload = 'metadata';
+    vid.crossOrigin = 'anonymous';
+    vid.src = proxy;
+    vid.currentTime = 0.1;
+    vid.addEventListener('seeked', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = vid.videoWidth || 320;
+      canvas.height = vid.videoHeight || 568;
+      canvas.getContext('2d')?.drawImage(vid, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(async (blob) => {
+        if (blob) {
+          await supabase.storage.from('thumbnails').upload(path, blob, {
+            contentType: 'image/jpeg',
+            upsert: false,
+          });
+        }
+        resolve(blob ? publicUrl : null);
+      }, 'image/jpeg', 0.8);
+    }, { once: true });
+    vid.load();
+  });
+}
 
 function extractEpisodePrefix(clip_details_code: string | null): string | null {
   if (!clip_details_code) return null;
@@ -65,32 +103,14 @@ export default function LibraryView() {
   useEffect(() => {
     for (const [episode, clips] of Object.entries(clipsByEpisode)) {
       if (clips.length === 0) continue;
-      const thumbs: (string | null)[] = new Array(clips.length).fill(null);
-      let resolved = 0;
-      clips.forEach((clip, idx) => {
-        const proxy = `/api/video-proxy?url=${encodeURIComponent(clip.videoUrl)}`;
-        const vid = document.createElement('video');
-        vid.muted = true;
-        vid.preload = 'metadata';
-        vid.crossOrigin = 'anonymous';
-        vid.src = proxy;
-        vid.currentTime = 0.1;
-        vid.addEventListener('seeked', () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = vid.videoWidth || 320;
-            canvas.height = vid.videoHeight || 568;
-            canvas.getContext('2d')?.drawImage(vid, 0, 0, canvas.width, canvas.height);
-            thumbs[idx] = canvas.toDataURL('image/jpeg', 0.7);
-          } catch {
-            thumbs[idx] = null;
-          }
-          resolved++;
-          if (resolved === clips.length) {
-            setFolderThumbs((prev) => ({ ...prev, [episode]: [...thumbs] }));
-          }
-        }, { once: true });
-        vid.load();
+      clips.forEach(async (clip, idx) => {
+        const url = await getOrGenerateThumbnail(clip.code, clip.videoUrl);
+        setFolderThumbs((prev) => {
+          const existing = prev[episode] ?? new Array(clips.length).fill(null);
+          const updated = [...existing];
+          updated[idx] = url;
+          return { ...prev, [episode]: updated };
+        });
       });
     }
   }, [clipsByEpisode]);
