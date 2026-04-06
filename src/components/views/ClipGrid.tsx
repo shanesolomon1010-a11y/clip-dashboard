@@ -7,6 +7,8 @@ import ClipReviewView from './ClipReviewView';
 
 interface Props {
   episodePrefix: string;
+  selectedClip?: string | null;
+  onClipChange?: (clip: string | null) => void;
 }
 
 interface ClipWithThumb extends ClipDetail {
@@ -17,10 +19,16 @@ function formatCode(code: string | null): string {
   return code ?? '—';
 }
 
-export default function ClipGrid({ episodePrefix }: Props) {
+export default function ClipGrid({ episodePrefix, selectedClip, onClipChange }: Props) {
   const [clips, setClips] = useState<ClipWithThumb[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [internalSelected, setInternalSelected] = useState<string | null>(null);
+
+  const selected = selectedClip !== undefined ? selectedClip : internalSelected;
+  const setSelected = (clip: string | null) => {
+    setInternalSelected(clip);
+    onClipChange?.(clip);
+  };
 
   useEffect(() => {
     setSelected(null);

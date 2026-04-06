@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchAllClipDetails } from '@/lib/db';
 import ClipGrid from './ClipGrid';
 
@@ -11,8 +12,16 @@ function extractEpisodePrefix(clip_details_code: string | null): string | null {
 }
 
 export default function LibraryView() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const [episodes, setEpisodes] = useState<string[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selectedEpisode, setSelectedEpisode] = useState<string | null>(
+    searchParams.get('episode')
+  );
+  const [selectedClip, setSelectedClip] = useState<string | null>(
+    searchParams.get('clip')
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,6 +38,30 @@ export default function LibraryView() {
       .finally(() => setLoading(false));
   }, []);
 
+  const updateURL = (episode: string | null, clip: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    if (episode) params.set('episode', episode); else params.delete('episode');
+    if (clip) params.set('clip', clip); else params.delete('clip');
+    router.replace(`?${params.toString()}`, { scroll: false });
+  };
+
+  const handleSelectEpisode = (episode: string) => {
+    setSelectedEpisode(episode);
+    setSelectedClip(null);
+    updateURL(episode, null);
+  };
+
+  const handleBackToLibrary = () => {
+    setSelectedEpisode(null);
+    setSelectedClip(null);
+    updateURL(null, null);
+  };
+
+  const handleClipChange = (clip: string | null) => {
+    setSelectedClip(clip);
+    updateURL(selectedEpisode, clip);
+  };
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -37,11 +70,11 @@ export default function LibraryView() {
     );
   }
 
-  if (selected) {
+  if (selectedEpisode) {
     return (
       <div className="p-8">
         <button
-          onClick={() => setSelected(null)}
+          onClick={handleBackToLibrary}
           className="flex items-center gap-2 text-[var(--text-2)] hover:text-[var(--text-1)] text-sm font-medium mb-8 transition-colors"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
@@ -49,8 +82,12 @@ export default function LibraryView() {
           </svg>
           Back to Library
         </button>
-        <h2 className="text-xl font-semibold text-[var(--text-1)] mb-6">{selected}</h2>
-        <ClipGrid episodePrefix={selected} />
+        <h2 className="text-xl font-semibold text-[var(--text-1)] mb-6">{selectedEpisode}</h2>
+        <ClipGrid
+          episodePrefix={selectedEpisode}
+          selectedClip={selectedClip}
+          onClipChange={handleClipChange}
+        />
       </div>
     );
   }
@@ -69,7 +106,7 @@ export default function LibraryView() {
           {episodes.map((episode) => (
             <button
               key={episode}
-              onClick={() => setSelected(episode)}
+              onClick={() => handleSelectEpisode(episode)}
               className="bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl aspect-square flex items-center justify-center hover:border-[var(--gold-border)] hover:bg-[var(--gold-dim)] transition-all duration-150 group"
             >
               <span className="text-sm font-semibold text-[var(--text-2)] group-hover:text-[var(--gold)] transition-colors">

@@ -47,30 +47,17 @@ export async function POST(): Promise<NextResponse> {
     }
   }
 
-  let inserted = 0;
-  let skipped = 0;
+  const rows = allPaths.map((path) => {
+    const { data: urlData } = supabase.storage.from('Clips').getPublicUrl(path);
+    return { clip_details_code: extractClipDetailsCode(path), video_url: urlData.publicUrl, version_number: 1 };
+  });
 
-  for (const path of allPaths) {
-    const clipDetailsCode = extractClipDetailsCode(path);
+  const { error: upsertError } = await supabase
+    .from('clip_versions')
+    .upsert(rows, { onConflict: 'clip_details_code,version_number', ignoreDuplicates: true });
 
-    const { data: urlData } = supabase.storage
-      .from('Clips')
-      .getPublicUrl(path);
-    const video_url = urlData.publicUrl;
-
-    const { error: upsertError } = await supabase
-      .from('clip_versions')
-      .upsert(
-        { clip_details_code: clipDetailsCode, video_url, version_number: 1 },
-        { onConflict: 'clip_details_code,version_number', ignoreDuplicates: true }
-      );
-
-    if (upsertError) {
-      skipped++;
-    } else {
-      inserted++;
-    }
-  }
+  const inserted = upsertError ? 0 : rows.length;
+  const skipped = upsertError ? rows.length : 0;
 
   return NextResponse.json({ inserted, skipped, total: allPaths.length, bucketName, rawData: files, rawError: listError });
 }

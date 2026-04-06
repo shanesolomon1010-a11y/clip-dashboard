@@ -108,7 +108,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
         // Reload versions in case new ones were added for this clip
         const updated = await getClipVersions(clipDetailsCode);
         setVersions(updated);
-        if (updated.length > 0 && !activeVersion) setActiveVersion(updated[updated.length - 1]);
+        if (updated.length > 0) setActiveVersion(updated[updated.length - 1]);
       }
     } catch {
       setScanResult('Scan failed');
