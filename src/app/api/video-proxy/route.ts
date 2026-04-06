@@ -1,20 +1,28 @@
-import { NextRequest, NextResponse } from 'next/server';
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  const url = searchParams.get('url')
+  if (!url) return new Response('Missing url', { status: 400 })
 
-export async function GET(req: NextRequest): Promise<NextResponse> {
-  const url = req.nextUrl.searchParams.get('url');
-  if (!url) {
-    return new NextResponse('Missing url param', { status: 400 });
-  }
+  const rangeHeader = request.headers.get('range')
 
-  const upstream = await fetch(url);
-  const contentType = upstream.headers.get('Content-Type') ?? 'video/mp4';
+  const fetchHeaders: HeadersInit = {}
+  if (rangeHeader) fetchHeaders['range'] = rangeHeader
 
-  return new NextResponse(upstream.body, {
+  const upstream = await fetch(url, { headers: fetchHeaders })
+
+  const responseHeaders = new Headers()
+  responseHeaders.set('Content-Type', upstream.headers.get('Content-Type') || 'video/mp4')
+  responseHeaders.set('Accept-Ranges', 'bytes')
+  responseHeaders.set('Cross-Origin-Resource-Policy', 'cross-origin')
+  responseHeaders.set('Access-Control-Allow-Origin', '*')
+
+  const contentRange = upstream.headers.get('content-range')
+  const contentLength = upstream.headers.get('content-length')
+  if (contentRange) responseHeaders.set('Content-Range', contentRange)
+  if (contentLength) responseHeaders.set('Content-Length', contentLength)
+
+  return new Response(upstream.body, {
     status: upstream.status,
-    headers: {
-      'Content-Type': contentType,
-      'Cross-Origin-Resource-Policy': 'cross-origin',
-      'Access-Control-Allow-Origin': '*',
-    },
-  });
+    headers: responseHeaders,
+  })
 }
