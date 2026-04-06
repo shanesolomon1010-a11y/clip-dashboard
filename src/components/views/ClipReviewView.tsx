@@ -85,19 +85,40 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   }, [loadComments]);
 
   const handleAddComment = async () => {
-    if (!commentText.trim() || !activeVersion) return;
+    if (!commentText.trim()) return;
     const currentTime = videoRef.current?.currentTime ?? 0;
+    console.log('Add comment:', { commentText, currentTime, activeVersionId: activeVersion?.id });
     setSubmitting(true);
     try {
+      let versionId = activeVersion?.id ?? null;
+
+      // If no version exists yet, create one from clip_details.video_url
+      if (!versionId && clipDetailVideoUrl) {
+        await addClipVersion(clipDetailsCode, clipDetailVideoUrl, 1);
+        const created = await getClipVersions(clipDetailsCode);
+        const newVersion = created[0];
+        setVersions(created);
+        setActiveVersion(newVersion);
+        versionId = newVersion?.id ?? null;
+      }
+
+      if (!versionId) return;
+
       await addReviewComment({
         clip_details_code: clipDetailsCode,
-        version_id: activeVersion.id,
+        version_id: versionId,
         timestamp_start: currentTime,
         timestamp_end: null,
         comment: commentText.trim(),
       });
       setCommentText('');
-      loadComments();
+
+      // Re-fetch comments for the active version
+      setLoadingComments(true);
+      getReviewComments(clipDetailsCode, versionId)
+        .then(setComments)
+        .catch(() => {})
+        .finally(() => setLoadingComments(false));
     } catch {
       // non-fatal
     } finally {
@@ -263,13 +284,14 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
           {/* Video — centered, max 70vh, 9:16 */}
           <div className="flex-1 flex items-center justify-center min-h-0">
             {proxySrc ? (
+              // No onTimeUpdate/onSeeked/onProgress handlers — native controls handle everything
               <video
                 ref={videoRef}
                 key={videoUrl!}
                 src={proxySrc}
                 controls
                 className="rounded-xl bg-black object-contain"
-                style={{ maxHeight: '70vh', aspectRatio: '9/16', width: 'auto', maxWidth: '100%' }}
+                style={{ maxHeight: '70vh', aspectRatio: '9/16', width: 'auto', maxWidth: '100%', pointerEvents: 'auto' }}
               />
             ) : (
               <div
@@ -350,13 +372,13 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
               placeholder="Comment at current time…"
-              disabled={!activeVersion || submitting}
+              disabled={submitting}
               rows={2}
               className="w-full bg-[var(--bg-base)] border border-[rgba(247,231,206,0.06)] rounded-lg px-3 py-2 text-xs text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] disabled:opacity-40 transition-colors resize-none"
             />
             <button
               onClick={handleAddComment}
-              disabled={!commentText.trim() || !activeVersion || submitting}
+              disabled={!commentText.trim() || submitting}
               className="w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)] hover:bg-[rgba(212,146,42,0.12)] disabled:opacity-40 transition-colors"
             >
               {submitting ? 'Adding…' : 'Add Comment'}
