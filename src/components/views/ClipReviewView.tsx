@@ -28,6 +28,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [clipDetailVideoUrl, setClipDetailVideoUrl] = useState<string | null>(null);
   const [versions, setVersions] = useState<ClipVersion[]>([]);
   const [activeVersion, setActiveVersion] = useState<ClipVersion | null>(null);
   const [comments, setComments] = useState<ReviewComment[]>([]);
@@ -41,12 +42,23 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [loadingComments, setLoadingComments] = useState(false);
 
-  // Load versions on mount / code change
+  // Load video URL from clip_details and versions on mount / code change
   useEffect(() => {
     setLoadingVersions(true);
+    setClipDetailVideoUrl(null);
+    setActiveVersion(null);
+
+    supabase
+      .from('clip_details')
+      .select('video_url')
+      .eq('clip_details_code', clipDetailsCode)
+      .maybeSingle()
+      .then(({ data }) => setClipDetailVideoUrl((data?.video_url as string | null) ?? null));
+
     getClipVersions(clipDetailsCode)
       .then((v) => {
         setVersions(v);
+        // Only use clip_versions if clip_details.video_url is absent; otherwise versions are supplementary
         if (v.length > 0) setActiveVersion(v[v.length - 1]);
       })
       .catch(() => {})
@@ -286,19 +298,22 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
         <div className="flex-1 flex flex-col gap-4 min-w-0">
           {/* Video player */}
           <div className="bg-black rounded-xl overflow-hidden aspect-video w-full">
-            {activeVersion ? (
-              <video
-                ref={videoRef}
-                key={activeVersion.id}
-                src={activeVersion.video_url}
-                controls
-                className="w-full h-full object-contain"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center">
-                <p className="text-sm text-[var(--text-3)]">No video — upload a version to get started</p>
-              </div>
-            )}
+            {(() => {
+              const videoSrc = activeVersion?.video_url ?? clipDetailVideoUrl;
+              return videoSrc ? (
+                <video
+                  ref={videoRef}
+                  key={activeVersion?.id ?? 'clip-detail'}
+                  src={videoSrc}
+                  controls
+                  className="w-full h-full object-contain"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center">
+                  <p className="text-sm text-[var(--text-3)]">No video — upload a version to get started</p>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Timeline bar */}

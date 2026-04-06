@@ -37,11 +37,8 @@ export default function ClipGrid({ episodePrefix, selectedClip, onClipChange }: 
     async function load() {
       const { data, error } = await supabase
         .from('clip_details')
-        .select(
-          'clip_code, clip_details_code, title, headline_banner, question_banner, ' +
-          'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, video_url'
-        )
-        .like('clip_details_code', `${episodePrefix}%`)
+        .select('*')
+        .ilike('clip_details_code', `${episodePrefix}%`)
         .order('clip_details_code');
 
       if (error) throw error;
