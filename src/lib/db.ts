@@ -483,6 +483,7 @@ export interface ClipDetail {
   caption_linkedin: string | null;
   caption_twitter: string | null;
   video_url: string | null;
+  thumbnail_base64?: string | null;
 }
 
 export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | null> {
@@ -502,7 +503,7 @@ export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | n
     .select(
       'clip_code, clip_details_code, title, headline_banner, question_banner, ' +
       'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
-      'video_url'
+      'video_url, thumbnail_base64'
     )
     .eq('clip_code', lookupCode)
     .maybeSingle();
@@ -517,7 +518,7 @@ export async function fetchAllClipDetails(): Promise<ClipDetail[]> {
     .select(
       'clip_code, clip_details_code, title, headline_banner, question_banner, ' +
       'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
-      'video_url'
+      'video_url, thumbnail_base64'
     )
     .order('clip_code');
   if (error) throw error;

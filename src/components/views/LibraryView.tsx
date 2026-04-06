@@ -1,23 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { fetchAllClipDetails } from '@/lib/db';
 import { supabase } from '@/lib/supabase';
 import ClipGrid from './ClipGrid';
 
-type EpisodeClip = { code: string; videoUrl: string };
+type EpisodeClip = { code: string; videoUrl: string; base64: string | null };
 
-async function getOrGenerateThumbnail(code: string, videoUrl: string): Promise<string | null> {
-  const path = `${code}.jpg`;
-  const { data: urlData } = supabase.storage.from('thumbnails').getPublicUrl(path);
-  const publicUrl = urlData.publicUrl;
-
-  try {
-    const res = await fetch(publicUrl, { method: 'HEAD' });
-    if (res.ok) return publicUrl;
-  } catch { /* fall through to generate */ }
-
+function generateAndStoreThumbnail(code: string, videoUrl: string): Promise<string | null> {
   return new Promise((resolve) => {
     const proxy = `/api/video-proxy?url=${encodeURIComponent(videoUrl)}`;
     const vid = document.createElement('video');
@@ -30,30 +21,25 @@ async function getOrGenerateThumbnail(code: string, videoUrl: string): Promise<s
 
     vid.addEventListener('error', () => { clearTimeout(timeout); resolve(null); }, { once: true });
 
-    vid.addEventListener('seeked', () => {
+    vid.addEventListener('seeked', async () => {
       clearTimeout(timeout);
       try {
         const canvas = document.createElement('canvas');
         canvas.width = vid.videoWidth || 320;
         canvas.height = vid.videoHeight || 568;
         canvas.getContext('2d')?.drawImage(vid, 0, 0, canvas.width, canvas.height);
-        canvas.toBlob(async (blob) => {
-          if (blob) {
-            await supabase.storage.from('thumbnails').upload(path, blob, {
-              contentType: 'image/jpeg',
-              upsert: false,
-            }).catch(() => {});
-          }
-          resolve(blob ? publicUrl : null);
-        }, 'image/jpeg', 0.8);
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        const base64 = dataUrl.replace(/^data:image\/jpeg;base64,/, '');
+        try {
+          await supabase.from('clip_details').update({ thumbnail_base64: base64 }).eq('clip_details_code', code);
+        } catch { /* non-fatal */ }
+        resolve(base64);
       } catch {
         resolve(null);
       }
     }, { once: true });
 
-    // Must wait for metadata before seeking — setting currentTime before load resolves is a no-op
     vid.addEventListener('loadedmetadata', () => { vid.currentTime = 0.1; }, { once: true });
-
     vid.load();
   });
 }
@@ -86,23 +72,24 @@ export default function LibraryView() {
   const searchParams = useSearchParams();
 
   const [episodes, setEpisodes] = useState<string[]>([]);
-  const [selectedEpisode, setSelectedEpisode] = useState<string | null>(
-    searchParams.get('episode')
-  );
-  const [selectedClip, setSelectedClip] = useState<string | null>(
-    searchParams.get('clip')
-  );
+  const [selectedEpisode, setSelectedEpisode] = useState<string | null>(searchParams.get('episode'));
+  const [selectedClip, setSelectedClip] = useState<string | null>(searchParams.get('clip'));
   const [loading, setLoading] = useState(true);
   const [clipsByEpisode, setClipsByEpisode] = useState<Record<string, EpisodeClip[]>>({});
   const [clipCounts, setClipCounts] = useState<Record<string, number>>({});
   const [folderThumbs, setFolderThumbs] = useState<Record<string, (string | null)[]>>({});
 
+  const observerRef = useRef<IntersectionObserver | null>(null);
+  const generatingRef = useRef<Set<string>>(new Set());
+
+  // Load all clip details, pre-populate cached thumbs from thumbnail_base64
   useEffect(() => {
     fetchAllClipDetails()
       .then((rows) => {
         const prefixes = new Set<string>();
         const byEpisode: Record<string, EpisodeClip[]> = {};
         const counts: Record<string, number> = {};
+
         for (const row of rows) {
           const prefix = extractEpisodePrefix(row.clip_details_code);
           if (prefix) {
@@ -110,31 +97,63 @@ export default function LibraryView() {
             counts[prefix] = (counts[prefix] ?? 0) + 1;
             if (!byEpisode[prefix]) byEpisode[prefix] = [];
             if (byEpisode[prefix].length < 3 && row.video_url) {
-              byEpisode[prefix].push({ code: row.clip_details_code ?? '', videoUrl: row.video_url });
+              byEpisode[prefix].push({
+                code: row.clip_details_code ?? '',
+                videoUrl: row.video_url,
+                base64: row.thumbnail_base64 ?? null,
+              });
             }
           }
         }
+
+        // Pre-populate thumbs from cached base64 — no async needed
+        const initialThumbs: Record<string, (string | null)[]> = {};
+        for (const [episode, clips] of Object.entries(byEpisode)) {
+          initialThumbs[episode] = clips.map((c) =>
+            c.base64 ? `data:image/jpeg;base64,${c.base64}` : null
+          );
+        }
+
         setEpisodes(Array.from(prefixes).sort());
         setClipsByEpisode(byEpisode);
         setClipCounts(counts);
+        setFolderThumbs(initialThumbs);
       })
       .catch(() => setEpisodes([]))
       .finally(() => setLoading(false));
   }, []);
 
+  // IntersectionObserver: lazy-generate missing thumbnails when card enters viewport
   useEffect(() => {
-    for (const [episode, clips] of Object.entries(clipsByEpisode)) {
-      if (clips.length === 0) continue;
-      clips.forEach(async (clip, idx) => {
-        const url = await getOrGenerateThumbnail(clip.code, clip.videoUrl);
-        setFolderThumbs((prev) => {
-          const existing = prev[episode] ?? new Array(clips.length).fill(null);
-          const updated = [...existing];
-          updated[idx] = url;
-          return { ...prev, [episode]: updated };
+    observerRef.current?.disconnect();
+    generatingRef.current.clear();
+
+    observerRef.current = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const episode = (entry.target as HTMLElement).dataset.episode;
+        if (!episode) continue;
+        observerRef.current?.unobserve(entry.target);
+
+        const clips = clipsByEpisode[episode] ?? [];
+        clips.forEach(async (clip, idx) => {
+          if (clip.base64 || generatingRef.current.has(clip.code)) return;
+          generatingRef.current.add(clip.code);
+
+          const base64 = await generateAndStoreThumbnail(clip.code, clip.videoUrl);
+          if (base64) {
+            setFolderThumbs((prev) => {
+              const existing = prev[episode] ?? new Array(clips.length).fill(null);
+              const updated = [...existing];
+              updated[idx] = `data:image/jpeg;base64,${base64}`;
+              return { ...prev, [episode]: updated };
+            });
+          }
         });
-      });
-    }
+      }
+    }, { rootMargin: '200px' });
+
+    return () => observerRef.current?.disconnect();
   }, [clipsByEpisode]);
 
   const updateURL = (episode: string | null, clip: string | null) => {
@@ -169,25 +188,17 @@ export default function LibraryView() {
     );
   }
 
-  // Episode or clip selected — full-height layout with breadcrumb header
   if (selectedEpisode) {
     return (
       <div className="flex flex-col h-full overflow-hidden">
-        {/* Breadcrumb header */}
         <div className="flex items-center gap-2 px-6 py-3 border-b border-[rgba(247,231,206,0.06)] shrink-0">
-          <button
-            onClick={handleBackToLibrary}
-            className="text-xs text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors"
-          >
+          <button onClick={handleBackToLibrary} className="text-xs text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors">
             Library
           </button>
           <ChevronRight />
           {selectedClip ? (
             <>
-              <button
-                onClick={() => handleClipChange(null)}
-                className="text-xs text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors"
-              >
+              <button onClick={() => handleClipChange(null)} className="text-xs text-[var(--text-3)] hover:text-[var(--text-2)] transition-colors">
                 {selectedEpisode}
               </button>
               <ChevronRight />
@@ -197,20 +208,13 @@ export default function LibraryView() {
             <span className="text-xs text-[var(--text-1)] font-medium">{selectedEpisode}</span>
           )}
         </div>
-
-        {/* Content area */}
         <div className="flex-1 min-h-0 overflow-hidden">
-          <ClipGrid
-            episodePrefix={selectedEpisode}
-            selectedClip={selectedClip}
-            onClipChange={handleClipChange}
-          />
+          <ClipGrid episodePrefix={selectedEpisode} selectedClip={selectedClip} onClipChange={handleClipChange} />
         </div>
       </div>
     );
   }
 
-  // Episode grid
   return (
     <div className="p-8 overflow-y-auto h-full">
       <h1 className="text-xl font-semibold text-[var(--text-1)] mb-1">Library</h1>
@@ -227,6 +231,8 @@ export default function LibraryView() {
             return (
               <button
                 key={episode}
+                data-episode={episode}
+                ref={(el) => { if (el && observerRef.current) observerRef.current.observe(el); }}
                 onClick={() => handleSelectEpisode(episode)}
                 className="bg-[var(--bg-elevated)] border border-[rgba(247,231,206,0.06)] rounded-xl overflow-hidden hover:border-[var(--gold-border)] transition-all duration-150 group text-left"
               >
