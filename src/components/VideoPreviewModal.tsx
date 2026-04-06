@@ -106,7 +106,7 @@ function MiniPlayer({ url, clipCode }: { url: string | null; clipCode: string })
     return (
       <div className="w-full rounded-xl overflow-hidden bg-black" style={{ height: 280 }}>
         <video controls playsInline width="100%" height="100%" style={{ width: '100%', height: '100%' }}>
-          <source src={url} type="video/mp4" />
+          <source src={`/api/video-proxy?url=${encodeURIComponent(url)}`} type="video/mp4" />
         </video>
       </div>
     );
