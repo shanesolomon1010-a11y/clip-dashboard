@@ -81,6 +81,8 @@ export default function LibraryView() {
 
   const observerRef = useRef<IntersectionObserver | null>(null);
   const generatingRef = useRef<Set<string>>(new Set());
+  const [genProgress, setGenProgress] = useState<{ done: number; total: number } | null>(null);
+  const [genDone, setGenDone] = useState(false);
 
   // Load all clip details, pre-populate cached thumbs from thumbnail_base64
   useEffect(() => {
@@ -156,6 +158,50 @@ export default function LibraryView() {
     return () => observerRef.current?.disconnect();
   }, [clipsByEpisode]);
 
+  const handleGenerateAll = async () => {
+    setGenDone(false);
+    setGenProgress(null);
+
+    const { data, error } = await supabase
+      .from('clip_details')
+      .select('clip_details_code, video_url')
+      .is('thumbnail_base64', null)
+      .not('video_url', 'is', null);
+
+    if (error || !data || data.length === 0) {
+      setGenDone(true);
+      return;
+    }
+
+    const rows = data as { clip_details_code: string; video_url: string }[];
+    setGenProgress({ done: 0, total: rows.length });
+
+    for (let i = 0; i < rows.length; i++) {
+      const row = rows[i];
+      const base64 = await generateAndStoreThumbnail(row.clip_details_code, row.video_url);
+      if (base64) {
+        // Update folderThumbs in place for any episode using this clip
+        setFolderThumbs((prev) => {
+          const next = { ...prev };
+          for (const [episode, thumbs] of Object.entries(next)) {
+            const clips = clipsByEpisode[episode] ?? [];
+            const idx = clips.findIndex((c) => c.code === row.clip_details_code);
+            if (idx !== -1 && !thumbs[idx]) {
+              const updated = [...thumbs];
+              updated[idx] = `data:image/jpeg;base64,${base64}`;
+              next[episode] = updated;
+            }
+          }
+          return next;
+        });
+      }
+      setGenProgress({ done: i + 1, total: rows.length });
+    }
+
+    setGenProgress(null);
+    setGenDone(true);
+  };
+
   const updateURL = (episode: string | null, clip: string | null) => {
     const params = new URLSearchParams(searchParams.toString());
     if (episode) params.set('episode', episode); else params.delete('episode');
@@ -217,7 +263,26 @@ export default function LibraryView() {
 
   return (
     <div className="p-8 overflow-y-auto h-full">
-      <h1 className="text-xl font-semibold text-[var(--text-1)] mb-1">Library</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-xl font-semibold text-[var(--text-1)]">Library</h1>
+        <div className="flex items-center gap-3">
+          {genProgress && (
+            <span className="text-[11px] text-[var(--text-3)]">
+              Generating thumbnails… {genProgress.done} / {genProgress.total}
+            </span>
+          )}
+          {genDone && !genProgress && (
+            <span className="text-[11px] text-[var(--text-3)]">All thumbnails generated</span>
+          )}
+          <button
+            onClick={handleGenerateAll}
+            disabled={!!genProgress}
+            className="px-2.5 py-1 rounded-md text-[11px] text-[var(--text-3)] border border-[rgba(247,231,206,0.08)] hover:text-[var(--text-2)] hover:border-[rgba(247,231,206,0.16)] transition-colors disabled:opacity-40"
+          >
+            {genProgress ? 'Generating…' : 'Generate All Thumbnails'}
+          </button>
+        </div>
+      </div>
       <p className="text-sm text-[var(--text-3)] mb-8">
         {episodes.length} episode{episodes.length !== 1 ? 's' : ''}
       </p>
