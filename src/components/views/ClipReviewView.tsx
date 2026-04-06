@@ -29,6 +29,8 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ffmpegRef = useRef<FFmpeg | null>(null);
   const scrubberRef = useRef<HTMLInputElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
+  const isDraggingTimelineRef = useRef(false);
 
   const [clipDetailVideoUrl, setClipDetailVideoUrl] = useState<string | null>(null);
   const [versions, setVersions] = useState<ClipVersion[]>([]);
@@ -46,11 +48,14 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
+  const [commentMode, setCommentMode] = useState<'point' | 'range'>('point');
+  const [rangeStart, setRangeStart] = useState<number | null>(null);
+  const [rangeEnd, setRangeEnd] = useState<number | null>(null);
+  const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
 
   const videoUrl = activeVersion?.video_url ?? clipDetailVideoUrl;
   const proxySrc = videoUrl ? `/api/video-proxy?url=${encodeURIComponent(videoUrl)}` : null;
 
-  // Load clip_details.video_url + versions on mount / code change
   useEffect(() => {
     setLoadingVersions(true);
     setClipDetailVideoUrl(null);
@@ -79,29 +84,43 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
       .finally(() => setLoadingVersions(false));
   }, [clipDetailsCode]);
 
-  const loadComments = useCallback(() => {
-    if (!activeVersion) return;
+  const loadComments = useCallback((versionId: string) => {
     setLoadingComments(true);
-    getReviewComments(clipDetailsCode, activeVersion.id)
+    getReviewComments(clipDetailsCode, versionId)
       .then(setComments)
       .catch(() => {})
       .finally(() => setLoadingComments(false));
-  }, [clipDetailsCode, activeVersion]);
+  }, [clipDetailsCode]);
 
   useEffect(() => {
-    loadComments();
-  }, [loadComments]);
+    if (activeVersion) loadComments(activeVersion.id);
+  }, [activeVersion, loadComments]);
 
   const handleAddComment = async () => {
-    if (!commentText.trim()) return;
-    const currentTime = videoRef.current?.currentTime ?? 0;
-    console.log('Add comment:', { commentText, currentTime, activeVersionId: activeVersion?.id });
+    console.log('handleAddComment fired', { commentText, commentMode, rangeStart, rangeEnd, activeVersionId: activeVersion?.id, clipDetailVideoUrl });
+    if (!commentText.trim()) {
+      console.log('No comment text, returning');
+      return;
+    }
+
+    let timestampStart: number;
+    let timestampEnd: number | null = null;
+
+    if (commentMode === 'range' && rangeStart !== null && rangeEnd !== null) {
+      timestampStart = Math.min(rangeStart, rangeEnd);
+      timestampEnd = Math.max(rangeStart, rangeEnd);
+    } else {
+      timestampStart = videoRef.current?.currentTime ?? 0;
+    }
+
+    console.log('Submitting comment:', { timestampStart, timestampEnd });
     setSubmitting(true);
+
     try {
       let versionId = activeVersion?.id ?? null;
 
-      // If no version exists yet, create one from clip_details.video_url
       if (!versionId && clipDetailVideoUrl) {
+        console.log('No version — creating v1 from clip_details.video_url');
         await addClipVersion(clipDetailsCode, clipDetailVideoUrl, 1);
         const created = await getClipVersions(clipDetailsCode);
         const newVersion = created[0];
@@ -110,25 +129,26 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
         versionId = newVersion?.id ?? null;
       }
 
-      if (!versionId) return;
+      if (!versionId) {
+        console.log('Still no version ID — aborting');
+        return;
+      }
 
       await addReviewComment({
         clip_details_code: clipDetailsCode,
         version_id: versionId,
-        timestamp_start: currentTime,
-        timestamp_end: null,
+        timestamp_start: timestampStart,
+        timestamp_end: timestampEnd,
         comment: commentText.trim(),
       });
-      setCommentText('');
 
-      // Re-fetch comments for the active version
-      setLoadingComments(true);
-      getReviewComments(clipDetailsCode, versionId)
-        .then(setComments)
-        .catch(() => {})
-        .finally(() => setLoadingComments(false));
-    } catch {
-      // non-fatal
+      console.log('Comment added successfully');
+      setCommentText('');
+      setRangeStart(null);
+      setRangeEnd(null);
+      loadComments(versionId);
+    } catch (err) {
+      console.error('Failed to add comment:', err);
     } finally {
       setSubmitting(false);
     }
@@ -140,7 +160,16 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   };
 
   const seekTo = (time: number) => {
-    if (videoRef.current) videoRef.current.currentTime = time;
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+      if (scrubberRef.current) scrubberRef.current.value = time.toString();
+    }
+  };
+
+  const getTimeFromX = (clientX: number): number => {
+    if (!timelineRef.current || !duration) return 0;
+    const rect = timelineRef.current.getBoundingClientRect();
+    return Math.max(0, Math.min(duration, ((clientX - rect.left) / rect.width) * duration));
   };
 
   const handleScan = async () => {
@@ -219,6 +248,8 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
     );
   }
 
+  const activeComments = comments.filter((c) => !c.resolved);
+
   return (
     <div className="flex flex-col h-full overflow-hidden">
 
@@ -287,8 +318,9 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
       {/* ── Main panels ── */}
       <div className="flex flex-1 min-h-0 overflow-hidden">
 
-        {/* Left: video + timeline */}
+        {/* Left: video + controls */}
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden px-6 py-5 gap-3">
+
           {/* Video — centered, max 70vh, 9:16 */}
           <div className="flex-1 flex items-center justify-center min-h-0">
             {proxySrc ? (
@@ -318,7 +350,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
             )}
           </div>
 
-          {/* Custom player bar */}
+          {/* Player bar */}
           {proxySrc && (
             <div className="w-full shrink-0 flex items-center gap-3 px-1">
               <button
@@ -369,6 +401,80 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
               </button>
             </div>
           )}
+
+          {/* Timeline: comment dots/bars + range selection drag area */}
+          {proxySrc && (
+            <div
+              ref={timelineRef}
+              className={`w-full shrink-0 relative h-5 select-none ${commentMode === 'range' ? 'cursor-crosshair' : 'cursor-default'}`}
+              onMouseDown={(e) => {
+                if (commentMode !== 'range') return;
+                const t = getTimeFromX(e.clientX);
+                setRangeStart(t);
+                setRangeEnd(t);
+                isDraggingTimelineRef.current = true;
+              }}
+              onMouseMove={(e) => {
+                if (!isDraggingTimelineRef.current) return;
+                setRangeEnd(getTimeFromX(e.clientX));
+              }}
+              onMouseUp={(e) => {
+                if (!isDraggingTimelineRef.current) return;
+                setRangeEnd(getTimeFromX(e.clientX));
+                isDraggingTimelineRef.current = false;
+              }}
+              onMouseLeave={() => { isDraggingTimelineRef.current = false; }}
+            >
+              {/* Track */}
+              <div className="absolute top-1/2 -translate-y-1/2 w-full h-1 bg-[rgba(247,231,206,0.08)] rounded-full" />
+
+              {/* Range selection highlight */}
+              {commentMode === 'range' && rangeStart !== null && rangeEnd !== null && duration > 0 && (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 h-1 bg-[var(--gold)] opacity-50 rounded-full pointer-events-none"
+                  style={{
+                    left: `${(Math.min(rangeStart, rangeEnd) / duration) * 100}%`,
+                    width: `${(Math.abs(rangeEnd - rangeStart) / duration) * 100}%`,
+                  }}
+                />
+              )}
+
+              {/* Comment markers */}
+              {duration > 0 && activeComments.map((c) => {
+                const startPct = (c.timestamp_start / duration) * 100;
+                const isHighlighted = highlightedCommentId === c.id;
+
+                if (c.timestamp_end != null) {
+                  const endPct = (c.timestamp_end / duration) * 100;
+                  return (
+                    <div
+                      key={c.id}
+                      className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--gold)]' : 'bg-[rgba(247,231,206,0.45)] hover:bg-[rgba(247,231,206,0.7)]'}`}
+                      style={{ left: `${startPct}%`, width: `${Math.max(endPct - startPct, 0.5)}%` }}
+                      onClick={() => {
+                        seekTo(c.timestamp_start);
+                        setHighlightedCommentId(c.id);
+                        setTimeout(() => document.getElementById(`comment-${c.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
+                      }}
+                    />
+                  );
+                }
+
+                return (
+                  <div
+                    key={c.id}
+                    className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--gold)]' : 'bg-white/60 hover:bg-white'}`}
+                    style={{ left: `${startPct}%` }}
+                    onClick={() => {
+                      seekTo(c.timestamp_start);
+                      setHighlightedCommentId(c.id);
+                      setTimeout(() => document.getElementById(`comment-${c.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Right: comments */}
@@ -376,10 +482,8 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
           {/* Header */}
           <div className="px-4 py-3 border-b border-[rgba(247,231,206,0.06)] shrink-0 flex items-center justify-between">
             <span className="text-[11px] font-semibold text-[var(--text-2)] uppercase tracking-widest">Comments</span>
-            {comments.filter((c) => !c.resolved).length > 0 && (
-              <span className="text-[10px] text-[var(--text-3)]">
-                {comments.filter((c) => !c.resolved).length} open
-              </span>
+            {activeComments.length > 0 && (
+              <span className="text-[10px] text-[var(--text-3)]">{activeComments.length} open</span>
             )}
           </div>
 
@@ -394,19 +498,26 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
             ) : (
               comments.map((c) => (
                 <div
+                  id={`comment-${c.id}`}
                   key={c.id}
-                  className={`bg-[var(--bg-elevated)] border rounded-xl px-3 py-2.5 transition-opacity ${
-                    c.resolved ? 'border-[rgba(247,231,206,0.03)] opacity-35' : 'border-[rgba(247,231,206,0.06)]'
+                  className={`bg-[var(--bg-elevated)] border rounded-xl px-3 py-2.5 transition-all ${
+                    c.resolved
+                      ? 'border-[rgba(247,231,206,0.03)] opacity-35'
+                      : highlightedCommentId === c.id
+                      ? 'border-[var(--gold-border)] shadow-[0_0_0_1px_var(--gold-border)]'
+                      : 'border-[rgba(247,231,206,0.06)]'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <button
-                          onClick={() => seekTo(c.timestamp_start)}
+                          onClick={() => { seekTo(c.timestamp_start); setHighlightedCommentId(c.id); }}
                           className="text-[10px] font-mono text-[var(--gold)] bg-[var(--gold-dim)] px-1.5 py-px rounded hover:brightness-110 transition-all"
                         >
-                          {formatTime(c.timestamp_start)}
+                          {c.timestamp_end != null
+                            ? `${formatTime(c.timestamp_start)} → ${formatTime(c.timestamp_end)}`
+                            : formatTime(c.timestamp_start)}
                         </button>
                         <span className="text-[10px] text-[var(--text-3)]">{c.author}</span>
                       </div>
@@ -429,18 +540,42 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
             )}
           </div>
 
-          {/* Comment input — pinned to bottom */}
+          {/* Comment input */}
           <div className="px-3 py-3 border-t border-[rgba(247,231,206,0.06)] shrink-0 flex flex-col gap-2">
+            {/* Mode toggle */}
+            <div className="flex items-center gap-1">
+              {(['point', 'range'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => { setCommentMode(mode); setRangeStart(null); setRangeEnd(null); }}
+                  className={`px-2.5 py-1 rounded-md text-[10px] font-semibold transition-all capitalize ${
+                    commentMode === mode
+                      ? 'bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)]'
+                      : 'text-[var(--text-3)] border border-transparent hover:border-[rgba(247,231,206,0.08)]'
+                  }`}
+                >
+                  {mode === 'point' ? 'Point' : 'Range'}
+                </button>
+              ))}
+              {commentMode === 'range' && rangeStart !== null && rangeEnd !== null && (
+                <span className="ml-auto text-[10px] font-mono text-[var(--text-3)]">
+                  {formatTime(Math.min(rangeStart, rangeEnd))} → {formatTime(Math.max(rangeStart, rangeEnd))}
+                </span>
+              )}
+            </div>
+
             <textarea
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleAddComment(); } }}
-              placeholder="Comment at current time…"
+              placeholder={commentMode === 'range' ? 'Drag timeline to select range, then comment…' : 'Comment at current time…'}
               disabled={submitting}
               rows={2}
               className="w-full bg-[var(--bg-base)] border border-[rgba(247,231,206,0.06)] rounded-lg px-3 py-2 text-xs text-[var(--text-1)] placeholder:text-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] disabled:opacity-40 transition-colors resize-none"
             />
             <button
+              type="button"
               onClick={handleAddComment}
               disabled={!commentText.trim() || submitting}
               className="w-full px-3 py-1.5 rounded-lg text-xs font-semibold bg-[var(--gold-dim)] text-[var(--gold)] border border-[var(--gold-border)] hover:bg-[rgba(212,146,42,0.12)] disabled:opacity-40 transition-colors"
