@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-// Use service role key so storage listing works server-side
-const supabaseAdmin = createClient(
+const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
 function extractClipDetailsCode(filename: string): string {
@@ -17,7 +16,7 @@ export async function POST(): Promise<NextResponse> {
   const bucketName = 'Clips';
 
   // List all files recursively in the Clips bucket
-  const { data: files, error: listError } = await supabaseAdmin.storage
+  const { data: files, error: listError } = await supabase.storage
     .from('Clips')
     .list('', { limit: 1000, offset: 0 });
 
@@ -35,7 +34,7 @@ export async function POST(): Promise<NextResponse> {
   for (const item of files ?? []) {
     if (item.id === null) {
       // It's a folder — list its contents
-      const { data: sub } = await supabaseAdmin.storage
+      const { data: sub } = await supabase.storage
         .from('Clips')
         .list(item.name, { limit: 1000, offset: 0 });
       for (const subItem of sub ?? []) {
@@ -54,12 +53,12 @@ export async function POST(): Promise<NextResponse> {
   for (const path of allPaths) {
     const clipDetailsCode = extractClipDetailsCode(path);
 
-    const { data: urlData } = supabaseAdmin.storage
+    const { data: urlData } = supabase.storage
       .from('Clips')
       .getPublicUrl(path);
     const video_url = urlData.publicUrl;
 
-    const { error: upsertError } = await supabaseAdmin
+    const { error: upsertError } = await supabase
       .from('clip_versions')
       .upsert(
         { clip_details_code: clipDetailsCode, video_url, version_number: 1 },
