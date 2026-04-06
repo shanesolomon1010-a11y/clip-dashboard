@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
-
 function extractClipDetailsCode(filename: string): string {
   const basename = (filename.split('/').pop() ?? filename).replace(/\.[^.]+$/, '');
   const parts = basename.split('-');
@@ -13,6 +8,11 @@ function extractClipDetailsCode(filename: string): string {
 }
 
 export async function POST(): Promise<NextResponse> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+
   const bucketName = 'Clips';
 
   // List all files recursively in the Clips bucket
