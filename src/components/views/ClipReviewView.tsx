@@ -53,7 +53,10 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
       .select('video_url')
       .eq('clip_details_code', clipDetailsCode)
       .maybeSingle()
-      .then(({ data }) => setClipDetailVideoUrl((data?.video_url as string | null) ?? null));
+      .then(({ data }) => {
+        console.log('clip_details row:', data);
+        setClipDetailVideoUrl((data?.video_url as string | null) ?? null);
+      });
 
     getClipVersions(clipDetailsCode)
       .then((v) => {
@@ -298,22 +301,19 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
         <div className="flex-1 flex flex-col gap-4 min-w-0">
           {/* Video player */}
           <div className="bg-black rounded-xl overflow-hidden aspect-video w-full">
-            {(() => {
-              const videoSrc = activeVersion?.video_url ?? clipDetailVideoUrl;
-              return videoSrc ? (
-                <video
-                  ref={videoRef}
-                  key={activeVersion?.id ?? 'clip-detail'}
-                  src={videoSrc}
-                  controls
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <p className="text-sm text-[var(--text-3)]">No video — upload a version to get started</p>
-                </div>
-              );
-            })()}
+            {clipDetailVideoUrl ? (
+              <video
+                ref={videoRef}
+                key={clipDetailVideoUrl}
+                src={clipDetailVideoUrl}
+                controls
+                className="w-full h-full object-contain"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center">
+                <p className="text-sm text-[var(--text-3)]">No video — upload a version to get started</p>
+              </div>
+            )}
           </div>
 
           {/* Timeline bar */}
