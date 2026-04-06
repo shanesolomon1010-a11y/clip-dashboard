@@ -334,11 +334,11 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
 
           {/* Video — centered, max 70vh, 9:16 */}
           <div className="flex-1 flex items-center justify-center min-h-0">
-            {proxySrc ? (
+            {videoUrl ? (
               <video
                 ref={videoRef}
-                key={videoUrl!}
-                src={proxySrc}
+                key={videoUrl}
+                src={videoUrl}
                 muted={isMuted}
                 onClick={() => isPlaying ? videoRef.current?.pause() : videoRef.current?.play()}
                 onTimeUpdate={() => {
@@ -363,7 +363,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
           </div>
 
           {/* Player bar + timeline — scrubber and dots share the same flex-1 parent for identical width */}
-          {proxySrc && (
+          {videoUrl && (
             <div className="w-full shrink-0 flex items-center gap-3 px-1">
               <button
                 onClick={() => isPlaying ? videoRef.current?.pause() : videoRef.current?.play()}
