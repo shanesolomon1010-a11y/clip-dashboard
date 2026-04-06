@@ -8,17 +8,9 @@ const supabaseAdmin = createClient(
 );
 
 function extractClipDetailsCode(filename: string): string {
-  // Strip path prefix (e.g. "MBM015-CLIP-004/v1_1234.mp4" → "MBM015-CLIP-004")
-  const basename = filename.split('/').pop() ?? filename;
-  // Strip extension and version prefix (e.g. "v1_1234.mp4" → keep raw, fall back to stem)
-  const stem = basename.replace(/\.[^.]+$/, '');
-  // If filename itself looks like a clip code (e.g. "MBM015-CLIP-004.mp4"), use the stem
-  // Otherwise if it's a versioned filename like "v1_timestamp", use parent folder
-  if (/^[A-Z]+-\d+/.test(stem)) return stem;
-  // Fall back: use parent folder as clip_details_code
-  const parts = filename.split('/');
-  if (parts.length >= 2) return parts[parts.length - 2];
-  return stem;
+  const basename = (filename.split('/').pop() ?? filename).replace(/\.[^.]+$/, '');
+  const parts = basename.split('-');
+  return parts.slice(0, 3).join('-');
 }
 
 export async function POST(): Promise<NextResponse> {
