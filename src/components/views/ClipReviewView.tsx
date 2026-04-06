@@ -334,6 +334,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                 key={videoUrl!}
                 src={proxySrc}
                 muted={isMuted}
+                onClick={() => isPlaying ? videoRef.current?.pause() : videoRef.current?.play()}
                 onTimeUpdate={() => {
                   const t = videoRef.current?.currentTime ?? 0;
                   setCurrentTime(t);
@@ -342,7 +343,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                 onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
-                className="rounded-xl bg-black object-contain"
+                className="rounded-xl bg-black object-contain cursor-pointer"
                 style={{ maxHeight: '70vh', aspectRatio: '9/16', width: 'auto', maxWidth: '100%', pointerEvents: 'auto' }}
               />
             ) : (
@@ -355,7 +356,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
             )}
           </div>
 
-          {/* Player bar */}
+          {/* Player bar + timeline — scrubber and dots share the same flex-1 parent for identical width */}
           {proxySrc && (
             <div className="w-full shrink-0 flex items-center gap-3 px-1">
               <button
@@ -373,20 +374,87 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                 )}
               </button>
               <span className="text-[10px] font-mono text-[var(--text-3)] shrink-0 w-9 text-right">{formatTime(currentTime)}</span>
-              <input
-                ref={scrubberRef}
-                type="range"
-                min={0}
-                max={duration}
-                step={0.01}
-                defaultValue={0}
-                onInput={() => {
-                  if (videoRef.current && scrubberRef.current) {
-                    videoRef.current.currentTime = parseFloat(scrubberRef.current.value);
-                  }
-                }}
-                className="flex-1 accent-[var(--gold)] h-1 cursor-pointer"
-              />
+
+              {/* Shared-width column: scrubber on top, timeline dots below */}
+              <div className="flex-1 flex flex-col gap-1">
+                <input
+                  ref={scrubberRef}
+                  type="range"
+                  min={0}
+                  max={duration}
+                  step={0.01}
+                  defaultValue={0}
+                  onInput={() => {
+                    if (videoRef.current && scrubberRef.current) {
+                      videoRef.current.currentTime = parseFloat(scrubberRef.current.value);
+                    }
+                  }}
+                  className="w-full accent-[var(--gold)] h-1 cursor-pointer"
+                />
+                <div
+                  ref={timelineRef}
+                  className={`w-full relative h-4 select-none ${commentMode === 'range' ? 'cursor-crosshair' : 'cursor-default'}`}
+                  onMouseDown={(e) => {
+                    if (commentMode !== 'range') return;
+                    const t = getTimeFromX(e.clientX);
+                    setRangeStart(t);
+                    setRangeEnd(t);
+                    isDraggingTimelineRef.current = true;
+                  }}
+                  onMouseMove={(e) => {
+                    if (!isDraggingTimelineRef.current) return;
+                    setRangeEnd(getTimeFromX(e.clientX));
+                  }}
+                  onMouseUp={(e) => {
+                    if (!isDraggingTimelineRef.current) return;
+                    setRangeEnd(getTimeFromX(e.clientX));
+                    isDraggingTimelineRef.current = false;
+                  }}
+                  onMouseLeave={() => { isDraggingTimelineRef.current = false; }}
+                >
+                  {/* Track */}
+                  <div className="absolute top-1/2 -translate-y-1/2 w-full h-1 bg-[rgba(247,231,206,0.08)] rounded-full" />
+
+                  {/* Range selection highlight */}
+                  {commentMode === 'range' && rangeStart !== null && rangeEnd !== null && duration > 0 && (
+                    <div
+                      className="absolute top-1/2 -translate-y-1/2 h-1 bg-[var(--gold)] opacity-50 rounded-full pointer-events-none"
+                      style={{
+                        left: `${(Math.min(rangeStart, rangeEnd) / duration) * 100}%`,
+                        width: `${(Math.abs(rangeEnd - rangeStart) / duration) * 100}%`,
+                      }}
+                    />
+                  )}
+
+                  {/* Comment markers */}
+                  {duration > 0 && activeComments.map((c) => {
+                    const startPct = (c.timestamp_start / duration) * 100;
+                    const isHighlighted = highlightedCommentId === c.id;
+
+                    if (c.timestamp_end != null) {
+                      const endPct = (c.timestamp_end / duration) * 100;
+                      return (
+                        <div
+                          key={c.id}
+                          className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--gold)]' : 'bg-[rgba(247,231,206,0.45)] hover:bg-[rgba(247,231,206,0.7)]'}`}
+                          style={{ left: `${startPct}%`, width: `${Math.max(endPct - startPct, 0.5)}%` }}
+                          onClick={() => seekTo(c.timestamp_start)}
+                        />
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={c.id}
+                        className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--gold)]' : 'bg-white/60 hover:bg-white'}`}
+                        style={{ left: `${startPct}%` }}
+                        onClick={() => seekTo(c.timestamp_start)}
+                      />
+                    );
+                  })}
+                </div>
+              </div>
+
               <span className="text-[10px] font-mono text-[var(--text-3)] shrink-0 w-9">{formatTime(duration)}</span>
               <button
                 onClick={() => { if (videoRef.current) { videoRef.current.muted = !isMuted; setIsMuted(!isMuted); } }}
@@ -404,72 +472,6 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                   </svg>
                 )}
               </button>
-            </div>
-          )}
-
-          {/* Timeline: comment dots/bars + range selection drag area */}
-          {proxySrc && (
-            <div
-              ref={timelineRef}
-              className={`w-full shrink-0 relative h-5 select-none ${commentMode === 'range' ? 'cursor-crosshair' : 'cursor-default'}`}
-              onMouseDown={(e) => {
-                if (commentMode !== 'range') return;
-                const t = getTimeFromX(e.clientX);
-                setRangeStart(t);
-                setRangeEnd(t);
-                isDraggingTimelineRef.current = true;
-              }}
-              onMouseMove={(e) => {
-                if (!isDraggingTimelineRef.current) return;
-                setRangeEnd(getTimeFromX(e.clientX));
-              }}
-              onMouseUp={(e) => {
-                if (!isDraggingTimelineRef.current) return;
-                setRangeEnd(getTimeFromX(e.clientX));
-                isDraggingTimelineRef.current = false;
-              }}
-              onMouseLeave={() => { isDraggingTimelineRef.current = false; }}
-            >
-              {/* Track */}
-              <div className="absolute top-1/2 -translate-y-1/2 w-full h-1 bg-[rgba(247,231,206,0.08)] rounded-full" />
-
-              {/* Range selection highlight */}
-              {commentMode === 'range' && rangeStart !== null && rangeEnd !== null && duration > 0 && (
-                <div
-                  className="absolute top-1/2 -translate-y-1/2 h-1 bg-[var(--gold)] opacity-50 rounded-full pointer-events-none"
-                  style={{
-                    left: `${(Math.min(rangeStart, rangeEnd) / duration) * 100}%`,
-                    width: `${(Math.abs(rangeEnd - rangeStart) / duration) * 100}%`,
-                  }}
-                />
-              )}
-
-              {/* Comment markers */}
-              {duration > 0 && activeComments.map((c) => {
-                const startPct = (c.timestamp_start / duration) * 100;
-                const isHighlighted = highlightedCommentId === c.id;
-
-                if (c.timestamp_end != null) {
-                  const endPct = (c.timestamp_end / duration) * 100;
-                  return (
-                    <div
-                      key={c.id}
-                      className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--gold)]' : 'bg-[rgba(247,231,206,0.45)] hover:bg-[rgba(247,231,206,0.7)]'}`}
-                      style={{ left: `${startPct}%`, width: `${Math.max(endPct - startPct, 0.5)}%` }}
-                      onClick={() => seekTo(c.timestamp_start)}
-                    />
-                  );
-                }
-
-                return (
-                  <div
-                    key={c.id}
-                    className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--gold)]' : 'bg-white/60 hover:bg-white'}`}
-                    style={{ left: `${startPct}%` }}
-                    onClick={() => seekTo(c.timestamp_start)}
-                  />
-                );
-              })}
             </div>
           )}
         </div>
