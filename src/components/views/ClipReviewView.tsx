@@ -305,10 +305,14 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
               <video
                 ref={videoRef}
                 key={clipDetailVideoUrl}
-                src={clipDetailVideoUrl}
                 controls
-                className="w-full h-full object-contain"
-              />
+                playsInline
+                width="100%"
+                height="100%"
+                style={{ width: '100%', height: '100%' }}
+              >
+                <source src={clipDetailVideoUrl} type="video/mp4" />
+              </video>
             ) : (
               <div className="w-full h-full flex items-center justify-center">
                 <p className="text-sm text-[var(--text-3)]">No video — upload a version to get started</p>
