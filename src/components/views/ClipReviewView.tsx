@@ -28,8 +28,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const ffmpegRef = useRef<FFmpeg | null>(null);
-  const isDraggingRef = useRef(false);
-  const wasPlayingRef = useRef(false);
+  const scrubberRef = useRef<HTMLInputElement>(null);
 
   const [clipDetailVideoUrl, setClipDetailVideoUrl] = useState<string | null>(null);
   const [versions, setVersions] = useState<ClipVersion[]>([]);
@@ -44,7 +43,6 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const [loadingVersions, setLoadingVersions] = useState(true);
   const [loadingComments, setLoadingComments] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [localScrubTime, setLocalScrubTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -299,7 +297,11 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                 key={videoUrl!}
                 src={proxySrc}
                 muted={isMuted}
-                onTimeUpdate={() => { if (!isDraggingRef.current) setCurrentTime(videoRef.current?.currentTime ?? 0); }}
+                onTimeUpdate={() => {
+                  const t = videoRef.current?.currentTime ?? 0;
+                  setCurrentTime(t);
+                  if (scrubberRef.current) scrubberRef.current.value = t.toString();
+                }}
                 onLoadedMetadata={() => setDuration(videoRef.current?.duration ?? 0)}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
@@ -335,22 +337,16 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
               </button>
               <span className="text-[10px] font-mono text-[var(--text-3)] shrink-0 w-9 text-right">{formatTime(currentTime)}</span>
               <input
+                ref={scrubberRef}
                 type="range"
                 min={0}
-                max={duration || 0}
+                max={duration}
                 step={0.01}
-                value={isDraggingRef.current ? localScrubTime : currentTime}
-                onMouseDown={() => {
-                  isDraggingRef.current = true;
-                  wasPlayingRef.current = isPlaying;
-                  videoRef.current?.pause();
-                }}
-                onChange={(e) => setLocalScrubTime(Number(e.target.value))}
-                onMouseUp={() => {
-                  if (videoRef.current) videoRef.current.currentTime = localScrubTime;
-                  setCurrentTime(localScrubTime);
-                  isDraggingRef.current = false;
-                  if (wasPlayingRef.current) videoRef.current?.play();
+                defaultValue={0}
+                onInput={() => {
+                  if (videoRef.current && scrubberRef.current) {
+                    videoRef.current.currentTime = parseFloat(scrubberRef.current.value);
+                  }
                 }}
                 className="flex-1 accent-[var(--gold)] h-1 cursor-pointer"
               />
