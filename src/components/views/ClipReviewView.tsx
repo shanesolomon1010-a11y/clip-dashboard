@@ -154,9 +154,14 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
     }
   };
 
-  const handleResolve = async (id: string) => {
-    await resolveComment(id);
-    setComments((prev) => prev.map((c) => (c.id === id ? { ...c, resolved: true } : c)));
+  const handleResolve = async (id: string, currentlyResolved: boolean) => {
+    if (currentlyResolved) {
+      await supabase.from('review_comments').update({ resolved: false }).eq('id', id);
+      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, resolved: false } : c)));
+    } else {
+      await resolveComment(id);
+      setComments((prev) => prev.map((c) => (c.id === id ? { ...c, resolved: true } : c)));
+    }
   };
 
   const seekTo = (time: number) => {
@@ -451,11 +456,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                       key={c.id}
                       className={`absolute top-1/2 -translate-y-1/2 h-2 rounded-full cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--gold)]' : 'bg-[rgba(247,231,206,0.45)] hover:bg-[rgba(247,231,206,0.7)]'}`}
                       style={{ left: `${startPct}%`, width: `${Math.max(endPct - startPct, 0.5)}%` }}
-                      onClick={() => {
-                        seekTo(c.timestamp_start);
-                        setHighlightedCommentId(c.id);
-                        setTimeout(() => document.getElementById(`comment-${c.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
-                      }}
+                      onClick={() => seekTo(c.timestamp_start)}
                     />
                   );
                 }
@@ -465,11 +466,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                     key={c.id}
                     className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-2 h-2 rounded-full cursor-pointer transition-colors ${isHighlighted ? 'bg-[var(--gold)]' : 'bg-white/60 hover:bg-white'}`}
                     style={{ left: `${startPct}%` }}
-                    onClick={() => {
-                      seekTo(c.timestamp_start);
-                      setHighlightedCommentId(c.id);
-                      setTimeout(() => document.getElementById(`comment-${c.id}`)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 0);
-                    }}
+                    onClick={() => seekTo(c.timestamp_start)}
                   />
                 );
               })}
@@ -501,9 +498,7 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                   id={`comment-${c.id}`}
                   key={c.id}
                   className={`bg-[var(--bg-elevated)] border rounded-xl px-3 py-2.5 transition-all ${
-                    c.resolved
-                      ? 'border-[rgba(247,231,206,0.03)] opacity-35'
-                      : highlightedCommentId === c.id
+                    highlightedCommentId === c.id
                       ? 'border-[var(--gold-border)] shadow-[0_0_0_1px_var(--gold-border)]'
                       : 'border-[rgba(247,231,206,0.06)]'
                   }`}
@@ -520,20 +515,25 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
                             : formatTime(c.timestamp_start)}
                         </button>
                         <span className="text-[10px] text-[var(--text-3)]">{c.author}</span>
+                        {c.resolved && (
+                          <span className="text-[9px] font-semibold text-emerald-400 bg-[rgba(52,211,153,0.1)] border border-[rgba(52,211,153,0.2)] px-1.5 py-px rounded-full">Resolved</span>
+                        )}
                       </div>
                       <p className="text-[11px] text-[var(--text-2)] leading-relaxed">{c.comment}</p>
                     </div>
-                    {!c.resolved && (
-                      <button
-                        onClick={() => handleResolve(c.id)}
-                        title="Resolve"
-                        className="shrink-0 mt-0.5 w-5 h-5 rounded-full border border-[rgba(52,211,153,0.3)] text-emerald-400 hover:bg-[rgba(52,211,153,0.1)] flex items-center justify-center transition-colors"
-                      >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
-                          <polyline points="20 6 9 17 4 12" />
-                        </svg>
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleResolve(c.id, c.resolved)}
+                      title={c.resolved ? 'Mark unresolved' : 'Resolve'}
+                      className={`shrink-0 mt-0.5 w-5 h-5 rounded-full border flex items-center justify-center transition-colors ${
+                        c.resolved
+                          ? 'border-[rgba(52,211,153,0.5)] bg-[rgba(52,211,153,0.15)] text-emerald-400 hover:bg-[rgba(52,211,153,0.05)]'
+                          : 'border-[rgba(52,211,153,0.3)] text-emerald-400 hover:bg-[rgba(52,211,153,0.1)]'
+                      }`}
+                    >
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" className="w-3 h-3">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))
