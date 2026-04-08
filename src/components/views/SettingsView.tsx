@@ -113,16 +113,22 @@ export default function SettingsView({ onClearData }: Props) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
-      const res = await fetch('/api/import/clips', {
+      const response = await fetch('/api/import/clips', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ base64 }),
+        body: JSON.stringify({ file: base64 }),
       });
-      if (!res.ok) {
-        const err = await res.json() as { error?: string };
-        throw new Error(err.error ?? 'Import failed');
+      const text = await response.text();
+      let result: { inserted: number; updated: number; clips: { clip_details_code: string; headline: string }[]; error?: string };
+      try {
+        result = JSON.parse(text);
+      } catch {
+        throw new Error(`Server error: ${text.slice(0, 200)}`);
       }
-      const data = await res.json() as { inserted: number; updated: number; clips: { clip_details_code: string; headline: string }[] };
+      if (!response.ok) {
+        throw new Error(result?.error || 'Import failed');
+      }
+      const data = result;
       setBulkResult(data);
     } catch (err) {
       setBulkError(err instanceof Error ? err.message : 'Unknown error');

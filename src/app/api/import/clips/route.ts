@@ -17,8 +17,8 @@ interface ClipExtracted {
 }
 
 export async function POST(request: Request) {
-  const body = await request.json() as { base64: string };
-  const { base64 } = body;
+  const body = await request.json() as { file: string };
+  const { file: base64 } = body;
 
   // Extract text from docx
   const buffer = Buffer.from(base64, 'base64');
