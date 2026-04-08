@@ -51,25 +51,19 @@ export async function POST(request: Request) {
 
   // Build rows to upsert
   const rows = clips.map(clip => ({
-    clip_code: clip.clip_details_code.split('-CLIP-')[0],
     clip_details_code: clip.clip_details_code,
-    title: null,
     headline_banner: clip.headline || null,
     question_banner: clip.banner || null,
     caption_youtube_title: clip.youtube_title || null,
     caption_youtube: clip.youtube_caption || null,
     caption_instagram: clip.instagram_caption || null,
-    caption_tiktok: null,
-    caption_linkedin: null,
-    caption_twitter: null,
-    video_url: null,
   }));
 
-  const { error } = await supabase
+  const { error: upsertError } = await supabase
     .from('clip_details')
-    .upsert(rows, { onConflict: 'clip_details_code' });
+    .upsert(rows, { onConflict: 'clip_details_code', ignoreDuplicates: false });
 
-  if (error) throw new Error(error.message);
+  if (upsertError) throw new Error(upsertError.message);
 
   const inserted = clips.filter(c => !existingCodes.has(c.clip_details_code)).length;
   const updated = clips.filter(c => existingCodes.has(c.clip_details_code)).length;
