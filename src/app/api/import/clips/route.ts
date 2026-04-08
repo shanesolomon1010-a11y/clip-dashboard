@@ -52,6 +52,7 @@ export async function POST(request: Request) {
   // Build rows to upsert
   const rows = clips.map(clip => ({
     clip_details_code: clip.clip_details_code,
+    clip_code: clip.clip_details_code.split('-')[0],
     headline_banner: clip.headline || null,
     question_banner: clip.banner || null,
     caption_youtube_title: clip.youtube_title || null,
