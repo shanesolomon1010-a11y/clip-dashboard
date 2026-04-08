@@ -61,16 +61,16 @@ function nullIfEmpty(s: string): string | null {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const VALID_STABS = new Set(['clips', 'data-editor', 'youtube-merger', 'connections']);
+const VALID_STABS = new Set(['clips', 'data-editor', 'youtube-merger', 'connections', 'bulk-import']);
 
 export default function SettingsView({ onClearData }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStab = (() => {
     const s = searchParams.get('stab');
-    return (s && VALID_STABS.has(s) ? s : 'clips') as 'clips' | 'data-editor' | 'youtube-merger' | 'connections';
+    return (s && VALID_STABS.has(s) ? s : 'clips') as 'clips' | 'data-editor' | 'youtube-merger' | 'connections' | 'bulk-import';
   })();
-  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor' | 'youtube-merger' | 'connections'>(initialStab);
+  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor' | 'youtube-merger' | 'connections' | 'bulk-import'>(initialStab);
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -91,6 +91,46 @@ export default function SettingsView({ onClearData }: Props) {
   const [ytSyncResult, setYtSyncResult]     = useState<{ type: 'success' | 'error'; message: string } | null>(null);
   const [ytLastSync, setYtLastSync]         = useState<string | null>(() => localStorage.getItem('youtube_last_sync'));
   const [ytConnectedBanner, setYtConnectedBanner] = useState(false);
+
+  // Bulk Import state
+  const [bulkImporting, setBulkImporting]   = useState(false);
+  const [bulkResult, setBulkResult]         = useState<{ inserted: number; updated: number; clips: { clip_details_code: string; headline: string }[] } | null>(null);
+  const [bulkError, setBulkError]           = useState<string | null>(null);
+
+  async function handleBulkImport(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkImporting(true);
+    setBulkResult(null);
+    setBulkError(null);
+    try {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = reader.result as string;
+          resolve(dataUrl.split(',')[1]);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch('/api/import/clips', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base64 }),
+      });
+      if (!res.ok) {
+        const err = await res.json() as { error?: string };
+        throw new Error(err.error ?? 'Import failed');
+      }
+      const data = await res.json() as { inserted: number; updated: number; clips: { clip_details_code: string; headline: string }[] };
+      setBulkResult(data);
+    } catch (err) {
+      setBulkError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setBulkImporting(false);
+      e.target.value = '';
+    }
+  }
 
   // Edit state
   const [editingClipCode, setEditingClipCode] = useState<string | null>(null);
@@ -259,6 +299,7 @@ export default function SettingsView({ onClearData }: Props) {
             { key: 'data-editor', label: 'Data Editor' },
             { key: 'youtube-merger', label: 'YouTube Merger' },
             { key: 'connections', label: 'Connections' },
+            { key: 'bulk-import', label: 'Bulk Import' },
           ] as { key: typeof activeTab; label: string }[]).map(({ key, label }) => (
             <button
               key={key}
@@ -333,6 +374,68 @@ export default function SettingsView({ onClearData }: Props) {
             </div>
           </Section>
 
+        </div>
+      )}
+
+      {activeTab === 'bulk-import' && (
+        <div className="max-w-2xl space-y-5">
+          <Section title="Bulk Import Clips">
+            <div className="px-5 py-4 space-y-4">
+              <p className="text-xs text-[var(--text-3)]">
+                Upload a <span className="font-mono">.docx</span> file to extract and import clip data automatically using AI.
+              </p>
+
+              <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-[rgba(247,231,206,0.12)] rounded-xl cursor-pointer hover:border-[var(--gold-border)] hover:bg-[rgba(247,231,206,0.02)] transition-all">
+                <span className="text-xs text-[var(--text-3)]">
+                  {bulkImporting ? 'Processing…' : 'Click to select a .docx file'}
+                </span>
+                <input
+                  type="file"
+                  accept=".docx"
+                  onChange={handleBulkImport}
+                  disabled={bulkImporting}
+                  className="hidden"
+                />
+              </label>
+
+              {bulkImporting && (
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full border-2 border-[var(--gold)] border-t-transparent animate-spin" />
+                  <span className="text-xs text-[var(--text-3)]">Extracting and importing clips…</span>
+                </div>
+              )}
+
+              {bulkError && (
+                <p className="text-xs text-red-400">{bulkError}</p>
+              )}
+
+              {bulkResult && (
+                <div className="space-y-3">
+                  <p className="text-xs text-green-400 font-semibold">
+                    {bulkResult.inserted} clip{bulkResult.inserted !== 1 ? 's' : ''} imported, {bulkResult.updated} updated
+                  </p>
+                  {bulkResult.clips.length > 0 && (
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-[rgba(247,231,206,0.05)]">
+                          <th className="py-2 text-left text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Code</th>
+                          <th className="py-2 text-left text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider pl-4">Headline</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[rgba(247,231,206,0.04)]">
+                        {bulkResult.clips.map(clip => (
+                          <tr key={clip.clip_details_code} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
+                            <td className="py-2 font-mono text-[var(--text-2)] whitespace-nowrap">{clip.clip_details_code}</td>
+                            <td className="py-2 pl-4 text-[var(--text-3)] truncate max-w-xs">{clip.headline}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+            </div>
+          </Section>
         </div>
       )}
 

@@ -55,8 +55,6 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
   const [highlightedCommentId, setHighlightedCommentId] = useState<string | null>(null);
 
   const videoUrl = activeVersion?.video_url ?? clipDetailVideoUrl;
-  const proxySrc = videoUrl ? `/api/video-proxy?url=${encodeURIComponent(videoUrl)}` : null;
-
   useEffect(() => {
     setLoadingVersions(true);
     setClipDetailVideoUrl(null);
