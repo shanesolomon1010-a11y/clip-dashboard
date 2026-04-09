@@ -491,7 +491,7 @@ export default function SettingsView({ onClearData }: Props) {
                 {clips.map(clip => (
                   <>
                     <tr key={clip.clip_code} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
-                      <td className="px-5 py-3 font-mono text-[var(--text-2)] whitespace-nowrap">{clip.clip_code}</td>
+                      <td className="px-5 py-3 font-mono text-[var(--text-2)] whitespace-nowrap">{clip.clip_details_code}</td>
                       <td className="px-3 py-3 text-right flex items-center justify-end gap-1">
                         <button
                           onClick={() => editingClipCode === clip.clip_code ? setEditingClipCode(null) : handleStartEdit(clip)}

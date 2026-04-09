@@ -496,7 +496,7 @@ export default function PostingScheduleView() {
                               : 'text-[var(--text-1)] hover:bg-[var(--bg-hover)]',
                           ].join(' ')}
                         >
-                          <span className="font-mono text-[10px] text-[var(--text-3)]">{clip.clip_code}</span>
+                          <span className="font-mono text-[10px] text-[var(--text-3)]">{clip.clip_details_code}</span>
                         </button>
                       ))}
                       {filteredClips.length === 0 && (
