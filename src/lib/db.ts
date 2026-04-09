@@ -379,14 +379,14 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
   // Deduplicate by conflict key — last row wins
   const seen = new Map<string, typeof rows[0]>();
   for (const row of rows) {
-    const key = `${row.clip_code}|${row.platform}|${row.stat_date}`;
+    const key = `${row.clip_details_code}|${row.platform}|${row.stat_date}`;
     seen.set(key, row);
   }
   const dedupedRows = Array.from(seen.values());
 
   const { error } = await supabase
     .from('posts')
-    .upsert(dedupedRows, { onConflict: 'clip_code,platform,stat_date', ignoreDuplicates: false });
+    .upsert(dedupedRows, { onConflict: 'clip_details_code,platform,stat_date', ignoreDuplicates: false });
 
   if (error) throw error;
 }
