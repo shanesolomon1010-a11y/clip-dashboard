@@ -27,8 +27,9 @@ export async function POST(request: Request) {
     const text = result.value;
 
     // Extract clips via Claude
+    console.log('max_tokens:', 8000);
     const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-opus-4-5-20251001',
       max_tokens: 8000,
       system: 'You are a data extraction assistant. Extract clip data from this document. For each clip, return a JSON array where each object has these exact keys: clip_details_code, headline, banner, youtube_title, youtube_caption, instagram_caption. The clip_details_code is the clip identifier like MBM016-CLIP-001. The headline is the HEADLINE BANNER value. The banner is the QUESTION BANNER value. The youtube_title is the YOUTUBE SHORTS TITLE value. The youtube_caption is the YOUTUBE SHORTS DESCRIPTION value (exclude hashtags). The instagram_caption is the INSTAGRAM REELS CAPTION value. Return ONLY the JSON array, no other text.',
       messages: [{ role: 'user', content: text }],
