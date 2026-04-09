@@ -138,6 +138,9 @@ export default function SettingsView({ onClearData }: Props) {
     }
   }
 
+  // Folder view state
+  const [selectedEpisode, setSelectedEpisode] = useState<string | null>(null);
+
   // Edit state
   const [editingClipCode, setEditingClipCode] = useState<string | null>(null);
   const [editForm, setEditForm]               = useState<ClipForm>(EMPTY_FORM);
@@ -472,13 +475,39 @@ export default function SettingsView({ onClearData }: Props) {
       {/* Clip Library */}
       <Section title="Clip Library">
 
-        {/* Existing clips list */}
+        {/* Existing clips list — folder view */}
         <div>
-          <div className="px-5 py-2 bg-[rgba(247,231,206,0.02)]">
-            <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Existing Clips ({clips.length})</p>
+          <div className="px-5 py-2 bg-[rgba(247,231,206,0.02)] flex items-center justify-between">
+            <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">
+              {selectedEpisode ? selectedEpisode : `Episodes (${new Set(clips.map(c => c.clip_code)).size})`}
+            </p>
+            {selectedEpisode && (
+              <button
+                onClick={() => { setSelectedEpisode(null); setEditingClipCode(null); }}
+                className="text-[10px] text-[var(--text-3)] hover:text-[var(--gold)] transition-colors px-2 py-1 rounded hover:bg-[rgba(247,231,206,0.06)]"
+              >
+                ← Back
+              </button>
+            )}
           </div>
           {clips.length === 0 ? (
             <p className="px-5 py-4 text-xs text-[var(--text-3)]">No clips yet.</p>
+          ) : selectedEpisode === null ? (
+            <div className="p-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {Array.from(new Set(clips.map(c => c.clip_code))).sort().map(episode => {
+                const count = clips.filter(c => c.clip_code === episode).length;
+                return (
+                  <button
+                    key={episode}
+                    onClick={() => setSelectedEpisode(episode)}
+                    className="text-left px-4 py-3 rounded-xl border border-[rgba(247,231,206,0.07)] bg-[rgba(247,231,206,0.02)] hover:bg-[rgba(247,231,206,0.05)] hover:border-[var(--gold-border)] transition-all"
+                  >
+                    <p className="font-mono text-[12px] text-[var(--text-1)] font-semibold">{episode}</p>
+                    <p className="text-[10px] text-[var(--text-3)] mt-0.5">{count} clip{count !== 1 ? 's' : ''}</p>
+                  </button>
+                );
+              })}
+            </div>
           ) : (
             <table className="w-full text-xs">
               <thead>
@@ -488,7 +517,7 @@ export default function SettingsView({ onClearData }: Props) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[rgba(247,231,206,0.04)]">
-                {clips.map(clip => (
+                {clips.filter(c => c.clip_code === selectedEpisode).map(clip => (
                   <>
                     <tr key={clip.clip_code} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
                       <td className="px-5 py-3 font-mono text-[var(--text-2)] whitespace-nowrap">{clip.clip_details_code}</td>
