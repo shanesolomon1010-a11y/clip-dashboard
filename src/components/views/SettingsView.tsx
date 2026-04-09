@@ -84,6 +84,27 @@ export default function SettingsView({ onClearData }: Props) {
   const [form, setForm]             = useState<ClipForm>(EMPTY_FORM);
   const [clipSubmitting, setClipSubmitting] = useState(false);
   const [clipStatus, setClipStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [urlSyncing, setUrlSyncing] = useState(false);
+  const [urlSyncResult, setUrlSyncResult] = useState<{ updated: number; skipped: number; total: number } | null>(null);
+  const [urlSyncError, setUrlSyncError] = useState<string | null>(null);
+
+  async function handleSyncUrls() {
+    setUrlSyncing(true);
+    setUrlSyncResult(null);
+    setUrlSyncError(null);
+    try {
+      const res = await fetch('/api/library/sync-urls', { method: 'POST' });
+      const data = await res.json() as { updated: number; skipped: number; total: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Sync failed');
+      setUrlSyncResult(data);
+      const updated = await fetchAllClipDetails();
+      setClips(updated);
+    } catch (err) {
+      setUrlSyncError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setUrlSyncing(false);
+    }
+  }
 
   // YouTube API state
   const [ytConnected, setYtConnected]       = useState<boolean | null>(null);
@@ -474,6 +495,27 @@ export default function SettingsView({ onClearData }: Props) {
 
       {/* Clip Library */}
       <Section title="Clip Library">
+
+        {/* Sync Video URLs */}
+        <div className="px-5 py-3 border-b border-[rgba(247,231,206,0.05)] flex items-center justify-between gap-4">
+          <div>
+            <p className="text-[12px] text-[var(--text-2)]">Sync video URLs from Supabase Storage</p>
+            {urlSyncResult && (
+              <p className="text-[11px] text-green-400 mt-0.5">
+                {urlSyncResult.updated} updated, {urlSyncResult.skipped} already had a URL ({urlSyncResult.total} files total)
+              </p>
+            )}
+            {urlSyncError && <p className="text-[11px] text-red-400 mt-0.5">{urlSyncError}</p>}
+          </div>
+          <button
+            type="button"
+            onClick={handleSyncUrls}
+            disabled={urlSyncing}
+            className="shrink-0 px-4 py-2 text-xs font-semibold text-[var(--text-2)] bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl hover:bg-[rgba(247,231,206,0.07)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {urlSyncing ? 'Syncing…' : 'Sync Video URLs'}
+          </button>
+        </div>
 
         {/* Existing clips list — folder view */}
         <div>
