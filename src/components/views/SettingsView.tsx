@@ -122,11 +122,11 @@ export default function SettingsView({ onClearData }: Props) {
     setYtAnalyticsSyncResult(null);
     try {
       const res = await fetch('/api/youtube-sync', { method: 'POST' });
-      const data = await res.json() as { rowsProcessed?: number; error?: string };
-      if (!res.ok) throw new Error(data.error ?? 'Sync failed');
+      const data = await res.json() as { rowsProcessed?: number; error?: string; stack?: string };
+      if (data.error) throw new Error(`${data.error}\n${data.stack ?? ''}`);
       setYtAnalyticsSyncResult({ type: 'success', message: `Synced ${data.rowsProcessed ?? 0} rows` });
     } catch (err) {
-      setYtAnalyticsSyncResult({ type: 'error', message: err instanceof Error ? err.message : 'Unknown error' });
+      setYtAnalyticsSyncResult({ type: 'error', message: err instanceof Error ? err.message : String(err) });
     } finally {
       setYtAnalyticsSyncing(false);
     }
