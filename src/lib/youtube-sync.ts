@@ -24,7 +24,13 @@ const VIDEO_MAP: Record<string, string> = {
 };
 
 export async function runYouTubeSync(): Promise<number> {
-  const accessToken = await getAccessToken();
+  let accessToken: string;
+  try {
+    accessToken = await getAccessToken();
+  } catch (err) {
+    console.error('youtube-sync: getAccessToken failed:', err);
+    throw err;
+  }
 
   const endDate = new Date().toISOString().split('T')[0];
   const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
@@ -71,7 +77,12 @@ export async function runYouTubeSync(): Promise<number> {
   }
 
   if (allPosts.length > 0) {
-    await upsertPosts(allPosts);
+    try {
+      await upsertPosts(allPosts);
+    } catch (err) {
+      console.error('youtube-sync: upsertPosts failed:', err);
+      throw err;
+    }
   }
 
   return allPosts.length;
