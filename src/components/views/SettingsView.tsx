@@ -210,7 +210,7 @@ export default function SettingsView({ onClearData }: Props) {
     setYtSyncing(true);
     setYtSyncResult(null);
     try {
-      const res = await fetch('/api/youtube/sync', { method: 'POST' });
+      const res = await fetch('/api/youtube-sync', { method: 'POST' });
       const data = await res.json() as { success: boolean; rowsUpserted?: number; error?: string };
       if (!data.success) throw new Error(data.error ?? 'Sync failed');
       const ts = new Date().toISOString();
