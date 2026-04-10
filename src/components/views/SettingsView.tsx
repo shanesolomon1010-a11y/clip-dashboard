@@ -211,12 +211,12 @@ export default function SettingsView({ onClearData }: Props) {
     setYtSyncResult(null);
     try {
       const res = await fetch('/api/youtube-sync', { method: 'POST' });
-      const data = await res.json() as { success: boolean; rowsUpserted?: number; error?: string };
-      if (!data.success) throw new Error(data.error ?? 'Sync failed');
+      const data = await res.json() as { rowsProcessed?: number; error?: string };
+      if (data.error) throw new Error(data.error);
       const ts = new Date().toISOString();
       localStorage.setItem('youtube_last_sync', ts);
       setYtLastSync(ts);
-      setYtSyncResult({ type: 'success', message: `Synced ${data.rowsUpserted ?? 0} rows` });
+      setYtSyncResult({ type: 'success', message: `Synced ${data.rowsProcessed ?? 0} rows` });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error';
       setYtSyncResult({ type: 'error', message: msg });
