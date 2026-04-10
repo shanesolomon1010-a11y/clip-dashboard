@@ -113,6 +113,25 @@ export default function SettingsView({ onClearData }: Props) {
   const [ytLastSync, setYtLastSync]         = useState<string | null>(() => localStorage.getItem('youtube_last_sync'));
   const [ytConnectedBanner, setYtConnectedBanner] = useState(false);
 
+  // YouTube Analytics sync state
+  const [ytAnalyticsSyncing, setYtAnalyticsSyncing] = useState(false);
+  const [ytAnalyticsSyncResult, setYtAnalyticsSyncResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  async function handleYouTubeAnalyticsSync() {
+    setYtAnalyticsSyncing(true);
+    setYtAnalyticsSyncResult(null);
+    try {
+      const res = await fetch('/api/youtube-sync', { method: 'POST' });
+      const data = await res.json() as { rowsProcessed?: number; error?: string };
+      if (!res.ok) throw new Error(data.error ?? 'Sync failed');
+      setYtAnalyticsSyncResult({ type: 'success', message: `Synced ${data.rowsProcessed ?? 0} rows` });
+    } catch (err) {
+      setYtAnalyticsSyncResult({ type: 'error', message: err instanceof Error ? err.message : 'Unknown error' });
+    } finally {
+      setYtAnalyticsSyncing(false);
+    }
+  }
+
   // Bulk Import state
   const [bulkImporting, setBulkImporting]   = useState(false);
   const [bulkResult, setBulkResult]         = useState<{ inserted: number; updated: number; clips: { clip_details_code: string; headline: string }[] } | null>(null);
@@ -401,6 +420,29 @@ export default function SettingsView({ onClearData }: Props) {
                   ? `Last synced: ${new Date(ytLastSync).toLocaleString()}`
                   : 'Never synced'}
               </p>
+            </div>
+          </Section>
+
+          <Section title="Sync YouTube Analytics">
+            <div className="px-5 py-4 space-y-3">
+              <p className="text-[11px] text-[var(--text-3)]">
+                Fetch the last 30 days of analytics for all mapped videos and upsert into the posts table.
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleYouTubeAnalyticsSync}
+                  disabled={ytAnalyticsSyncing}
+                  className="px-4 py-2 text-xs font-semibold text-[var(--text-2)] bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl hover:bg-[rgba(247,231,206,0.07)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {ytAnalyticsSyncing ? 'Syncing…' : 'Sync YouTube Analytics'}
+                </button>
+              </div>
+              {ytAnalyticsSyncResult && (
+                <p className={`text-xs ${ytAnalyticsSyncResult.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                  {ytAnalyticsSyncResult.message}
+                </p>
+              )}
             </div>
           </Section>
 
