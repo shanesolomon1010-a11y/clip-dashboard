@@ -64,8 +64,6 @@ export async function runYouTubeSync(): Promise<number> {
         watch_time_hours: row.estimatedMinutesWatched / 60,
         avg_view_duration_seconds: row.averageViewDuration,
         avg_view_percentage: row.averageViewPercentage,
-        impressions: row.impressions,
-        impression_ctr: row.impressionCtr,
         subscribers_gained: row.subscribersGained,
         subscribers_lost: row.subscribersLost,
       });

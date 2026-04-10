@@ -8,8 +8,6 @@ interface AnalyticsRow {
   estimatedMinutesWatched: number;
   averageViewDuration: number;
   averageViewPercentage: number;
-  impressions: number;
-  impressionCtr: number;
   subscribersGained: number;
   subscribersLost: number;
 }
@@ -58,8 +56,6 @@ export async function fetchAnalyticsForVideo(
     'estimatedMinutesWatched',
     'averageViewDuration',
     'averageViewPercentage',
-    'impressions',
-    'impressionClickThroughRate',
     'subscribersGained',
     'subscribersLost',
   ].join(',');
@@ -91,9 +87,7 @@ export async function fetchAnalyticsForVideo(
     estimatedMinutesWatched: Number(row[6]),
     averageViewDuration:     Number(row[7]),
     averageViewPercentage:   Number(row[8]),
-    impressions:             Number(row[9]),
-    impressionCtr:           Number(row[10]),
-    subscribersGained:       Number(row[11]),
-    subscribersLost:         Number(row[12]),
+    subscribersGained:       Number(row[9]),
+    subscribersLost:         Number(row[10]),
   }));
 }
