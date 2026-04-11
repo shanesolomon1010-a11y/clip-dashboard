@@ -7,25 +7,23 @@ function extractClipDetailsCode(filename: string): string {
   return parts.slice(0, 3).join('-');
 }
 
-export async function POST(): Promise<NextResponse> {
+export async function POST(request: Request): Promise<NextResponse> {
+  const dashboardSecret = process.env.DASHBOARD_SECRET;
+  if (!dashboardSecret || request.headers.get('x-dashboard-secret') !== dashboardSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
-
-  const bucketName = 'Clips';
 
   // List all files recursively in the Clips bucket
   const { data: files, error: listError } = await supabase.storage
     .from('Clips')
     .list('', { limit: 1000, offset: 0 });
 
-  console.log('Scan bucket:', bucketName);
-  console.log('Storage list data:', JSON.stringify(files, null, 2));
-  console.log('Storage list error:', JSON.stringify(listError, null, 2));
-
   if (listError) {
-    return NextResponse.json({ bucketName, rawData: null, rawError: listError, error: listError.message }, { status: 500 });
+    return NextResponse.json({ error: listError.message }, { status: 500 });
   }
 
   // Flatten: top-level may be folders, so list each subfolder too
@@ -59,5 +57,5 @@ export async function POST(): Promise<NextResponse> {
   const inserted = upsertError ? 0 : rows.length;
   const skipped = upsertError ? rows.length : 0;
 
-  return NextResponse.json({ inserted, skipped, total: allPaths.length, bucketName, rawData: files, rawError: listError });
+  return NextResponse.json({ inserted, skipped, total: allPaths.length });
 }

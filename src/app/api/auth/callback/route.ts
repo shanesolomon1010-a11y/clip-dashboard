@@ -60,5 +60,5 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (error) return NextResponse.json({ error: 'Failed to store tokens' }, { status: 500 });
   }
 
-  return NextResponse.redirect('https://clip-dashboard-two.vercel.app/?connected=true');
+  return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000'}/?connected=true`);
 }

@@ -34,16 +34,8 @@ export default function CaptionView() {
   const [saveError, setSaveError] = useState('');
   const [history, setHistory] = useState<CaptionRow[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [apiKey, setApiKey] = useState('');
 
   useEffect(() => {
-    // Prefer the admin env var; fall back to any key stored manually in localStorage
-    const key =
-      process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ||
-      (typeof window !== 'undefined'
-        ? (localStorage.getItem('clip_studio_anthropic_key') ?? '')
-        : '');
-    setApiKey(key);
     fetchCaptions()
       .then(setHistory)
       .catch(() => {})
@@ -51,25 +43,19 @@ export default function CaptionView() {
   }, []);
 
   const generate = async () => {
-    if (!description.trim() || !apiKey || generating) return;
+    if (!description.trim() || generating) return;
     setGenerating(true);
     setError('');
     setSaveError('');
     setCaption('');
     try {
-      const system = `You are a social media caption writer. Write a single caption for a ${platform} post. Tone: ${tone}. The clip: ${description}. Requirements: Platform-native voice, relevant hashtags, within ${PLATFORM_CHAR_LIMITS[platform]} characters. Output only the caption text with hashtags — no explanation, no quotes.`;
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const res = await fetch('/api/ai-proxy', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
           max_tokens: 512,
-          system,
+          system: `You are a social media caption writer. Write a single caption for a ${platform} post. Tone: ${tone}. The clip: ${description}. Requirements: Platform-native voice, relevant hashtags, within ${PLATFORM_CHAR_LIMITS[platform]} characters. Output only the caption text with hashtags — no explanation, no quotes.`,
           messages: [{ role: 'user', content: description }],
         }),
       });
@@ -100,19 +86,11 @@ export default function CaptionView() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const noKey = !apiKey;
-
   return (
     <div className="p-5 max-w-3xl space-y-5">
       {/* Generator card */}
       <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5 space-y-4">
         <h2 className="text-[15px] font-semibold text-[var(--text-1)]">Caption Generator</h2>
-
-        {noKey && (
-          <div className="p-3 rounded-xl bg-[var(--gold-dim)] border border-[var(--gold-border)] text-[12px] text-[var(--gold)]">
-            No API key configured. Set <strong>NEXT_PUBLIC_ANTHROPIC_API_KEY</strong> in your environment variables and redeploy.
-          </div>
-        )}
 
         {/* Description */}
         <div>
@@ -179,7 +157,7 @@ export default function CaptionView() {
         <button
           data-testid="generate-caption-btn"
           onClick={generate}
-          disabled={generating || !description.trim() || noKey}
+          disabled={generating || !description.trim()}
           className="px-4 py-2 rounded-xl text-sm font-semibold bg-[var(--gold)] text-[var(--bg-base)] hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           {generating ? 'Generating…' : 'Generate Caption'}

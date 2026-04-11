@@ -185,7 +185,10 @@ export default function ClipReviewView({ clipDetailsCode }: Props) {
     setScanning(true);
     setScanResult(null);
     try {
-      const res = await fetch('/api/library/scan', { method: 'POST' });
+      const res = await fetch('/api/library/scan', {
+        method: 'POST',
+        headers: { 'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '' },
+      });
       const json = await res.json() as { inserted?: number; skipped?: number; total?: number; error?: string };
       if (json.error) {
         setScanResult(`Error: ${json.error}`);

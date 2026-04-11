@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { supabase } from '@/lib/supabase';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY,
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 interface ClipExtracted {
@@ -19,6 +19,10 @@ interface ClipExtracted {
 const SYSTEM_PROMPT = 'You are a data extraction assistant. Extract clip data from this document. For each clip, return a JSON array where each object has these exact keys: clip_details_code, headline, banner, youtube_title, youtube_caption, instagram_caption. The clip_details_code is the clip identifier like MBM016-CLIP-001. The headline is the HEADLINE BANNER value. The banner is the QUESTION BANNER value. The youtube_title is the YOUTUBE SHORTS TITLE value. The youtube_caption is the YOUTUBE SHORTS DESCRIPTION value (exclude hashtags). The instagram_caption is the INSTAGRAM REELS CAPTION value. Return ONLY the JSON array, no other text.';
 
 export async function POST(request: Request) {
+  const dashboardSecret = process.env.DASHBOARD_SECRET;
+  if (!dashboardSecret || request.headers.get('x-dashboard-secret') !== dashboardSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const body = await request.json() as { file: string };
     const { file: base64 } = body;

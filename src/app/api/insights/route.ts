@@ -6,7 +6,7 @@ export const maxDuration = 120;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const GEMINI_KEY = process.env.GEMINI_API_KEY!;
-const ANTHROPIC_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY!;
+const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY!;
 
 interface PostRow {
   clip_details_code: string;
@@ -123,7 +123,11 @@ Keep your response under 200 words.`,
   return data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 }
 
-export async function POST() {
+export async function POST(request: Request) {
+  const dashboardSecret = process.env.DASHBOARD_SECRET;
+  if (!dashboardSecret || request.headers.get('x-dashboard-secret') !== dashboardSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   try {
     const supabase = createClient(SUPABASE_URL, SERVICE_KEY);
 

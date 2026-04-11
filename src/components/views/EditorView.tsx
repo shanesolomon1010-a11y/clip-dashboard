@@ -9,7 +9,6 @@ import { saveEditorFeedback } from '@/lib/db';
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const MODEL   = 'claude-sonnet-4-20250514';
-const API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
 const FFMPEG_CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js';
 const FFMPEG_WASM_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm';
@@ -383,14 +382,9 @@ export default function EditorView() {
       'Make captions punchy, social-media style, max 6 words each.',
     ].join('\n');
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('/api/ai-proxy', {
       method: 'POST',
-      headers: {
-        'x-api-key': API_KEY,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-        'content-type': 'application/json',
-      },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 2048,

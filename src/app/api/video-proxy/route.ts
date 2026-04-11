@@ -3,6 +3,16 @@ export async function GET(request: Request) {
   const url = searchParams.get('url')
   if (!url) return new Response('Missing url', { status: 400 })
 
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return new Response('Invalid url', { status: 400 })
+  }
+  if (parsed.protocol !== 'https:' || !parsed.hostname.endsWith('.supabase.co')) {
+    return new Response('URL not allowed', { status: 400 })
+  }
+
   const rangeHeader = request.headers.get('range')
 
   const fetchHeaders: HeadersInit = {}

@@ -105,7 +105,10 @@ export default function InsightsView() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/insights', { method: 'POST' });
+      const res = await fetch('/api/insights', {
+        method: 'POST',
+        headers: { 'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '' },
+      });
       const data = await res.json() as InsightsReport & { error?: string };
       if (data.error) throw new Error(data.error);
       const ts = new Date().toISOString();

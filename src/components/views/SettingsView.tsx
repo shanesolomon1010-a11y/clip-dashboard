@@ -93,7 +93,10 @@ export default function SettingsView({ onClearData }: Props) {
     setUrlSyncResult(null);
     setUrlSyncError(null);
     try {
-      const res = await fetch('/api/library/sync-urls', { method: 'POST' });
+      const res = await fetch('/api/library/sync-urls', {
+        method: 'POST',
+        headers: { 'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '' },
+      });
       const data = await res.json() as { updated: number; skipped: number; total: number; error?: string };
       if (!res.ok) throw new Error(data.error ?? 'Sync failed');
       setUrlSyncResult(data);
@@ -121,9 +124,12 @@ export default function SettingsView({ onClearData }: Props) {
     setYtAnalyticsSyncing(true);
     setYtAnalyticsSyncResult(null);
     try {
-      const res = await fetch('/api/youtube-sync', { method: 'POST' });
-      const data = await res.json() as { rowsProcessed?: number; error?: string; stack?: string };
-      if (data.error) throw new Error(`${data.error}\n${data.stack ?? ''}`);
+      const res = await fetch('/api/youtube-sync', {
+        method: 'POST',
+        headers: { 'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '' },
+      });
+      const data = await res.json() as { rowsProcessed?: number; error?: string };
+      if (data.error) throw new Error(data.error);
       setYtAnalyticsSyncResult({ type: 'success', message: `Synced ${data.rowsProcessed ?? 0} rows` });
     } catch (err) {
       setYtAnalyticsSyncResult({ type: 'error', message: err instanceof Error ? err.message : String(err) });
@@ -155,7 +161,10 @@ export default function SettingsView({ onClearData }: Props) {
       });
       const response = await fetch('/api/import/clips', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '',
+        },
         body: JSON.stringify({ file: base64 }),
       });
       const text = await response.text();
@@ -210,7 +219,10 @@ export default function SettingsView({ onClearData }: Props) {
     setYtSyncing(true);
     setYtSyncResult(null);
     try {
-      const res = await fetch('/api/youtube-sync', { method: 'POST' });
+      const res = await fetch('/api/youtube-sync', {
+        method: 'POST',
+        headers: { 'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '' },
+      });
       const data = await res.json() as { rowsProcessed?: number; error?: string };
       if (data.error) throw new Error(data.error);
       const ts = new Date().toISOString();

@@ -1,7 +1,6 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { transcribeAudio } from '@/lib/transcribe';
 
 interface Props {
   onTranscriptReady: (text: string) => void;
@@ -19,7 +18,11 @@ export default function TranscriptionUploader({ onTranscriptReady }: Props) {
     setStatus('transcribing');
     setErrorMsg('');
     try {
-      const text = await transcribeAudio(file);
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch('/api/transcribe', { method: 'POST', body: fd });
+      if (!res.ok) throw new Error('Transcription failed');
+      const { text } = await res.json() as { text: string };
       onTranscriptReady(text);
       setStatus('done');
     } catch {

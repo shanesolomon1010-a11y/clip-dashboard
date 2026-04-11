@@ -34,7 +34,6 @@ interface Insights {
 const INSIGHTS_STORAGE_KEY = 'clip_studio_ai_insights_v1';
 const MODEL = 'claude-sonnet-4-20250514';
 const MAX_TOKENS = 2048;
-const ADMIN_API_KEY = process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY ?? '';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -196,14 +195,9 @@ async function callClaude(
   messages: ApiMessage[],
   systemPrompt: string
 ): Promise<string> {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch('/api/ai-proxy', {
     method: 'POST',
-    headers: {
-      'x-api-key': ADMIN_API_KEY,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-      'content-type': 'application/json',
-    },
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify({
       model: MODEL,
       max_tokens: MAX_TOKENS,
@@ -356,7 +350,7 @@ export default function AIInsightsView({ posts }: Props) {
   // ── Generate ────────────────────────────────────────────────────────────────
 
   const handleGenerate = async () => {
-    if (!ADMIN_API_KEY.trim() || !posts.length) return;
+    if (!posts.length) return;
     setLoading(true);
     setError(null);
     setChatLog([]);
@@ -419,7 +413,7 @@ export default function AIInsightsView({ posts }: Props) {
 
   const handleFollowUp = async () => {
     const text = chatInput.trim();
-    if (!text || chatLoading || !ADMIN_API_KEY.trim()) return;
+    if (!text || chatLoading) return;
 
     setChatInput('');
     const newUserMsg: ApiMessage = { role: 'user', content: text };
@@ -458,7 +452,7 @@ export default function AIInsightsView({ posts }: Props) {
   // ── Derived state ───────────────────────────────────────────────────────────
 
   const hasInsights = insights !== null || rawFallback !== null;
-  const canGenerate = !!ADMIN_API_KEY.trim() && posts.length > 0 && !loading;
+  const canGenerate = posts.length > 0 && !loading;
   const insightsAreForCurrentData =
     !!savedForFingerprint && savedForFingerprint === fingerprintPosts(posts);
 
@@ -503,44 +497,6 @@ export default function AIInsightsView({ posts }: Props) {
             )}
           </div>
 
-          {/* API key status */}
-          <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.04)] flex items-center justify-between">
-              <div>
-                <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Anthropic API Key</h3>
-                <p className="text-xs text-[var(--text-3)] mt-0.5">
-                  Configured by the admin at build-time. Users can&apos;t edit it.
-                </p>
-              </div>
-              {ADMIN_API_KEY.trim() ? (
-                <span className="text-[11px] text-[var(--gold)] bg-[var(--gold-dim)] border border-[var(--gold-border)] px-2.5 py-1 rounded-lg font-semibold">
-                  ✓ Configured
-                </span>
-              ) : (
-                <span className="text-[11px] text-[var(--gold)] bg-[var(--gold-dim)] border border-[var(--gold-border)] px-2.5 py-1 rounded-lg font-semibold">
-                  Needs setup
-                </span>
-              )}
-            </div>
-            <div className="p-5">
-              {ADMIN_API_KEY.trim() ? (
-                <div className="bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.06)] rounded-xl px-4 py-3">
-                  <p className="text-xs text-[var(--text-2)]">
-                    Key present (hidden). Set via environment variable{' '}
-                    <span className="text-[var(--text-1)] font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span>.
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-[var(--gold-dim)] border border-[var(--gold-border)] rounded-xl px-4 py-3">
-                  <p className="text-xs text-[var(--text-2)]">
-                    Missing admin key. Add{' '}
-                    <span className="text-[var(--text-1)] font-semibold">NEXT_PUBLIC_ANTHROPIC_API_KEY</span> and redeploy.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Generate CTA */}
           {!hasInsights && !loading && (
             <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.05)] rounded-2xl p-8 flex flex-col items-center text-center gap-4">
@@ -566,9 +522,6 @@ export default function AIInsightsView({ posts }: Props) {
                 <IconSparkles className="w-4 h-4" />
                 Generate Insights
               </button>
-              {!ADMIN_API_KEY.trim() && (
-                <p className="text-xs text-[var(--text-2)]">Admin setup required: configure the Anthropic API key.</p>
-              )}
             </div>
           )}
 
@@ -762,12 +715,12 @@ export default function AIInsightsView({ posts }: Props) {
                   onChange={(e) => setChatInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleFollowUp()}
                   placeholder="Ask anything about your content performance…"
-                  disabled={chatLoading || !ADMIN_API_KEY.trim()}
+                  disabled={chatLoading}
                   className="flex-1 bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.06)] rounded-xl px-4 py-2.5 text-sm text-[var(--text-1)] placeholder-[var(--text-3)] focus:outline-none focus:border-[var(--gold-border)] transition-all disabled:opacity-50"
                 />
                 <button
                   onClick={handleFollowUp}
-                  disabled={!chatInput.trim() || chatLoading || !ADMIN_API_KEY.trim()}
+                  disabled={!chatInput.trim() || chatLoading}
                   className="w-10 h-10 rounded-xl bg-[var(--gold)] hover:bg-[var(--gold-hi)] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-[var(--bg-base)] transition-colors shadow-lg"
                 >
                   <IconSend className="w-4 h-4" />

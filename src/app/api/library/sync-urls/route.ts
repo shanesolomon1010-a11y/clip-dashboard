@@ -7,7 +7,11 @@ function extractClipDetailsCode(filename: string): string {
   return parts.slice(0, 3).join('-');
 }
 
-export async function POST(): Promise<NextResponse> {
+export async function POST(request: Request): Promise<NextResponse> {
+  const dashboardSecret = process.env.DASHBOARD_SECRET;
+  if (!dashboardSecret || request.headers.get('x-dashboard-secret') !== dashboardSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
