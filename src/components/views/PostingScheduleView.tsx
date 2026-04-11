@@ -256,8 +256,8 @@ export default function PostingScheduleView() {
     setSubmitError(null);
 
     const rows = Array.from(selectedPlatforms).map(platform => ({
-      clip_code: selectedClip.clip_code,
-      title: selectedClip.clip_code,
+      clip_code: selectedClip.clip_details_code ?? selectedClip.clip_code,
+      title: selectedClip.clip_details_code ?? selectedClip.clip_code,
       platform,
       scheduled_date: selectedDate,
       post_time: `${postTime} CT`,
@@ -285,6 +285,7 @@ export default function PostingScheduleView() {
   const filteredClips = clipOptions.filter(c =>
     clipSearch === '' ||
     c.clip_code.toLowerCase().includes(clipSearch.toLowerCase()) ||
+    (c.clip_details_code ?? '').toLowerCase().includes(clipSearch.toLowerCase()) ||
     (c.title ?? '').toLowerCase().includes(clipSearch.toLowerCase())
   );
 
@@ -487,11 +488,11 @@ export default function PostingScheduleView() {
                     <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--border)] divide-y divide-[var(--border)]">
                       {filteredClips.map(clip => (
                         <button
-                          key={clip.clip_code}
+                          key={clip.clip_details_code ?? clip.clip_code}
                           onClick={() => setSelectedClip(clip)}
                           className={[
                             'w-full text-left px-3 py-2.5 text-xs transition-colors',
-                            selectedClip?.clip_code === clip.clip_code
+                            selectedClip?.clip_details_code === clip.clip_details_code
                               ? 'bg-[var(--gold-dim)] text-[var(--gold)]'
                               : 'text-[var(--text-1)] hover:bg-[var(--bg-hover)]',
                           ].join(' ')}
@@ -601,7 +602,7 @@ export default function PostingScheduleView() {
                     <p className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">Confirm</p>
 
                     <div className="rounded-lg border border-[var(--border)] bg-[var(--bg-card)] p-3 space-y-2">
-                      <p className="text-[10px] font-mono text-[var(--text-3)]">{selectedClip?.clip_code}</p>
+                      <p className="text-[10px] font-mono text-[var(--text-3)]">{selectedClip?.clip_details_code ?? selectedClip?.clip_code}</p>
                       <div className="flex flex-wrap gap-1.5 pt-0.5">
                         {Array.from(selectedPlatforms).map(p => (
                           <span
