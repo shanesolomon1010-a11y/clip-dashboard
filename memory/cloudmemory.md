@@ -1056,3 +1056,320 @@ Changed files:
 Changed files:
   - src/components/views/LibraryView.tsx
 
+
+## 2026-04-06 17:02:01 — 4b2ec86
+**add youtube auth url route**
+
+Changed files:
+  - docs/superpowers/plans/2026-03-26-clip-detail-screen.md
+  - docs/superpowers/plans/2026-03-27-analytics-view-redesign.md
+  - docs/superpowers/plans/2026-03-27-clip-details-code-lookup.md
+  - docs/superpowers/plans/2026-03-27-unify-clip-detail-screen.md
+  - memory/cloudmemory.md
+  - mockup-cherry-butter.html
+  - mockup-color-scheme.html
+  - mockup-forest-champagne-v2.html
+  - mockup-forest-champagne.html
+  - mockup-mist-midnight.html
+  - mockup-rust.html
+  - src/app/api/auth/url/route.ts
+  - tests/screenshots/.last-run.json
+
+
+## 2026-04-06 18:37:02 — 3ebc299
+**fix COEP: use credentialless policy and direct video URL in player**
+
+Changed files:
+  - next.config.mjs
+  - src/components/views/ClipReviewView.tsx
+
+
+## 2026-04-08 16:40:48 — b7d5ee3
+**Add Bulk Import tab with docx-to-clips AI extraction**
+
+Changed files:
+  - package-lock.json
+  - package.json
+  - src/app/api/import/clips/route.ts
+  - src/components/views/ClipReviewView.tsx
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-08 17:23:46 — dc68ef5
+**Improve import/clips route: logging, robust JSON extraction, 4000 max_tokens**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 17:29:50 — 97c5e3c
+**Fall back to NEXT_PUBLIC_ANTHROPIC_API_KEY in import/clips route**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 17:43:18 — d762d55
+**Fix clip_details upsert: remove clip_code from rows, add ignoreDuplicates: false**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 17:48:51 — a62f306
+**Show actual server error on 500 instead of JSON parse failure**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-08 18:25:05 — cf9c378
+**Add clip_code derivation from clip_details_code in clips import**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 18:30:16 — 7142914
+**Add explicit upsert error logging and wrap handler in try/catch for JSON error responses**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 18:41:16 — c7cb782
+**Increase Claude max_tokens from 4000 to 8000 in clips import**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 21:46:55 — 89d240c
+**Switch model to claude-opus-4-5-20251001 and log max_tokens before API call**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 21:54:06 — e0698cd
+**Revert model to claude-sonnet-4-20250514 and add batch processing (10 clips per API call)**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 21:56:48 — 217a3ea
+**Replace batching logic with simpler section-split approach (10 clips per batch)**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+
+
+## 2026-04-08 22:02:13 — f5585c6
+**Show clip_details_code instead of clip_code in Clip Library and posting schedule selector**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-08 22:09:47 — 2ab056b
+**Restructure Clip Library into two-level folder view (episodes → clips)**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-08 22:10:49 — 4ce822a
+**Add Sync Video URLs feature — new API route and button in Clip Library tab**
+
+Changed files:
+  - src/app/api/library/sync-urls/route.ts
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-09 13:22:33 — 4bccafb
+**Deduplicate posts by conflict key before upsert to prevent ON CONFLICT double-row error**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-04-09 13:27:45 — bd2f69c
+**Fix onConflict key: use clip_details_code instead of clip_code for posts upsert**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-04-10 14:35:05 — e3a2801
+**Add YouTube Analytics sync — hardcoded VIDEO_MAP, cron job, and Sync button in Settings**
+
+Changed files:
+  - src/app/api/cron/youtube-sync/route.ts
+  - src/app/api/youtube-sync/route.ts
+  - src/components/views/SettingsView.tsx
+  - src/lib/youtube-sync.ts
+  - src/lib/youtube.ts
+  - vercel.json
+
+
+## 2026-04-10 14:43:10 — 80a1b17
+**Remove impressions/impressionCtr from per-video Analytics metrics (not supported by YouTube API at video level)**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+  - src/lib/youtube.ts
+
+
+## 2026-04-10 14:53:06 — ef2f0b6
+**Point Sync Now button to /api/youtube-sync instead of /api/youtube/sync**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-10 14:55:09 — ae20e25
+**Add console.error logging around getAccessToken and upsertPosts in youtube-sync**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+
+
+## 2026-04-10 14:58:03 — 1adbcf8
+**Return full error + stack trace from youtube-sync route and display in UI**
+
+Changed files:
+  - src/app/api/youtube-sync/route.ts
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-10 15:03:15 — 3f8750a
+**Fix YouTube sync handler to use rowsProcessed instead of success boolean**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-10 22:36:06 — 66d74e1
+**Add Insights tab with Gemini video analysis and Claude report generation**
+
+Changed files:
+  - src/app/api/insights/route.ts
+  - src/app/page.tsx
+  - src/components/Sidebar.tsx
+  - src/components/views/InsightsView.tsx
+
+
+## 2026-04-10 22:43:43 — cb7c9c5
+**Add global date filter bar to AnalyticsView**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+
+
+## 2026-04-10 22:46:26 — 3ee6340
+**Fix scheduling saving batch code instead of individual clip_details_code**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-04-10 22:53:13 — 9ffb942
+**Add clickable clip codes and batch breakdown to Insights**
+
+Changed files:
+  - src/app/api/insights/route.ts
+  - src/components/views/InsightsView.tsx
+
+
+## 2026-04-10 23:06:53 — 63212fd
+**Add date filter bar to DashboardView with shared DateFilterBar component**
+
+Changed files:
+  - src/components/DateFilterBar.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-04-11 02:32:42 — 829a0d9
+**Security hardening: remove client-side API key exposure and add route auth**
+
+Changed files:
+  - src/app/api/ai-proxy/route.ts
+  - src/app/api/analyze-script/route.ts
+  - src/app/api/auth/callback/route.ts
+  - src/app/api/cron/youtube-sync/route.ts
+  - src/app/api/import/clips/route.ts
+  - src/app/api/insights/route.ts
+  - src/app/api/library/scan/route.ts
+  - src/app/api/library/sync-urls/route.ts
+  - src/app/api/transcribe/route.ts
+  - src/app/api/video-proxy/route.ts
+  - src/app/api/youtube-sync/route.ts
+  - src/components/ScriptAnalyzer/TranscriptionUploader.tsx
+  - src/components/views/AIInsightsView.tsx
+  - src/components/views/CaptionView.tsx
+  - src/components/views/ClipReviewView.tsx
+  - src/components/views/EditorView.tsx
+  - src/components/views/InsightsView.tsx
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-04-11 02:50:10 — ec2fd0a
+**Fix insights route to use video_url from clip_details instead of constructing URL**
+
+Changed files:
+  - src/app/api/insights/route.ts
+
+
+## 2026-04-11 11:36:57 — 1bbc293
+**Fix clip modal to use clip_details_code for lookup**
+
+Changed files:
+  - src/components/TopPostsTable.tsx
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/lib/db.ts
+
+
+## 2026-04-11 11:46:51 — 48de4b4
+**Add debug log for clipCode in VideoPreviewModal**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+
+
+## 2026-04-11 11:57:15 — 1bc8832
+**Add /api/video-times route to fetch YouTube publishedAt for MBM015/016 clips**
+
+Changed files:
+  - src/app/api/video-times/route.ts
+
+
+## 2026-04-11 12:25:58 — e16aa33
+**Add VH42AvIjbk0 → MBM016-CLIP-005 to VIDEO_MAP in video-times and youtube-sync**
+
+Changed files:
+  - src/app/api/video-times/route.ts
+  - src/lib/youtube-sync.ts
+
+
+## 2026-04-11 12:56:41 — 9f75b09
+**Add Compress tab with FFmpeg.wasm compression and Supabase upload**
+
+Changed files:
+  - src/app/api/library/set-video-url/route.ts
+  - src/app/page.tsx
+  - src/components/Icons.tsx
+  - src/components/Sidebar.tsx
+  - src/components/views/CompressView.tsx
+
+
+## 2026-04-11 13:02:21 — 9de2014
+**Fix FFmpeg.wasm COOP/COEP headers and switch to dynamic UMD imports**
+
+Changed files:
+  - next.config.mjs
+  - src/components/views/CompressView.tsx
+

@@ -18,14 +18,13 @@ import ScriptAnalyzerView from '@/components/views/ScriptAnalyzerView';
 import TranscriberView from '@/components/views/TranscriberView';
 import PostingScheduleView from '@/components/views/PostingScheduleView';
 import LibraryView from '@/components/views/LibraryView';
-import CompressView from '@/components/views/CompressView';
 import { VideoModalProvider } from '@/context/VideoModalContext';
 import { FilterProvider } from '@/context/FilterContext';
 
 
 const VALID_NAV_SECTIONS = new Set<NavSection>([
   'dashboard', 'content', 'schedule', 'analytics', 'platforms',
-  'comparison', 'captions', 'scriptAnalyzer', 'transcriber', 'insights', 'editor', 'settings', 'library', 'compress',
+  'comparison', 'captions', 'scriptAnalyzer', 'transcriber', 'insights', 'editor', 'settings', 'library',
 ]);
 
 function AppInner() {
@@ -117,7 +116,6 @@ function AppInner() {
             {activeNav === 'insights'   && <InsightsView />}
             {activeNav === 'editor'     && <EditorView />}
             {activeNav === 'library'    && <LibraryView />}
-            {activeNav === 'compress'   && <CompressView />}
             {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}
           </main>
         </div>
