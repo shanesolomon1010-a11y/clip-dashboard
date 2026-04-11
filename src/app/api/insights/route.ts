@@ -179,6 +179,18 @@ export async function POST(request: Request) {
       }
     }
 
+    // Fetch actual video_url values from clip_details
+    const allCodes = Array.from(aggMap.keys());
+    const { data: clipDetailRows } = await supabase
+      .from('clip_details')
+      .select('clip_details_code, video_url')
+      .in('clip_details_code', allCodes);
+    const videoUrlMap = new Map<string, string>(
+      ((clipDetailRows ?? []) as { clip_details_code: string; video_url: string | null }[])
+        .filter((r) => r.video_url)
+        .map((r) => [r.clip_details_code, r.video_url!])
+    );
+
     const clips: ClipAggregate[] = Array.from(aggMap.values()).map((agg) => ({
       clip_details_code: agg.clip_details_code,
       total_views: agg.total_views,
@@ -189,7 +201,7 @@ export async function POST(request: Request) {
       avg_view_duration_seconds: agg.dur_count > 0 ? agg.dur_sum / agg.dur_count : null,
       latest_stat_date: agg.latest_stat_date,
       posted_at: agg.posted_at,
-      video_url: `${SUPABASE_URL}/storage/v1/object/public/Clips/${agg.clip_details_code}.mp4`,
+      video_url: videoUrlMap.get(agg.clip_details_code) ?? '',
     }));
 
     // 3. Compute per-batch summaries from clip aggregates
