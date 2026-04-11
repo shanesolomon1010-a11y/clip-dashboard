@@ -538,6 +538,13 @@ export default function AnalyticsView({ posts }: Props) {
     );
   }
 
+  const sevenDayWatchTime = useMemo(() => {
+    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return clipData
+      .filter((p) => (p.stat_date ?? p.date ?? '') >= cutoff)
+      .reduce((s, p) => s + (p.watch_time_hours ?? 0), 0);
+  }, [clipData]);
+
   const platformColor = platform === 'youtube' ? '#FF4444' : '#C855E8';
   const platformMetrics = platform === 'youtube' ? YOUTUBE_METRICS : INSTAGRAM_METRICS;
 
@@ -625,6 +632,12 @@ export default function AnalyticsView({ posts }: Props) {
             );
           })}
         </div>
+      </div>
+
+      {/* 7-Day Watch Time summary card */}
+      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4 w-fit">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-3)] mb-2">7-Day Watch Time</p>
+        <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{sevenDayWatchTime.toFixed(1)} hrs</p>
       </div>
 
       {/* Metric selector */}
