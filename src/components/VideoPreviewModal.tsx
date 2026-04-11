@@ -222,6 +222,7 @@ export default function VideoPreviewModal({ onClose, clipCode }: Props) {
   }, [onClose]);
 
   useEffect(() => {
+    console.log('VideoPreviewModal clipCode:', clipCode);
     if (!clipCode) return;
     let cancelled = false;
     setClipLoading(true);
