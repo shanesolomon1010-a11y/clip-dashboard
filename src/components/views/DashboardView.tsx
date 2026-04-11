@@ -9,7 +9,8 @@ import { IconEye } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter } from '@/context/FilterContext';
-import { getAllPostsByDate, getTotalViewsPerClip } from '@/lib/db';
+import { getAllPostsByDate } from '@/lib/db';
+import { DateFilterBar, useDateFilter } from '@/components/DateFilterBar';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -18,21 +19,6 @@ const CLIP_COLORS = [
   '#118AB2', '#7B2FBE', '#F72585', '#4CC9F0',
 ];
 
-const RANGES: { key: string; label: string; days: number | null }[] = [
-  { key: '1d',  label: 'Last 24 hours', days: 1   },
-  { key: '7d',  label: 'Last 7 days',   days: 7   },
-  { key: '30d', label: 'Last 30 days',  days: 30  },
-  { key: '90d', label: 'Last 90 days',  days: 90  },
-  { key: 'all', label: 'All time',      days: null },
-];
-
-function filterByDays(posts: UnifiedPost[], days: number | null): UnifiedPost[] {
-  if (days === null) return posts;
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - days);
-  const cutoffStr = cutoff.toISOString().slice(0, 10);
-  return posts.filter((p) => p.date >= cutoffStr);
-}
 
 function postInteractions(p: UnifiedPost): number {
   return p.likes + p.comments + p.shares + p.saves;
@@ -63,37 +49,57 @@ interface Props {
 
 export default function DashboardView({ posts }: Props) {
   const { open: openVideoModal } = useVideoModal();
-  const { dateRange, platform } = useFilter();
+  const { platform } = useFilter();
 
   const [allDailyPosts, setAllDailyPosts] = useState<UnifiedPost[]>([]);
-  const [clipTotals, setClipTotals] = useState<ClipTotal[]>([]);
+
+  const { filterPreset, setFilterPreset, customRange, setCustomRange, filterStart, filterEnd, filterLabel } = useDateFilter('30d');
 
   useEffect(() => {
     getAllPostsByDate('youtube').then(setAllDailyPosts).catch(() => setAllDailyPosts([]));
   }, []);
 
-  useEffect(() => {
-    const pl = platform !== 'all' ? platform : undefined;
-    getTotalViewsPerClip(pl).then(setClipTotals).catch(() => setClipTotals([]));
-  }, [platform]);
-
-  const selectedRange = RANGES.find((r) => r.key === dateRange) ?? RANGES[2];
-
   const filteredPosts = useMemo(() => {
-    const byDate = filterByDays(posts, selectedRange.days);
-    return platform === 'all' ? byDate : byDate.filter((p) => p.platform === platform);
-  }, [posts, selectedRange.days, platform]);
-
-  // Top content ranked by total views across all daily rows
-  const topPosts = useMemo(() => {
-    if (clipTotals.length === 0) {
-      return [...filteredPosts].sort((a, b) => b.views - a.views).slice(0, 6);
+    let result = platform === 'all' ? posts : posts.filter((p) => p.platform === platform);
+    if (filterStart) {
+      result = result.filter((p) => {
+        const d = p.stat_date ?? p.date ?? '';
+        return d >= filterStart && (!filterEnd || d <= filterEnd);
+      });
     }
-    return clipTotals.slice(0, 6);
-  }, [clipTotals, filteredPosts]);
+    return result;
+  }, [posts, platform, filterStart, filterEnd]);
 
-  const totalViews = useMemo(() => clipTotals.reduce((s, c) => s + c.total_views, 0), [clipTotals]);
-  const totalInteractions = useMemo(() => filteredPosts.reduce((s, p) => s + postInteractions(p), 0), [filteredPosts]);
+  const dateFilteredDailyPosts = useMemo(() => {
+    if (!filterStart) return allDailyPosts;
+    return allDailyPosts.filter((p) => {
+      const d = p.stat_date ?? p.date ?? '';
+      return d >= filterStart && (!filterEnd || d <= filterEnd);
+    });
+  }, [allDailyPosts, filterStart, filterEnd]);
+
+  const dateFilteredClipTotals = useMemo(() => {
+    const map = new Map<string, ClipTotal>();
+    for (const p of dateFilteredDailyPosts) {
+      if (!p.clip_code) continue;
+      const ex = map.get(p.clip_code);
+      if (!ex) {
+        map.set(p.clip_code, { clip_code: p.clip_code, clip_details_code: p.clip_details_code, platform: p.platform, total_views: p.views });
+      } else {
+        ex.total_views += p.views;
+      }
+    }
+    return Array.from(map.values()).sort((a, b) => b.total_views - a.total_views);
+  }, [dateFilteredDailyPosts]);
+
+  // Top content ranked by total views within the date filter
+  const topPosts = useMemo(() => {
+    if (dateFilteredClipTotals.length > 0) return dateFilteredClipTotals.slice(0, 6);
+    return [...filteredPosts].sort((a, b) => b.views - a.views).slice(0, 6);
+  }, [dateFilteredClipTotals, filteredPosts]);
+
+  const totalViews = useMemo(() => dateFilteredClipTotals.reduce((s, c) => s + c.total_views, 0), [dateFilteredClipTotals]);
+  const totalInteractions = useMemo(() => dateFilteredDailyPosts.reduce((s, p) => s + postInteractions(p), 0), [dateFilteredDailyPosts]);
 
   const platformTotals = useMemo(() =>
     ALL_PLATFORMS.map((pl) => ({
@@ -104,16 +110,16 @@ export default function DashboardView({ posts }: Props) {
     [filteredPosts]
   );
 
-  // Chart data: group allDailyPosts by stat_date, one value per clip_code
+  // Chart data: group dateFilteredDailyPosts by stat_date, one value per clip_code
   const { chartData, chartClips } = useMemo(() => {
     const clipSet: Record<string, true> = {};
-    for (const p of allDailyPosts) {
+    for (const p of dateFilteredDailyPosts) {
       if (p.clip_code && p.stat_date) clipSet[p.clip_code] = true;
     }
     const clips = Object.keys(clipSet);
 
     const byDate = new Map<string, Record<string, number>>();
-    for (const p of allDailyPosts) {
+    for (const p of dateFilteredDailyPosts) {
       if (!p.clip_code || !p.stat_date) continue;
       if (!byDate.has(p.stat_date)) byDate.set(p.stat_date, {});
       const entry = byDate.get(p.stat_date)!;
@@ -125,7 +131,7 @@ export default function DashboardView({ posts }: Props) {
       .map(([date, vals]) => ({ date: fmtDate(date), ...vals }));
 
     return { chartData: data, chartClips: clips };
-  }, [allDailyPosts]);
+  }, [dateFilteredDailyPosts]);
 
   // Peak day per clip_code from allDailyPosts
   const peakByClip = useMemo(() => {
@@ -145,7 +151,7 @@ export default function DashboardView({ posts }: Props) {
     let sumViews = 0, sumImpressions = 0, sumWeightedCtr = 0;
     let sumUniqueViewers = 0, sumLikes = 0, sumComments = 0, sumShares = 0;
     let sumDuration = 0, countDuration = 0;
-    for (const p of allDailyPosts) {
+    for (const p of dateFilteredDailyPosts) {
       sumViews += p.views;
       sumImpressions += p.impressions ?? 0;
       if (p.impressions && p.impression_ctr != null) sumWeightedCtr += p.impressions * p.impression_ctr;
@@ -165,7 +171,7 @@ export default function DashboardView({ posts }: Props) {
       totalShares: sumShares,
       avgDuration: countDuration > 0 ? sumDuration / countDuration : 0,
     };
-  }, [allDailyPosts]);
+  }, [dateFilteredDailyPosts]);
 
   const isClipTotal = (item: ClipTotal | UnifiedPost): item is ClipTotal =>
     'total_views' in item;
@@ -174,6 +180,14 @@ export default function DashboardView({ posts }: Props) {
     <div className="flex gap-5 p-5 min-h-full">
       {/* ── Left column ─────────────────────────────────────── */}
       <div className="flex-1 min-w-0 space-y-6">
+
+        {/* Date filter bar */}
+        <DateFilterBar
+          preset={filterPreset}
+          customRange={customRange}
+          onPresetChange={setFilterPreset}
+          onCustomRange={(start, end) => setCustomRange({ start, end })}
+        />
 
         {/* Stat grid — 8 cards, 4 columns */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -250,7 +264,7 @@ export default function DashboardView({ posts }: Props) {
         <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
           <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)] flex items-center justify-between">
             <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Top Content</h3>
-            <span className="text-[11px] text-[var(--text-2)]">{selectedRange.label}</span>
+            <span className="text-[11px] text-[var(--text-2)]">{filterLabel}</span>
           </div>
           <div className="divide-y divide-[rgba(247,231,206,0.03)]">
             {topPosts.map((item, i) => {
@@ -305,7 +319,7 @@ export default function DashboardView({ posts }: Props) {
               );
             })}
             {topPosts.length === 0 && (
-              <div className="px-5 py-8 text-center text-[var(--text-2)] text-sm">No posts for {selectedRange.label.toLowerCase()}</div>
+              <div className="px-5 py-8 text-center text-[var(--text-2)] text-sm">No posts for {filterLabel.toLowerCase()}</div>
             )}
           </div>
         </div>
@@ -324,7 +338,7 @@ export default function DashboardView({ posts }: Props) {
               <IconEye className="w-3 h-3" /> Total Views
             </p>
             <p className="text-4xl font-bold leading-none tracking-tight text-[var(--text-1)]">{formatNum(totalViews)}</p>
-            <p className="text-[11px] text-[var(--text-2)] mt-1">{selectedRange.label.toLowerCase()}</p>
+            <p className="text-[11px] text-[var(--text-2)] mt-1">{filterLabel.toLowerCase()}</p>
 
             <div className="h-px bg-[rgba(247,231,206,0.05)] my-4" />
 
