@@ -66,6 +66,25 @@ interface AnthropicResponse {
   content: AnthropicContent[];
 }
 
+interface BatchSummary {
+  batch: string;
+  total_views: number;
+  avg_retention: number | null;
+  top_clip: string;
+  clip_count: number;
+  assessment: string;
+}
+
+interface ClaudeBatchItem {
+  batch: string;
+  assessment: string;
+}
+
+function getBatchName(code: string): string {
+  const idx = code.indexOf('-CLIP-');
+  return idx >= 0 ? code.slice(0, idx) : code;
+}
+
 async function analyzeWithGemini(clipCode: string, videoUrl: string): Promise<string> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${GEMINI_KEY}`,
@@ -169,7 +188,46 @@ export async function POST() {
       video_url: `${SUPABASE_URL}/storage/v1/object/public/Clips/${agg.clip_details_code}.mp4`,
     }));
 
-    // 3. Call Gemini for each clip in parallel
+    // 3. Compute per-batch summaries from clip aggregates
+    interface BatchAgg {
+      batch: string;
+      total_views: number;
+      pct_sum: number;
+      pct_count: number;
+      clips: ClipAggregate[];
+    }
+
+    const batchMap = new Map<string, BatchAgg>();
+    for (const clip of clips) {
+      const batch = getBatchName(clip.clip_details_code);
+      const ex = batchMap.get(batch);
+      if (!ex) {
+        batchMap.set(batch, {
+          batch,
+          total_views: clip.total_views,
+          pct_sum: clip.avg_view_percentage ?? 0,
+          pct_count: clip.avg_view_percentage != null ? 1 : 0,
+          clips: [clip],
+        });
+      } else {
+        ex.total_views += clip.total_views;
+        if (clip.avg_view_percentage != null) {
+          ex.pct_sum += clip.avg_view_percentage;
+          ex.pct_count += 1;
+        }
+        ex.clips.push(clip);
+      }
+    }
+
+    const batchSummaries: Omit<BatchSummary, 'assessment'>[] = Array.from(batchMap.values()).map((b) => ({
+      batch: b.batch,
+      total_views: b.total_views,
+      avg_retention: b.pct_count > 0 ? b.pct_sum / b.pct_count : null,
+      top_clip: b.clips.reduce((best, c) => c.total_views > best.total_views ? c : best).clip_details_code,
+      clip_count: b.clips.length,
+    }));
+
+    // 4. Call Gemini for each clip in parallel
     const geminiSettled = await Promise.allSettled(
       clips.map((clip) =>
         analyzeWithGemini(clip.clip_details_code, clip.video_url).then((analysis) => ({
@@ -207,6 +265,9 @@ ${JSON.stringify(analyticsPayload, null, 2)}
 Gemini video analyses:
 ${JSON.stringify(geminiAnalyses, null, 2)}
 
+Batch performance data (clips grouped by batch prefix before -CLIP-):
+${JSON.stringify(batchSummaries, null, 2)}
+
 Return ONLY a valid JSON object with exactly these fields (no markdown, no explanation):
 {
   "summary": "2-3 sentence overall channel performance overview",
@@ -229,10 +290,13 @@ Return ONLY a valid JSON object with exactly these fields (no markdown, no expla
     "actionable recommendation 3",
     "actionable recommendation 4",
     "actionable recommendation 5"
+  ],
+  "batchInsights": [
+    {"batch": "BATCH_NAME", "assessment": "one sentence overall assessment of this batch's performance and what it tells you"}
   ]
 }
 
-topPerformers: top 3 clips by total_views. underperformers: bottom 3 clips by total_views. recommendations: exactly 5 items.`;
+topPerformers: top 3 clips by total_views. underperformers: bottom 3 clips by total_views. recommendations: exactly 5 items. batchInsights: one entry per batch in the batch data, assessment is one sentence only.`;
 
     const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -243,7 +307,7 @@ topPerformers: top 3 clips by total_views. underperformers: bottom 3 clips by to
       },
       body: JSON.stringify({
         model: 'claude-opus-4-5',
-        max_tokens: 2048,
+        max_tokens: 4096,
         messages: [{ role: 'user', content: claudePrompt }],
       }),
     });
@@ -257,8 +321,18 @@ topPerformers: top 3 clips by total_views. underperformers: bottom 3 clips by to
     const rawText = anthropicData.content[0]?.text ?? '{}';
     const cleaned = rawText.replace(/^```json\s*/i, '').replace(/\s*```$/i, '').trim();
 
-    const report = JSON.parse(cleaned) as unknown;
-    return NextResponse.json(report);
+    const claudeReport = JSON.parse(cleaned) as { batchInsights?: ClaudeBatchItem[] } & Record<string, unknown>;
+
+    // Merge computed batch facts with Claude's per-batch assessments
+    const assessmentMap = new Map<string, string>(
+      (claudeReport.batchInsights ?? []).map((b) => [b.batch, b.assessment])
+    );
+    const batchInsights: BatchSummary[] = batchSummaries.map((b) => ({
+      ...b,
+      assessment: assessmentMap.get(b.batch) ?? '',
+    }));
+
+    return NextResponse.json({ ...claudeReport, batchInsights });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: message }, { status: 500 });

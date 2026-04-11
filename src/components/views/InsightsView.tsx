@@ -2,10 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { IconSparkles } from '@/components/Icons';
+import { useVideoModal } from '@/context/VideoModalContext';
+import type { UnifiedPost } from '@/types';
+
+const SUPABASE_STORAGE = 'https://bfpjexlmoqoacoglqugl.supabase.co/storage/v1/object/public/Clips';
 
 interface ClipRef {
   clip_details_code: string;
   reason: string;
+}
+
+interface BatchInsightItem {
+  batch: string;
+  total_views: number;
+  avg_retention: number | null;
+  top_clip: string;
+  clip_count: number;
+  assessment: string;
 }
 
 interface InsightsReport {
@@ -16,6 +29,7 @@ interface InsightsReport {
   timingInsights: string;
   hookAnalysis: string;
   recommendations: string[];
+  batchInsights?: BatchInsightItem[];
 }
 
 const STORAGE_KEY = 'clip_studio_insights_report_v1';
@@ -31,14 +45,23 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   );
 }
 
-function ClipList({ items }: { items: ClipRef[] }) {
+function ClipCode({ code, onOpen }: { code: string; onOpen: (code: string) => void }) {
+  return (
+    <button
+      onClick={() => onOpen(code)}
+      className="text-[12px] font-semibold text-[var(--gold)] font-mono hover:opacity-70 transition-opacity text-left"
+    >
+      {code}
+    </button>
+  );
+}
+
+function ClipList({ items, onOpen }: { items: ClipRef[]; onOpen: (code: string) => void }) {
   return (
     <ul className="space-y-3">
       {items.map((item) => (
         <li key={item.clip_details_code} className="flex flex-col gap-0.5">
-          <span className="text-[12px] font-semibold text-[var(--gold)] font-mono">
-            {item.clip_details_code}
-          </span>
+          <ClipCode code={item.clip_details_code} onOpen={onOpen} />
           <span className="text-[12px] text-[var(--text-2)] leading-relaxed">{item.reason}</span>
         </li>
       ))}
@@ -47,10 +70,23 @@ function ClipList({ items }: { items: ClipRef[] }) {
 }
 
 export default function InsightsView() {
+  const { open: openModal } = useVideoModal();
   const [report, setReport] = useState<InsightsReport | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  function openClip(code: string) {
+    const minimalPost: UnifiedPost = {
+      id: code,
+      platform: 'youtube',
+      title: code,
+      date: new Date().toISOString().slice(0, 10),
+      views: 0, likes: 0, comments: 0, shares: 0, saves: 0, engagementRate: 0,
+      url: `${SUPABASE_STORAGE}/${code}.mp4`,
+    };
+    openModal(minimalPost, code);
+  }
 
   useEffect(() => {
     try {
@@ -143,10 +179,10 @@ export default function InsightsView() {
 
           <div className="grid grid-cols-2 gap-4">
             <Card title="Top Performers">
-              <ClipList items={report.topPerformers} />
+              <ClipList items={report.topPerformers} onOpen={openClip} />
             </Card>
             <Card title="Underperformers">
-              <ClipList items={report.underperformers} />
+              <ClipList items={report.underperformers} onOpen={openClip} />
             </Card>
           </div>
 
@@ -174,6 +210,52 @@ export default function InsightsView() {
               ))}
             </ol>
           </Card>
+
+          {report.batchInsights && report.batchInsights.length > 0 && (
+            <div>
+              <h2 className="text-[15px] font-semibold text-[var(--text-1)] mb-3">Batch Breakdown</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {report.batchInsights.map((b) => (
+                  <div
+                    key={b.batch}
+                    className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden"
+                  >
+                    <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)] flex items-center justify-between">
+                      <h3 className="text-[13px] font-semibold text-[var(--text-1)] font-mono">{b.batch}</h3>
+                      <span className="text-[10px] text-[var(--text-3)]">{b.clip_count} clip{b.clip_count !== 1 ? 's' : ''}</span>
+                    </div>
+                    <div className="px-5 py-4 space-y-3">
+                      <div className="flex gap-4">
+                        <div>
+                          <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--text-3)] font-semibold mb-0.5">Total Views</p>
+                          <p className="text-[14px] font-bold text-[var(--gold)] font-mono tabular-nums">
+                            {b.total_views.toLocaleString()}
+                          </p>
+                        </div>
+                        {b.avg_retention != null && (
+                          <div>
+                            <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--text-3)] font-semibold mb-0.5">Avg Retention</p>
+                            <p className="text-[14px] font-bold text-[var(--gold)] font-mono tabular-nums">
+                              {b.avg_retention.toFixed(1)}%
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--text-3)] font-semibold mb-1">Top Clip</p>
+                        <ClipCode code={b.top_clip} onOpen={openClip} />
+                      </div>
+                      {b.assessment && (
+                        <p className="text-[12px] text-[var(--text-2)] leading-relaxed border-t border-[rgba(247,231,206,0.05)] pt-3">
+                          {b.assessment}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
