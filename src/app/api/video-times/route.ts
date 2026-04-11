@@ -21,6 +21,7 @@ const VIDEO_MAP: Record<string, string> = {
   'BjAdnIfIls4': 'MBM015-CLIP-021',
   'XaQfjuTzdDE': 'MBM015-CLIP-022',
   'a3bRUFpilGI': 'MBM016-CLIP-001',
+  'VH42AvIjbk0': 'MBM016-CLIP-005',
   'tPsydEmTaOo': 'MBM016-CLIP-006',
 };
 
