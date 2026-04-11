@@ -236,3 +236,13 @@ export function IconCalendar({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export function IconCompress({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <rect x="4" y="2" width="16" height="20" rx="2" />
+      <path d="M9 8l3 3 3-3M12 11v5" />
+      <path d="M8 5h2M8 18h2M14 18h2" />
+    </svg>
+  );
+}

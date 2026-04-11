@@ -1,8 +1,8 @@
 'use client';
 
-import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer, IconTranscriber, IconCalendar, IconLibrary } from './Icons';
+import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer, IconTranscriber, IconCalendar, IconLibrary, IconCompress } from './Icons';
 
-export type NavSection = 'dashboard' | 'content' | 'schedule' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'transcriber' | 'editor' | 'settings' | 'library';
+export type NavSection = 'dashboard' | 'content' | 'schedule' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'transcriber' | 'editor' | 'settings' | 'library' | 'compress';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?: string }[] = [
   { id: 'dashboard',   label: 'Dashboard',   icon: <IconDashboard  className="w-4 h-4" /> },
@@ -17,11 +17,12 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
   { id: 'scriptAnalyzer', label: 'Script Analyzer', icon: <IconScriptAnalyzer  className="w-4 h-4" />, badge: 'AI' },
   { id: 'editor',         label: 'Editor',          icon: <IconScissors        className="w-4 h-4" />, badge: 'AI' },
   { id: 'library',     label: 'Library',          icon: <IconLibrary   className="w-4 h-4" /> },
+  { id: 'compress',    label: 'Compress',         icon: <IconCompress  className="w-4 h-4" /> },
   { id: 'settings',    label: 'Settings',    icon: <IconSettings   className="w-4 h-4" /> },
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', /* 'content', // hidden — re-add when ready */ 'schedule', 'analytics', /* 'platforms', // hidden — re-add when ready */ /* 'comparison', // hidden — re-add when ready */ 'insights', 'library', 'settings'] },
+  { label: 'Analytics', items: ['dashboard', /* 'content', // hidden — re-add when ready */ 'schedule', 'analytics', /* 'platforms', // hidden — re-add when ready */ /* 'comparison', // hidden — re-add when ready */ 'insights', 'library', 'compress', 'settings'] },
   // hidden — re-add when ready
   // { label: 'Tools', items: ['captions', 'insights', 'transcriber', 'scriptAnalyzer', 'editor'] },
 ];
