@@ -88,7 +88,7 @@ export default function TopPostsTable({ posts, onContentTypeChange, viewsTotals 
                     {PLATFORM_LABELS[post.platform]}
                   </span>
                 </td>
-                <td className="px-5 py-3.5 max-w-[220px] cursor-pointer" onClick={() => post.clip_code && open(post, post.clip_code)}>
+                <td className="px-5 py-3.5 max-w-[220px] cursor-pointer" onClick={() => post.clip_details_code && open(post, post.clip_details_code)}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-[var(--text-1)] truncate text-[13px] group-hover:text-[var(--text-1)] transition-colors flex-1">
                       {post.clip_code}

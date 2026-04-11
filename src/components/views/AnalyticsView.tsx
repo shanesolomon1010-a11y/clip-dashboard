@@ -786,7 +786,7 @@ export default function AnalyticsView({ posts }: Props) {
                   <tr
                     key={post.id}
                     className="hover:bg-[rgba(247,231,206,0.04)] transition-colors cursor-pointer"
-                    onClick={() => openModal(post, post.clip_code ?? '')}
+                    onClick={() => openModal(post, post.clip_details_code ?? post.clip_code ?? '')}
                   >
                     <td className="px-5 py-3.5 text-[var(--text-1)] text-[13px] max-w-[260px] truncate">
                       {post.clip_code}

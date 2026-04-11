@@ -495,16 +495,20 @@ export interface ClipDetail {
 }
 
 export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | null> {
-  // Resolve clip_details_code from posts (same pattern as fetchClipStats)
-  const { data: postRow } = await supabase
-    .from('posts')
-    .select('clip_details_code')
-    .eq('clip_code', clipCode)
-    .not('clip_details_code', 'is', null)
-    .limit(1)
-    .maybeSingle();
+  let lookupCode = clipCode;
 
-  const lookupCode = (postRow?.clip_details_code as string | null) ?? clipCode;
+  if (!clipCode.includes('-CLIP-')) {
+    // Resolve clip_details_code from posts (same pattern as fetchClipStats)
+    const { data: postRow } = await supabase
+      .from('posts')
+      .select('clip_details_code')
+      .eq('clip_code', clipCode)
+      .not('clip_details_code', 'is', null)
+      .limit(1)
+      .maybeSingle();
+
+    lookupCode = (postRow?.clip_details_code as string | null) ?? clipCode;
+  }
 
   const { data, error } = await supabase
     .from('clip_details')
@@ -513,7 +517,7 @@ export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | n
       'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
       'video_url, thumbnail_base64'
     )
-    .eq('clip_code', lookupCode)
+    .eq('clip_details_code', lookupCode)
     .maybeSingle();
 
   if (error) throw error;

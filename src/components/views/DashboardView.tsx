@@ -274,12 +274,12 @@ export default function DashboardView({ posts }: Props) {
               const peak = clipCode ? peakByClip.get(clipCode) : undefined;
 
               const handleClick = () => {
-                if (!isClipTotal(item) && item.clip_code) {
-                  openVideoModal(item, item.clip_code);
-                } else if (isClipTotal(item) && clipCode) {
+                if (!isClipTotal(item) && item.clip_details_code) {
+                  openVideoModal(item, item.clip_details_code);
+                } else if (isClipTotal(item) && item.clip_details_code) {
                   // Find a matching post from `posts` to open modal
-                  const match = posts.find((p) => p.clip_code === clipCode);
-                  if (match) openVideoModal(match, clipCode);
+                  const match = posts.find((p) => p.clip_code === item.clip_code);
+                  if (match) openVideoModal(match, item.clip_details_code);
                 }
               };
 
