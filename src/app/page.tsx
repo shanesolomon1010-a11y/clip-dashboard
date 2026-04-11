@@ -9,7 +9,7 @@ import DashboardView from '@/components/views/DashboardView';
 import ContentView from '@/components/views/ContentView';
 import AnalyticsView from '@/components/views/AnalyticsView';
 import PlatformsView from '@/components/views/PlatformsView';
-import AIInsightsView from '@/components/views/AIInsightsView';
+import InsightsView from '@/components/views/InsightsView';
 import EditorView from '@/components/views/EditorView';
 import SettingsView from '@/components/views/SettingsView';
 import ComparisonView from '@/components/views/ComparisonView';
@@ -113,7 +113,7 @@ function AppInner() {
             {activeNav === 'captions'        && <CaptionView />}
             {activeNav === 'scriptAnalyzer' && <ScriptAnalyzerView />}
             {activeNav === 'transcriber'    && <TranscriberView />}
-            {activeNav === 'insights'   && <AIInsightsView posts={posts} />}
+            {activeNav === 'insights'   && <InsightsView />}
             {activeNav === 'editor'     && <EditorView />}
             {activeNav === 'library'    && <LibraryView />}
             {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}
