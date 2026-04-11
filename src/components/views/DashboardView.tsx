@@ -173,13 +173,6 @@ export default function DashboardView({ posts }: Props) {
     };
   }, [dateFilteredDailyPosts]);
 
-  const sevenDayWatchTime = useMemo(() => {
-    const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    return allDailyPosts
-      .filter((p) => (p.stat_date ?? p.date ?? '') >= cutoff)
-      .reduce((s, p) => s + (p.watch_time_hours ?? 0), 0);
-  }, [allDailyPosts]);
-
   const isClipTotal = (item: ClipTotal | UnifiedPost): item is ClipTotal =>
     'total_views' in item;
 
@@ -207,7 +200,6 @@ export default function DashboardView({ posts }: Props) {
             { label: 'Total Comments',    value: formatNum(statsGrid.totalComments) },
             { label: 'Total Shares',      value: formatNum(statsGrid.totalShares) },
             { label: 'Avg View Duration', value: fmtDuration(statsGrid.avgDuration) },
-            { label: '7-Day Watch Time',  value: `${sevenDayWatchTime.toFixed(1)} hrs` },
           ] as { label: string; value: string }[]).map(({ label, value }) => (
             <div key={label} className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-3)] mb-2">{label}</p>
