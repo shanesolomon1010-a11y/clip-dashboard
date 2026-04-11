@@ -1,12 +1,7 @@
 'use client';
 
 import { useCallback, useRef, useState } from 'react';
-import { FFmpeg } from '@ffmpeg/ffmpeg';
-import { fetchFile, toBlobURL } from '@ffmpeg/util';
 import { supabase } from '@/lib/supabase';
-
-const FFMPEG_CORE_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.js';
-const FFMPEG_WASM_URL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm/ffmpeg-core.wasm';
 
 type ItemStatus = 'waiting' | 'compressing' | 'uploading' | 'done' | 'error';
 
@@ -53,7 +48,8 @@ export default function CompressView() {
   const [ffmpegLoading, setFfmpegLoading] = useState(false);
   const [summary, setSummary] = useState<{ success: number; failed: number } | null>(null);
   const [dragOver, setDragOver] = useState(false);
-  const ffmpegRef = useRef<FFmpeg | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const ffmpegRef = useRef<any>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const updateItem = useCallback((id: string, patch: Partial<QueueItem>) => {
@@ -89,13 +85,15 @@ export default function CompressView() {
     setQueue((prev) => prev.filter((item) => item.id !== id));
   }, []);
 
-  async function ensureFFmpeg(): Promise<FFmpeg> {
+  async function ensureFFmpeg() {
     if (ffmpegRef.current && ffmpegLoaded) return ffmpegRef.current;
     setFfmpegLoading(true);
+    const { FFmpeg } = await import('@ffmpeg/ffmpeg');
+    const { toBlobURL } = await import('@ffmpeg/util');
     const ff = new FFmpeg();
     await ff.load({
-      coreURL: await toBlobURL(FFMPEG_CORE_URL, 'text/javascript'),
-      wasmURL: await toBlobURL(FFMPEG_WASM_URL, 'application/wasm'),
+      coreURL: await toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.js', 'text/javascript'),
+      wasmURL: await toBlobURL('https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd/ffmpeg-core.wasm', 'application/wasm'),
     });
     ffmpegRef.current = ff;
     setFfmpegLoaded(true);
@@ -110,7 +108,8 @@ export default function CompressView() {
     setRunning(true);
     setSummary(null);
 
-    let ff: FFmpeg;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let ff: any;
     try {
       ff = await ensureFFmpeg();
     } catch (err) {
@@ -138,6 +137,7 @@ export default function CompressView() {
       ff.on('progress', onProgress);
 
       try {
+        const { fetchFile } = await import('@ffmpeg/util');
         await ff.writeFile(inputName, await fetchFile(item.file));
         await ff.exec([
           '-i', inputName,
