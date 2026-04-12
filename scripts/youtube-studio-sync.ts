@@ -215,6 +215,16 @@ export function parseCSVRows(
 // Placeholder stubs — implemented in Task 4 and Task 5
 // ---------------------------------------------------------------------------
 
+async function screenshotOnError(page: import('playwright-core').Page, videoId: string): Promise<void> {
+  try {
+    const screenshotPath = path.join(path.dirname(LOG_PATH), `${videoId}-error.png`);
+    await page.screenshot({ path: screenshotPath, fullPage: true });
+    log(`[${videoId}] Screenshot saved to ${screenshotPath}`);
+  } catch {
+    // screenshot is best-effort
+  }
+}
+
 async function processVideo(
   context: BrowserContext,
   videoId: string,
@@ -223,15 +233,25 @@ async function processVideo(
 ): Promise<Record<string, unknown>[]> {
   const page = await context.newPage();
   try {
-    // Step 1: Navigate
+    // Step 1: Establish channel context, then navigate to analytics
     log(`[${videoId}] Navigating to analytics...`);
     try {
+      await page.goto('https://studio.youtube.com', { waitUntil: 'networkidle', timeout: 30000 });
       await page.goto(
         `https://studio.youtube.com/video/${videoId}/analytics/tab-reach/period-28days`,
         { waitUntil: 'networkidle', timeout: 30000 },
       );
     } catch (err) {
       log(`[${videoId}] ERROR: Navigation failed — ${err}`);
+      await screenshotOnError(page, videoId);
+      return [];
+    }
+
+    // Check for error page
+    const bodyText = await page.locator('body').innerText().catch(() => '');
+    if (/something went wrong|oops/i.test(bodyText)) {
+      log(`[${videoId}] ERROR: Page shows error state — skipping video`);
+      await screenshotOnError(page, videoId);
       return [];
     }
 
@@ -280,6 +300,7 @@ async function processVideo(
     const checkboxes = await page.$$('input[type="checkbox"]:not(:checked)');
     if (checkboxes.length === 0) {
       log(`[${videoId}] ERROR: 0 unchecked metric checkboxes found — skipping video`);
+      await screenshotOnError(page, videoId);
       return [];
     }
     let clickedCount = 0;
@@ -315,6 +336,7 @@ async function processVideo(
     }
     if (!exportSelector) {
       log(`[${videoId}] ERROR: Export button not found — skipping video`);
+      await screenshotOnError(page, videoId);
       return [];
     }
 
