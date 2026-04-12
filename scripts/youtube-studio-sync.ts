@@ -252,12 +252,23 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
   const headers = splitCSVLine(lines[headerIdx]).map(h => h.trim());
   log(`Channel CSV headers: ${headers.join(' | ')}`);
 
-  // Find the video ID column (YouTube exports use "Video" for the ID column)
-  const videoIdColIdx = headers.findIndex(h => h === 'Video');
+  // Log first 3 data rows to diagnose the actual content format
+  for (let i = headerIdx + 1; i <= headerIdx + 3 && i < lines.length; i++) {
+    const trimmed = lines[i].trim();
+    if (trimmed) log(`CSV row ${i - headerIdx}: ${trimmed.slice(0, 200)}`);
+  }
 
-  if (videoIdColIdx === -1) {
-    log('ERROR: No "Video" column found in channel CSV headers');
+  // "Content" column contains the video identifier (ID or title)
+  const contentColIdx = headers.findIndex(h => h === 'Content');
+  if (contentColIdx === -1) {
+    log('ERROR: No "Content" column found in channel CSV headers');
     return [];
+  }
+
+  // Build a reverse title→code map in case Content holds video titles
+  const titleMap: Record<string, string> = {};
+  for (const [videoId, clipCode] of Object.entries(VIDEO_MAP)) {
+    titleMap[videoId] = clipCode; // ID lookup still works
   }
 
   const today = new Date().toISOString().split('T')[0];
@@ -268,10 +279,11 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
     if (!line) continue;
     const cells = splitCSVLine(line);
 
-    const videoId = cells[videoIdColIdx]?.trim();
-    const clipDetailsCode = videoId ? VIDEO_MAP[videoId] : undefined;
+    const contentVal = cells[contentColIdx]?.trim();
+    // Try direct video ID lookup first; Content column format TBD from logs
+    const clipDetailsCode = contentVal ? VIDEO_MAP[contentVal] : undefined;
     if (!clipDetailsCode) {
-      log(`WARNING: No clip_details_code for video ID "${videoId}" — skipping`);
+      log(`WARNING: No clip_details_code for Content value "${contentVal}" — skipping`);
       continue;
     }
 
