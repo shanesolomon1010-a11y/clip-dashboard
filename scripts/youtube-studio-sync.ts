@@ -227,18 +227,18 @@ async function screenshotOnError(page: import('playwright-core').Page, videoId: 
 
 async function processVideo(
   context: BrowserContext,
+  channelId: string,
   videoId: string,
   clipDetailsCode: string,
   downloadDir: string,
 ): Promise<Record<string, unknown>[]> {
   const page = await context.newPage();
   try {
-    // Step 1: Establish channel context, then navigate to analytics
+    // Step 1: Navigate using channel-scoped analytics URL
     log(`[${videoId}] Navigating to analytics...`);
     try {
-      await page.goto('https://studio.youtube.com', { waitUntil: 'networkidle', timeout: 30000 });
       await page.goto(
-        `https://studio.youtube.com/video/${videoId}/analytics/tab-reach/period-28days`,
+        `https://studio.youtube.com/channel/${channelId}/video/${videoId}/analytics/tab-reach/period-28days`,
         { waitUntil: 'networkidle', timeout: 30000 },
       );
     } catch (err) {
@@ -422,11 +422,14 @@ async function main(): Promise<void> {
       ],
     });
 
-    // Detect login state
+    // Detect login state and extract channel ID from the Studio URL
     const checkPage = await context.newPage();
     await checkPage.goto('https://studio.youtube.com', { waitUntil: 'networkidle', timeout: 30000 });
-    const needsLogin = isFirstRun || checkPage.url().includes('accounts.google.com');
+    const studioUrl = checkPage.url();
+    const needsLogin = isFirstRun || studioUrl.includes('accounts.google.com');
     await checkPage.close();
+
+    let channelId: string;
 
     if (needsLogin) {
       log('First run detected — please log into YouTube Studio in the Chrome window that just opened, then press Enter in this terminal to continue.');
@@ -434,12 +437,33 @@ async function main(): Promise<void> {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         rl.question('', () => { rl.close(); resolve(); });
       });
+      // Re-navigate after login to get the authenticated Studio URL with channel ID
+      const postLoginPage = await context.newPage();
+      await postLoginPage.goto('https://studio.youtube.com', { waitUntil: 'networkidle', timeout: 30000 });
+      const postLoginUrl = postLoginPage.url();
+      await postLoginPage.close();
+      const m = postLoginUrl.match(/\/channel\/(UC[^/]+)/);
+      if (!m) {
+        log(`ERROR: Could not extract channel ID from URL after login: ${postLoginUrl}`);
+        logStream.end();
+        process.exit(1);
+      }
+      channelId = m[1];
+    } else {
+      const m = studioUrl.match(/\/channel\/(UC[^/]+)/);
+      if (!m) {
+        log(`ERROR: Could not extract channel ID from Studio URL: ${studioUrl}`);
+        logStream.end();
+        process.exit(1);
+      }
+      channelId = m[1];
     }
+    log(`Channel ID: ${channelId}`);
 
     const allRows: Record<string, unknown>[] = [];
     for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
       log(`Processing ${videoId} (${clipDetailsCode})...`);
-      const rows = await processVideo(context, videoId, clipDetailsCode, downloadDir);
+      const rows = await processVideo(context, channelId, videoId, clipDetailsCode, downloadDir);
       allRows.push(...rows);
     }
 
