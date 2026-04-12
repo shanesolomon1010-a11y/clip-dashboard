@@ -255,6 +255,9 @@ async function processVideo(
       } catch {
         await page.waitForTimeout(3000);
       }
+      if (!page.url().includes('/advanced')) {
+        log(`[${videoId}] WARNING: Could not confirm Advanced mode — continuing anyway but export may be incomplete`);
+      }
     }
 
     // Step 3: Open metrics panel and select all unchecked metrics
@@ -279,14 +282,16 @@ async function processVideo(
       log(`[${videoId}] ERROR: 0 unchecked metric checkboxes found — skipping video`);
       return [];
     }
+    let clickedCount = 0;
     for (const cb of checkboxes) {
       try {
         await cb.click();
+        clickedCount++;
       } catch {
         // checkbox may have disappeared; continue
       }
     }
-    log(`[${videoId}] Selected ${checkboxes.length} metrics`);
+    log(`[${videoId}] Selected ${clickedCount}/${checkboxes.length} metrics`);
     await page.waitForTimeout(500);
 
     // Step 4: Date range already set via URL param (period-28days) — no action needed
