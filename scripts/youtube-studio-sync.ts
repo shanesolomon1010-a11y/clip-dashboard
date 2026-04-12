@@ -392,6 +392,12 @@ async function main(): Promise<void> {
       channel: 'chrome',
       headless: false,
       acceptDownloads: true,
+      ignoreDefaultArgs: ['--enable-automation'],
+      args: [
+        '--disable-blink-features=AutomationControlled',
+        '--exclude-switches=enable-automation',
+        '--disable-infobars',
+      ],
     });
 
     // Detect login state
