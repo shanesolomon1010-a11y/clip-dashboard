@@ -61,6 +61,26 @@ export const COLUMN_MAP: Record<string, string> = {
 const CHROME_AUTOMATION_PROFILE = path.join(__dirname, '../.chrome-automation-profile');
 const LOG_PATH = path.join(__dirname, '../logs/youtube-studio-sync.log');
 
+const CHANNEL_ANALYTICS_URL =
+  'https://studio.youtube.com/channel/UC-Ly0V7fa_9TaF3WXvsroZA/analytics/tab-overview/period-default/explore' +
+  '?entity_type=CHANNEL&entity_id=UC-Ly0V7fa_9TaF3WXvsroZA' +
+  '&ur_dimensions=CREATOR_CONTENT_TYPE&ur_values=%27SHORTS%27&ur_inclusive_starts=&ur_exclusive_ends=' +
+  '&time_period=4_weeks&explore_type=TABLE_AND_CHART&metric=ENGAGED_VIEWS&granularity=DAY' +
+  '&t_metrics=ENGAGED_VIEWS&t_metrics=AVERAGE_WATCH_TIME&t_metrics=AVERAGE_WATCH_PERCENTAGE' +
+  '&t_metrics=VIDEO_COUNT_NEW&t_metrics=VIDEO_COUNT_FIRST_PUBLISHED&t_metrics=SHORTS_FEED_IMPRESSIONS_VTR' +
+  '&t_metrics=ESTIMATED_UNIQUE_VIEWERS&t_metrics=AVERAGE_VIEWS_PER_VIEWER' +
+  '&t_metrics=RECENT_VIEWERS&t_metrics=OCCASIONAL_VIEWERS&t_metrics=FREQUENT_VIEWERS&t_metrics=RETURNING_VIEWERS' +
+  '&t_metrics=HYPES&t_metrics=HYPE_POINTS&t_metrics=SUBSCRIBERS_GAINED&t_metrics=SUBSCRIBERS_LOST' +
+  '&t_metrics=RATINGS_LIKES&t_metrics=COMMENTS&t_metrics=SHARINGS' +
+  '&t_metrics=LIKES_PER_LIKES_PLUS_DISLIKES_PERCENT&t_metrics=RATINGS_DISLIKES' +
+  '&t_metrics=POST_IMPRESSIONS&t_metrics=POST_LIKES&t_metrics=POST_LIKES_PER_IMPRESSIONS' +
+  '&t_metrics=POST_VOTES&t_metrics=POST_VOTES_PER_IMPRESSIONS&t_metrics=POST_SUBSCRIBERS_NET_CHANGE' +
+  '&t_metrics=SHORTS_REMIX_COUNT&t_metrics=SHORTS_REMIX_VIEWS' +
+  '&t_metrics=CLIP_VIDEO_WATCHTIME&t_metrics=CLIP_VIEWS' +
+  '&t_metrics=EXTERNAL_VIEWS&t_metrics=EXTERNAL_WATCH_TIME&t_metrics=SUBSCRIBERS_NET_CHANGE' +
+  '&t_metrics=TOTAL_ESTIMATED_EARNINGS&t_metrics=VIDEO_THUMBNAIL_IMPRESSIONS&t_metrics=VIDEO_THUMBNAIL_IMPRESSIONS_VTR' +
+  '&dimension=VIDEO&o_column=ENGAGED_VIEWS&o_direction=ANALYTICS_ORDER_DIRECTION_DESC';
+
 // ---------------------------------------------------------------------------
 // Logging — ensure logs/ directory exists before opening the write stream
 // ---------------------------------------------------------------------------
@@ -211,8 +231,74 @@ export function parseCSVRows(
   return rows;
 }
 
-// ---------------------------------------------------------------------------
-// Placeholder stubs — implemented in Task 4 and Task 5
+export function parseChannelCSVRows(csvContent: string): Record<string, unknown>[] {
+  const lines = csvContent.split('\n');
+
+  // Find header row — look for a line containing a known dimension or metric column name
+  const knownColumns = ['Video', 'Content', 'Views', 'Engaged views', 'Watch time (hours)'];
+  let headerIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const cells = splitCSVLine(lines[i]);
+    if (cells.some(c => knownColumns.includes(c.trim()))) {
+      headerIdx = i;
+      break;
+    }
+  }
+  if (headerIdx === -1) {
+    log('ERROR: Could not find header row in channel CSV');
+    return [];
+  }
+
+  const headers = splitCSVLine(lines[headerIdx]).map(h => h.trim());
+  log(`Channel CSV headers: ${headers.join(' | ')}`);
+
+  // Find the video ID column (YouTube exports use "Video" for the ID column)
+  const videoIdColIdx = headers.findIndex(h => h === 'Video');
+
+  if (videoIdColIdx === -1) {
+    log('ERROR: No "Video" column found in channel CSV headers');
+    return [];
+  }
+
+  const today = new Date().toISOString().split('T')[0];
+  const rows: Record<string, unknown>[] = [];
+
+  for (let i = headerIdx + 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cells = splitCSVLine(line);
+
+    const videoId = cells[videoIdColIdx]?.trim();
+    const clipDetailsCode = videoId ? VIDEO_MAP[videoId] : undefined;
+    if (!clipDetailsCode) {
+      log(`WARNING: No clip_details_code for video ID "${videoId}" — skipping`);
+      continue;
+    }
+
+    const clipCode = deriveClipCode(clipDetailsCode);
+    const row: Record<string, unknown> = {
+      platform: 'youtube',
+      content_type: 'short',
+      clip_details_code: clipDetailsCode,
+      clip_code: clipCode,
+      stat_date: today,
+    };
+
+    for (let j = 0; j < headers.length; j++) {
+      const dbCol = COLUMN_MAP[headers[j]];
+      if (!dbCol || dbCol === 'stat_date') continue;
+      const val = cells[j];
+      if (dbCol === 'avg_view_duration_seconds') {
+        row[dbCol] = parseTimeToSeconds(val);
+      } else {
+        row[dbCol] = safeNum(val);
+      }
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+
 // ---------------------------------------------------------------------------
 
 async function screenshotOnError(page: import('playwright-core').Page, videoId: string): Promise<void> {
@@ -224,93 +310,6 @@ async function screenshotOnError(page: import('playwright-core').Page, videoId: 
     // screenshot is best-effort
   }
 }
-
-async function processVideo(
-  page: import('playwright-core').Page,
-  channelId: string,
-  videoId: string,
-  clipDetailsCode: string,
-  downloadDir: string,
-): Promise<Record<string, unknown>[]> {
-  try {
-    // Step 1: Navigate to basic analytics URL
-    log(`[${videoId}] Navigating to analytics...`);
-    try {
-      await page.goto(
-        `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default?c=${channelId}`,
-        { waitUntil: 'load', timeout: 30000 },
-      );
-      log(`[${videoId}] Analytics page URL: ${page.url()}`);
-    } catch (err) {
-      log(`[${videoId}] ERROR: Navigation failed — ${err}`);
-      await screenshotOnError(page, videoId);
-      return [];
-    }
-
-    // Check for error page
-    const bodyText = await page.locator('body').innerText().catch(() => '');
-    if (/something went wrong|oops/i.test(bodyText)) {
-      log(`[${videoId}] ERROR: Page shows error state — skipping video`);
-      await screenshotOnError(page, videoId);
-      return [];
-    }
-
-    // Step 2: Click "Advanced mode" and wait for transition
-    log(`[${videoId}] Clicking Advanced mode...`);
-    try {
-      await page.click('text="Advanced mode"', { timeout: 10000 });
-      log(`[${videoId}] Advanced mode clicked`);
-    } catch {
-      log(`[${videoId}] WARNING: Advanced mode button not found — continuing`);
-    }
-    await page.waitForTimeout(5000);
-    log(`[${videoId}] Post-transition URL: ${page.url()}`);
-
-    // Audit all buttons to identify the export button
-    // Step 3: Click export button and wait for download
-    const exportSelector = '[aria-label="Export current view"]';
-    try {
-      await page.waitForSelector(exportSelector, { timeout: 10000 });
-    } catch {
-      log(`[${videoId}] ERROR: Export button not found — skipping video`);
-      await screenshotOnError(page, videoId);
-      return [];
-    }
-
-    const filePath = path.join(downloadDir, `${videoId}.bin`);
-    let download: import('playwright-core').Download;
-    try {
-      [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 60000 }),
-        page.click(exportSelector),
-      ]);
-    } catch (err) {
-      log(`[${videoId}] ERROR: Download failed — ${err}`);
-      await screenshotOnError(page, videoId);
-      return [];
-    }
-    await download.saveAs(filePath);
-    log(`[${videoId}] Saved download to ${filePath}`);
-
-    // Step 6-7: Parse ZIP or CSV, then parse rows
-    let csvContent: string;
-    try {
-      csvContent = getCSVContent(filePath);
-    } catch (err) {
-      log(`[${videoId}] ERROR: Could not extract CSV — ${err}`);
-      return [];
-    }
-    const rows = parseCSVRows(csvContent, clipDetailsCode);
-    log(`[${videoId}] Parsed ${rows.length} rows`);
-    return rows;
-
-  } catch (err) {
-    log(`[${videoId}] ERROR: Unexpected error — ${err}`);
-    return [];
-  }
-}
-
-
 
 async function main(): Promise<void> {
   const isDryRun = process.argv.includes('--dry-run');
@@ -340,7 +339,7 @@ async function main(): Promise<void> {
   fs.rmSync(downloadDir, { recursive: true, force: true });
   fs.mkdirSync(downloadDir, { recursive: true });
 
-  log(`Starting YouTube Studio sync for ${Object.keys(VIDEO_MAP).length} videos`);
+  log('Starting YouTube Studio channel-level sync');
 
   // --reset flag: wipe the profile so the user can re-authenticate
   if (process.argv.includes('--reset')) {
@@ -365,14 +364,12 @@ async function main(): Promise<void> {
       ],
     });
 
-    // Detect login state and extract channel ID from the Studio URL
+    // Detect login state
     const checkPage = await context.newPage();
     await checkPage.goto('https://studio.youtube.com', { waitUntil: 'load', timeout: 30000 });
     const studioUrl = checkPage.url();
     const needsLogin = isFirstRun || studioUrl.includes('accounts.google.com') || !studioUrl.includes('studio.youtube.com');
     await checkPage.close();
-
-    let channelId: string;
 
     if (needsLogin) {
       log('Login required — please log into YouTube Studio in the Chrome window that just opened.');
@@ -383,42 +380,48 @@ async function main(): Promise<void> {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         rl.question('', () => { rl.close(); resolve(); });
       });
-      // Re-navigate after login to get the authenticated Studio URL with channel ID
-      const postLoginPage = await context.newPage();
-      await postLoginPage.goto('https://studio.youtube.com', { waitUntil: 'load', timeout: 30000 });
-      const postLoginUrl = postLoginPage.url();
-      await postLoginPage.close();
-      const m = postLoginUrl.match(/\/channel\/(UC[^/]+)/);
-      if (!m) {
-        log(`ERROR: Could not extract channel ID from URL after login: ${postLoginUrl}`);
-        logStream.end();
-        process.exit(1);
-      }
-      channelId = m[1];
-    } else {
-      const m = studioUrl.match(/\/channel\/(UC[^/]+)/);
-      if (!m) {
-        log(`ERROR: Could not extract channel ID from Studio URL: ${studioUrl}`);
-        logStream.end();
-        process.exit(1);
-      }
-      channelId = m[1];
     }
-    log(`Channel ID: ${channelId}`);
 
-    // Open a single page for the entire session so the SPA stays initialized
+    // Navigate directly to the channel analytics export URL
     const page = await context.newPage();
-    log('Navigating to Studio to initialize SPA session...');
-    await page.goto(`https://studio.youtube.com?c=${channelId}`, { waitUntil: 'load', timeout: 30000 });
-    log(`Studio initialized at: ${page.url()}`);
+    log('Navigating to channel analytics...');
+    await page.goto(CHANNEL_ANALYTICS_URL, { waitUntil: 'load', timeout: 60000 });
+    log(`Analytics page URL: ${page.url()}`);
 
-    const allRows: Record<string, unknown>[] = [];
-    for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
-      log(`Processing ${videoId} (${clipDetailsCode})...`);
-      const rows = await processVideo(page, channelId, videoId, clipDetailsCode, downloadDir);
-      allRows.push(...rows);
+    // Wait for export button
+    const exportSelector = '[aria-label="Export current view"]';
+    try {
+      await page.waitForSelector(exportSelector, { timeout: 30000 });
+    } catch {
+      log('ERROR: Export button not found');
+      await screenshotOnError(page, 'channel-export');
+      return;
     }
 
+    const filePath = path.join(downloadDir, 'channel-export.bin');
+    let download: import('playwright-core').Download;
+    try {
+      [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 60000 }),
+        page.click(exportSelector),
+      ]);
+    } catch (err) {
+      log(`ERROR: Download failed — ${err}`);
+      await screenshotOnError(page, 'channel-export');
+      return;
+    }
+    await download.saveAs(filePath);
+    log(`Saved download to ${filePath}`);
+
+    let csvContent: string;
+    try {
+      csvContent = getCSVContent(filePath);
+    } catch (err) {
+      log(`ERROR: Could not extract CSV — ${err}`);
+      return;
+    }
+
+    const allRows = parseChannelCSVRows(csvContent);
     log(`Total rows collected: ${allRows.length}`);
 
     if (allRows.length > 0) {
