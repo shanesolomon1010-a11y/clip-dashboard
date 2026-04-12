@@ -412,7 +412,7 @@ async function main(): Promise<void> {
     log('Clicked export button — waiting for dropdown menu');
 
     // Wait for CSV option in the dropdown and click it
-    const csvOptionSelector = 'tp-yt-paper-item:has-text("Comma separated"), ytcp-menu-item:has-text("Comma separated"), [role="menuitem"]:has-text("Comma separated")';
+    const csvOptionSelector = 'text=Comma separated values';
     try {
       await page.waitForSelector(csvOptionSelector, { timeout: 10000 });
     } catch {
