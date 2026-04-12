@@ -1,12 +1,13 @@
 import { chromium } from 'playwright-core';
-import type { BrowserContext } from 'playwright-core';
+import type { Browser, BrowserContext } from 'playwright-core';
 import AdmZip from 'adm-zip';
 import * as dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync } from 'child_process';
+import { execSync, spawn } from 'child_process';
+import * as http from 'http';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
@@ -57,7 +58,9 @@ export const COLUMN_MAP: Record<string, string> = {
   'Regular viewers': 'regular_viewers',
 };
 
-const CHROME_DEFAULT_PROFILE_SRC = path.join(os.homedir(), 'Library/Application Support/Google/Chrome/Default');
+const CHROME_EXECUTABLE = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+const CHROME_USER_DATA_DIR = path.join(os.homedir(), 'Library/Application Support/Google/Chrome');
+const CDP_URL = 'http://localhost:9222';
 const LOG_PATH = path.join(__dirname, '../logs/youtube-studio-sync.log');
 
 // ---------------------------------------------------------------------------
@@ -352,6 +355,26 @@ async function processVideo(
 }
 
 
+async function isCDPReady(): Promise<boolean> {
+  return new Promise(resolve => {
+    http.get(`${CDP_URL}/json/version`, res => { res.resume(); resolve(true); })
+      .on('error', () => resolve(false));
+  });
+}
+
+async function waitForCDP(timeoutMs: number): Promise<void> {
+  const start = Date.now();
+  let attempt = 0;
+  while (Date.now() - start < timeoutMs) {
+    attempt++;
+    const elapsed = Date.now() - start;
+    log(`CDP poll attempt ${attempt} (${elapsed}ms elapsed)...`);
+    if (await isCDPReady()) return;
+    await new Promise(r => setTimeout(r, 500));
+  }
+  throw new Error(`Chrome CDP endpoint not ready after ${timeoutMs}ms`);
+}
+
 async function main(): Promise<void> {
   const isDryRun = process.argv.includes('--dry-run');
 
@@ -363,13 +386,6 @@ async function main(): Promise<void> {
     log('DRY RUN complete — exiting before Chrome launch');
     logStream.end();
     process.exit(0);
-  }
-
-  // Chrome safety check
-  if (isChromeRunning()) {
-    log('ERROR: Google Chrome is already running. Close Chrome before running this script.');
-    logStream.end();
-    process.exit(1);
   }
 
   // Validate env vars
@@ -389,20 +405,24 @@ async function main(): Promise<void> {
 
   log(`Starting YouTube Studio sync for ${Object.keys(VIDEO_MAP).length} videos`);
 
-  // Copy the Default profile to a temp dir so launchPersistentContext can own it
-  const tempProfileDir = path.join(os.tmpdir(), `yt-studio-profile-${Date.now()}`);
-  fs.mkdirSync(tempProfileDir, { recursive: true });
-  log(`Copying Chrome Default profile to ${tempProfileDir}...`);
-  fs.cpSync(CHROME_DEFAULT_PROFILE_SRC, path.join(tempProfileDir, 'Default'), { recursive: true });
-  log('Profile copy done');
-
+  let browser: Browser | null = null;
   let context: BrowserContext | null = null;
   try {
-    context = await chromium.launchPersistentContext(tempProfileDir, {
-      channel: 'chrome',
-      headless: false,
-      acceptDownloads: true,
-    });
+    if (await isCDPReady()) {
+      log('Port 9222 already open — skipping Chrome spawn, connecting directly...');
+    } else {
+      log('Launching Chrome with remote debugging on port 9222...');
+      spawn(CHROME_EXECUTABLE, [
+        `--remote-debugging-port=9222`,
+        `--user-data-dir=${CHROME_USER_DATA_DIR}`,
+        '--no-first-run',
+        '--no-default-browser-check',
+      ], { detached: true, stdio: 'ignore' }).unref();
+      await waitForCDP(30000);
+    }
+    log('Connecting via CDP...');
+    browser = await chromium.connectOverCDP(CDP_URL);
+    context = browser.contexts()[0] ?? await browser.newContext({ acceptDownloads: true });
 
     const allRows: Record<string, unknown>[] = [];
     for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
@@ -429,10 +449,9 @@ async function main(): Promise<void> {
     }
 
   } finally {
-    if (context) {
-      await context.close();
+    if (browser) {
+      await browser.close();
     }
-    fs.rmSync(tempProfileDir, { recursive: true, force: true });
     logStream.end();
   }
 }
