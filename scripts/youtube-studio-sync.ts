@@ -226,21 +226,25 @@ async function screenshotOnError(page: import('playwright-core').Page, videoId: 
 }
 
 async function processVideo(
-  context: BrowserContext,
+  page: import('playwright-core').Page,
   channelId: string,
   videoId: string,
   clipDetailsCode: string,
   downloadDir: string,
 ): Promise<Record<string, unknown>[]> {
-  const page = await context.newPage();
   try {
-    // Step 1: Navigate using channel-scoped analytics URL
+    // Step 1: Navigate to analytics in the existing SPA session
     log(`[${videoId}] Navigating to analytics...`);
     try {
       await page.goto(
-        `https://studio.youtube.com/channel/${channelId}/video/${videoId}/analytics/tab-reach/period-28days`,
-        { waitUntil: 'networkidle', timeout: 30000 },
+        `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default/explore?entity_type=VIDEO&entity_id=${videoId}&time_period=4_weeks&explore_type=TABLE_AND_CHART&c=${channelId}`,
+        { waitUntil: 'load', timeout: 30000 },
       );
+      log(`[${videoId}] Analytics page URL: ${page.url()}`);
+      // Wait for SPA to render — networkidle may never fire on Studio so catch the timeout
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {
+        log(`[${videoId}] networkidle timeout — proceeding`);
+      });
     } catch (err) {
       log(`[${videoId}] ERROR: Navigation failed — ${err}`);
       await screenshotOnError(page, videoId);
@@ -250,74 +254,12 @@ async function processVideo(
     // Check for error page
     const bodyText = await page.locator('body').innerText().catch(() => '');
     if (/something went wrong|oops/i.test(bodyText)) {
-      log(`[${videoId}] ERROR: Page shows error state — skipping video`);
+      log(`[${videoId}] ERROR: Page shows error state at ${page.url()} — skipping video`);
       await screenshotOnError(page, videoId);
       return [];
     }
 
-    // Step 2: Enter Advanced mode
-    if (!page.url().includes('/advanced')) {
-      const advancedSelectors = [
-        'text="Advanced mode"',
-        '[aria-label*="advanced" i]',
-        'a:has-text("Advanced")',
-      ];
-      for (const sel of advancedSelectors) {
-        try {
-          await page.click(sel, { timeout: 3000 });
-          break;
-        } catch {
-          // try next selector
-        }
-      }
-      try {
-        await page.waitForURL(/advanced/, { timeout: 5000 });
-      } catch {
-        await page.waitForTimeout(3000);
-      }
-      if (!page.url().includes('/advanced')) {
-        log(`[${videoId}] WARNING: Could not confirm Advanced mode — continuing anyway but export may be incomplete`);
-      }
-    }
-
-    // Step 3: Open metrics panel and select all unchecked metrics
-    const panelSelectors = [
-      'button:has-text("Add metric")',
-      '[aria-label*="add metric" i]',
-      '[aria-label*="edit metrics" i]',
-      'ytcp-button:has-text("Add")',
-    ];
-    for (const sel of panelSelectors) {
-      try {
-        await page.click(sel, { timeout: 2000 });
-        await page.waitForTimeout(1000);
-        break;
-      } catch {
-        // try next selector
-      }
-    }
-
-    const checkboxes = await page.$$('input[type="checkbox"]:not(:checked)');
-    if (checkboxes.length === 0) {
-      log(`[${videoId}] ERROR: 0 unchecked metric checkboxes found — skipping video`);
-      await screenshotOnError(page, videoId);
-      return [];
-    }
-    let clickedCount = 0;
-    for (const cb of checkboxes) {
-      try {
-        await cb.click();
-        clickedCount++;
-      } catch {
-        // checkbox may have disappeared; continue
-      }
-    }
-    log(`[${videoId}] Selected ${clickedCount}/${checkboxes.length} metrics`);
-    await page.waitForTimeout(500);
-
-    // Step 4: Date range already set via URL param (period-28days) — no action needed
-
-    // Step 5: Export
+    // Step 2: Export — wait up to 20s on the first selector, 3s on the rest
     const exportSelectors = [
       'button:has-text("Export")',
       '[aria-label*="export" i]',
@@ -325,9 +267,11 @@ async function processVideo(
       'ytcp-button:has-text("Export")',
     ];
     let exportSelector: string | null = null;
-    for (const sel of exportSelectors) {
+    for (let i = 0; i < exportSelectors.length; i++) {
+      const sel = exportSelectors[i];
+      const timeout = i === 0 ? 20000 : 3000;
       try {
-        await page.waitForSelector(sel, { timeout: 3000 });
+        await page.waitForSelector(sel, { timeout });
         exportSelector = sel;
         break;
       } catch {
@@ -369,8 +313,6 @@ async function processVideo(
   } catch (err) {
     log(`[${videoId}] ERROR: Unexpected error — ${err}`);
     return [];
-  } finally {
-    await page.close();
   }
 }
 
@@ -406,7 +348,10 @@ async function main(): Promise<void> {
 
   log(`Starting YouTube Studio sync for ${Object.keys(VIDEO_MAP).length} videos`);
 
-  const isFirstRun = !fs.existsSync(CHROME_AUTOMATION_PROFILE);
+  // Always start with a clean profile to avoid state corruption from previous runs
+  log('Resetting Chrome automation profile...');
+  fs.rmSync(CHROME_AUTOMATION_PROFILE, { recursive: true, force: true });
+
   let context: BrowserContext | null = null;
   try {
     log(`Launching Chrome with automation profile at ${CHROME_AUTOMATION_PROFILE}...`);
@@ -419,27 +364,28 @@ async function main(): Promise<void> {
         '--disable-blink-features=AutomationControlled',
         '--exclude-switches=enable-automation',
         '--disable-infobars',
+        '--hide-crash-restore-bubble',
       ],
     });
 
     // Detect login state and extract channel ID from the Studio URL
     const checkPage = await context.newPage();
-    await checkPage.goto('https://studio.youtube.com', { waitUntil: 'networkidle', timeout: 30000 });
+    await checkPage.goto('https://studio.youtube.com', { waitUntil: 'load', timeout: 30000 });
     const studioUrl = checkPage.url();
-    const needsLogin = isFirstRun || studioUrl.includes('accounts.google.com');
+    const needsLogin = studioUrl.includes('accounts.google.com') || !studioUrl.includes('studio.youtube.com');
     await checkPage.close();
 
     let channelId: string;
 
     if (needsLogin) {
-      log('First run detected — please log into YouTube Studio in the Chrome window that just opened, then press Enter in this terminal to continue.');
+      log('Please log into YouTube Studio in the Chrome window that just opened, then press Enter in this terminal to continue.');
       await new Promise<void>(resolve => {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         rl.question('', () => { rl.close(); resolve(); });
       });
       // Re-navigate after login to get the authenticated Studio URL with channel ID
       const postLoginPage = await context.newPage();
-      await postLoginPage.goto('https://studio.youtube.com', { waitUntil: 'networkidle', timeout: 30000 });
+      await postLoginPage.goto('https://studio.youtube.com', { waitUntil: 'load', timeout: 30000 });
       const postLoginUrl = postLoginPage.url();
       await postLoginPage.close();
       const m = postLoginUrl.match(/\/channel\/(UC[^/]+)/);
@@ -460,10 +406,16 @@ async function main(): Promise<void> {
     }
     log(`Channel ID: ${channelId}`);
 
+    // Open a single page for the entire session so the SPA stays initialized
+    const page = await context.newPage();
+    log('Navigating to Studio to initialize SPA session...');
+    await page.goto(`https://studio.youtube.com?c=${channelId}`, { waitUntil: 'load', timeout: 30000 });
+    log(`Studio initialized at: ${page.url()}`);
+
     const allRows: Record<string, unknown>[] = [];
     for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
       log(`Processing ${videoId} (${clipDetailsCode})...`);
-      const rows = await processVideo(context, channelId, videoId, clipDetailsCode, downloadDir);
+      const rows = await processVideo(page, channelId, videoId, clipDetailsCode, downloadDir);
       allRows.push(...rows);
     }
 
