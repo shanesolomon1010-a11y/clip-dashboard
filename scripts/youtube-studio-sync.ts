@@ -454,16 +454,28 @@ async function main(): Promise<void> {
     const allRows = parseChannelCSVRows(csvContent);
     log(`Total rows collected: ${allRows.length}`);
 
-    if (allRows.length > 0) {
+    // Deduplicate — keep last occurrence of each (clip_details_code, platform, stat_date)
+    const deduped = Array.from(
+      allRows.reduce((map, row) => {
+        const key = `${row.clip_details_code}|${row.platform}|${row.stat_date}`;
+        map.set(key, row);
+        return map;
+      }, new Map<string, Record<string, unknown>>()).values()
+    );
+    if (deduped.length !== allRows.length) {
+      log(`Deduplicated ${allRows.length} → ${deduped.length} rows`);
+    }
+
+    if (deduped.length > 0) {
       log('Upserting to Supabase...');
-      const { error } = await supabase.from('posts').upsert(allRows, {
+      const { error } = await supabase.from('posts').upsert(deduped, {
         onConflict: 'clip_details_code,platform,stat_date',
         ignoreDuplicates: false,
       });
       if (error) {
         log(`ERROR: Upsert failed — ${JSON.stringify(error)}`);
       } else {
-        log(`SUCCESS: Upserted ${allRows.length} rows`);
+        log(`SUCCESS: Upserted ${deduped.length} rows`);
       }
     } else {
       log('No rows collected — nothing to upsert');
