@@ -94,7 +94,8 @@ export function safeNum(val: string | undefined): number | null {
   return isNaN(num) ? null : num;
 }
 
-export function parseTimeToSeconds(val: string): number | null {
+export function parseTimeToSeconds(val: string | undefined): number | null {
+  if (val === undefined || val === '') return null;
   const trimmed = val.trim();
   const parts = trimmed.split(':').map(Number);
   if (parts.some(isNaN)) return null;
@@ -139,6 +140,25 @@ export function getCSVContent(filePath: string): string {
   return buf.toString('utf-8');
 }
 
+function splitCSVLine(line: string): string[] {
+  const cells: string[] = [];
+  let current = '';
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      inQuotes = !inQuotes;
+    } else if (ch === ',' && !inQuotes) {
+      cells.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  cells.push(current.trim());
+  return cells;
+}
+
 export function parseCSVRows(
   csvContent: string,
   clipDetailsCode: string,
@@ -156,16 +176,14 @@ export function parseCSVRows(
   }
   if (headerIdx === -1) return [];
 
-  const headers = lines[headerIdx]
-    .split(',')
-    .map(h => h.replace(/"/g, '').trim());
+  const headers = splitCSVLine(lines[headerIdx]);
   const clipCode = deriveClipCode(clipDetailsCode);
   const rows: Record<string, unknown>[] = [];
 
   for (let i = headerIdx + 1; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-    const cells = line.split(',').map(c => c.replace(/"/g, '').trim());
+    const cells = splitCSVLine(line);
     const dateVal = cells[0];
     if (!dateVal || !/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) continue;
 
