@@ -216,12 +216,135 @@ export function parseCSVRows(
 // ---------------------------------------------------------------------------
 
 async function processVideo(
-  _context: BrowserContext,
-  _videoId: string,
-  _clipDetailsCode: string,
-  _downloadDir: string,
+  context: BrowserContext,
+  videoId: string,
+  clipDetailsCode: string,
+  downloadDir: string,
 ): Promise<Record<string, unknown>[]> {
-  throw new Error('processVideo not yet implemented');
+  const page = await context.newPage();
+  try {
+    // Step 1: Navigate
+    log(`[${videoId}] Navigating to analytics...`);
+    try {
+      await page.goto(
+        `https://studio.youtube.com/video/${videoId}/analytics/tab-reach/period-28days`,
+        { waitUntil: 'networkidle', timeout: 30000 },
+      );
+    } catch (err) {
+      log(`[${videoId}] ERROR: Navigation failed — ${err}`);
+      return [];
+    }
+
+    // Step 2: Enter Advanced mode
+    if (!page.url().includes('/advanced')) {
+      const advancedSelectors = [
+        'text="Advanced mode"',
+        '[aria-label*="advanced" i]',
+        'a:has-text("Advanced")',
+      ];
+      for (const sel of advancedSelectors) {
+        try {
+          await page.click(sel, { timeout: 3000 });
+          break;
+        } catch {
+          // try next selector
+        }
+      }
+      try {
+        await page.waitForURL(/advanced/, { timeout: 5000 });
+      } catch {
+        await page.waitForTimeout(3000);
+      }
+    }
+
+    // Step 3: Open metrics panel and select all unchecked metrics
+    const panelSelectors = [
+      'button:has-text("Add metric")',
+      '[aria-label*="add metric" i]',
+      '[aria-label*="edit metrics" i]',
+      'ytcp-button:has-text("Add")',
+    ];
+    for (const sel of panelSelectors) {
+      try {
+        await page.click(sel, { timeout: 2000 });
+        await page.waitForTimeout(1000);
+        break;
+      } catch {
+        // try next selector
+      }
+    }
+
+    const checkboxes = await page.$$('input[type="checkbox"]:not(:checked)');
+    if (checkboxes.length === 0) {
+      log(`[${videoId}] ERROR: 0 unchecked metric checkboxes found — skipping video`);
+      return [];
+    }
+    for (const cb of checkboxes) {
+      try {
+        await cb.click();
+      } catch {
+        // checkbox may have disappeared; continue
+      }
+    }
+    log(`[${videoId}] Selected ${checkboxes.length} metrics`);
+    await page.waitForTimeout(500);
+
+    // Step 4: Date range already set via URL param (period-28days) — no action needed
+
+    // Step 5: Export
+    const exportSelectors = [
+      'button:has-text("Export")',
+      '[aria-label*="export" i]',
+      'button:has-text("Download")',
+      'ytcp-button:has-text("Export")',
+    ];
+    let exportSelector: string | null = null;
+    for (const sel of exportSelectors) {
+      try {
+        await page.waitForSelector(sel, { timeout: 3000 });
+        exportSelector = sel;
+        break;
+      } catch {
+        // try next selector
+      }
+    }
+    if (!exportSelector) {
+      log(`[${videoId}] ERROR: Export button not found — skipping video`);
+      return [];
+    }
+
+    const filePath = path.join(downloadDir, `${videoId}.bin`);
+    let download: import('playwright-core').Download;
+    try {
+      [download] = await Promise.all([
+        page.waitForEvent('download', { timeout: 30000 }),
+        page.click(exportSelector),
+      ]);
+    } catch (err) {
+      log(`[${videoId}] ERROR: Download failed — ${err}`);
+      return [];
+    }
+    await download.saveAs(filePath);
+    log(`[${videoId}] Saved download to ${filePath}`);
+
+    // Step 6-7: Parse ZIP or CSV, then parse rows
+    let csvContent: string;
+    try {
+      csvContent = getCSVContent(filePath);
+    } catch (err) {
+      log(`[${videoId}] ERROR: Could not extract CSV — ${err}`);
+      return [];
+    }
+    const rows = parseCSVRows(csvContent, clipDetailsCode);
+    log(`[${videoId}] Parsed ${rows.length} rows`);
+    return rows;
+
+  } catch (err) {
+    log(`[${videoId}] ERROR: Unexpected error — ${err}`);
+    return [];
+  } finally {
+    await page.close();
+  }
 }
 
 async function main(): Promise<void> {
