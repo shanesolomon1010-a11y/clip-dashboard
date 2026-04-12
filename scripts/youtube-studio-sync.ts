@@ -348,10 +348,13 @@ async function main(): Promise<void> {
 
   log(`Starting YouTube Studio sync for ${Object.keys(VIDEO_MAP).length} videos`);
 
-  // Always start with a clean profile to avoid state corruption from previous runs
-  log('Resetting Chrome automation profile...');
-  fs.rmSync(CHROME_AUTOMATION_PROFILE, { recursive: true, force: true });
+  // --reset flag: wipe the profile so the user can re-authenticate
+  if (process.argv.includes('--reset')) {
+    log('--reset flag detected: clearing Chrome automation profile...');
+    fs.rmSync(CHROME_AUTOMATION_PROFILE, { recursive: true, force: true });
+  }
 
+  const isFirstRun = !fs.existsSync(CHROME_AUTOMATION_PROFILE);
   let context: BrowserContext | null = null;
   try {
     log(`Launching Chrome with automation profile at ${CHROME_AUTOMATION_PROFILE}...`);
@@ -372,13 +375,13 @@ async function main(): Promise<void> {
     const checkPage = await context.newPage();
     await checkPage.goto('https://studio.youtube.com', { waitUntil: 'load', timeout: 30000 });
     const studioUrl = checkPage.url();
-    const needsLogin = studioUrl.includes('accounts.google.com') || !studioUrl.includes('studio.youtube.com');
+    const needsLogin = isFirstRun || studioUrl.includes('accounts.google.com') || !studioUrl.includes('studio.youtube.com');
     await checkPage.close();
 
     let channelId: string;
 
     if (needsLogin) {
-      log('Please log into YouTube Studio in the Chrome window that just opened, then press Enter in this terminal to continue.');
+      log('Login required — please log into YouTube Studio in the Chrome window that just opened, then press Enter in this terminal to continue.');
       await new Promise<void>(resolve => {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         rl.question('', () => { rl.close(); resolve(); });
