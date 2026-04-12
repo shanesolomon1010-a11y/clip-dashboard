@@ -1,13 +1,13 @@
 import { chromium } from 'playwright-core';
-import type { Browser, BrowserContext } from 'playwright-core';
+import type { BrowserContext } from 'playwright-core';
 import AdmZip from 'adm-zip';
 import * as dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
-import { execSync, spawn } from 'child_process';
-import * as http from 'http';
+import { execSync } from 'child_process';
+import * as readline from 'readline';
 
 dotenv.config({ path: path.resolve(process.cwd(), '.env.local') });
 
@@ -58,9 +58,7 @@ export const COLUMN_MAP: Record<string, string> = {
   'Regular viewers': 'regular_viewers',
 };
 
-const CHROME_EXECUTABLE = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const CHROME_USER_DATA_DIR = path.join(os.homedir(), 'Library/Application Support/Google/Chrome');
-const CDP_URL = 'http://localhost:9222';
+const CHROME_AUTOMATION_PROFILE = path.join(__dirname, '../.chrome-automation-profile');
 const LOG_PATH = path.join(__dirname, '../logs/youtube-studio-sync.log');
 
 // ---------------------------------------------------------------------------
@@ -355,25 +353,6 @@ async function processVideo(
 }
 
 
-async function isCDPReady(): Promise<boolean> {
-  return new Promise(resolve => {
-    http.get(`${CDP_URL}/json/version`, res => { res.resume(); resolve(true); })
-      .on('error', () => resolve(false));
-  });
-}
-
-async function waitForCDP(timeoutMs: number): Promise<void> {
-  const start = Date.now();
-  let attempt = 0;
-  while (Date.now() - start < timeoutMs) {
-    attempt++;
-    const elapsed = Date.now() - start;
-    log(`CDP poll attempt ${attempt} (${elapsed}ms elapsed)...`);
-    if (await isCDPReady()) return;
-    await new Promise(r => setTimeout(r, 500));
-  }
-  throw new Error(`Chrome CDP endpoint not ready after ${timeoutMs}ms`);
-}
 
 async function main(): Promise<void> {
   const isDryRun = process.argv.includes('--dry-run');
@@ -405,24 +384,29 @@ async function main(): Promise<void> {
 
   log(`Starting YouTube Studio sync for ${Object.keys(VIDEO_MAP).length} videos`);
 
-  let browser: Browser | null = null;
+  const isFirstRun = !fs.existsSync(CHROME_AUTOMATION_PROFILE);
   let context: BrowserContext | null = null;
   try {
-    if (await isCDPReady()) {
-      log('Port 9222 already open — skipping Chrome spawn, connecting directly...');
-    } else {
-      log('Launching Chrome with remote debugging on port 9222...');
-      spawn(CHROME_EXECUTABLE, [
-        `--remote-debugging-port=9222`,
-        `--user-data-dir=${CHROME_USER_DATA_DIR}`,
-        '--no-first-run',
-        '--no-default-browser-check',
-      ], { detached: true, stdio: 'ignore' }).unref();
-      await waitForCDP(30000);
+    log(`Launching Chrome with automation profile at ${CHROME_AUTOMATION_PROFILE}...`);
+    context = await chromium.launchPersistentContext(CHROME_AUTOMATION_PROFILE, {
+      channel: 'chrome',
+      headless: false,
+      acceptDownloads: true,
+    });
+
+    // Detect login state
+    const checkPage = await context.newPage();
+    await checkPage.goto('https://studio.youtube.com', { waitUntil: 'networkidle', timeout: 30000 });
+    const needsLogin = isFirstRun || checkPage.url().includes('accounts.google.com');
+    await checkPage.close();
+
+    if (needsLogin) {
+      log('First run detected — please log into YouTube Studio in the Chrome window that just opened, then press Enter in this terminal to continue.');
+      await new Promise<void>(resolve => {
+        const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+        rl.question('', () => { rl.close(); resolve(); });
+      });
     }
-    log('Connecting via CDP...');
-    browser = await chromium.connectOverCDP(CDP_URL);
-    context = browser.contexts()[0] ?? await browser.newContext({ acceptDownloads: true });
 
     const allRows: Record<string, unknown>[] = [];
     for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
@@ -449,8 +433,8 @@ async function main(): Promise<void> {
     }
 
   } finally {
-    if (browser) {
-      await browser.close();
+    if (context) {
+      await context.close();
     }
     logStream.end();
   }

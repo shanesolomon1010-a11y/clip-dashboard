@@ -41,3 +41,5 @@ next-env.d.ts
 
 logs/*.log
 logs/launchd-*.log
+
+.chrome-automation-profile/
