@@ -410,24 +410,52 @@ async function main(): Promise<void> {
     // Click export button to open the dropdown menu
     await page.click(exportSelector);
     log('Clicked export button — waiting for dropdown menu');
+    await page.waitForTimeout(2000);
 
-    // Wait for CSV option in the dropdown and click it
-    const csvOptionSelector = 'text=Comma separated values';
-    try {
-      await page.waitForSelector(csvOptionSelector, { timeout: 10000 });
-    } catch {
-      log('ERROR: CSV dropdown option not found');
-      await screenshotOnError(page, 'channel-export');
-      return;
-    }
+    // Log all visible text to diagnose dropdown content
+    const pageText = await page.evaluate(() => document.body.innerText);
+    log(`Page text after export click (last 500 chars): ...${pageText.slice(-500)}`);
 
     const filePath = path.join(downloadDir, 'channel-export.bin');
     let download: import('playwright-core').Download;
     try {
-      [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 60000 }),
-        page.click(csvOptionSelector),
-      ]);
+      // Set up download listener BEFORE clicking so the event isn't missed
+      const downloadPromise = page.waitForEvent('download', { timeout: 60000 });
+
+      // Use evaluate to find and click the CSV option via shadow DOM traversal
+      const csvClicked = await page.evaluate(() => {
+        function findByText(root: Element | ShadowRoot, text: string): Element | null {
+          for (const el of Array.from(root.querySelectorAll('*'))) {
+            if (el.shadowRoot) {
+              const found = findByText(el.shadowRoot, text);
+              if (found) return found;
+            }
+            const content = el.textContent?.trim() ?? '';
+            if (content.includes(text) && !el.querySelector('*')) {
+              return el;
+            }
+          }
+          return null;
+        }
+        const leaf = findByText(document.body, 'Comma separated values');
+        if (!leaf) return false;
+        // Walk up to find a clickable ancestor (paper-item, li, button, etc.)
+        let target: Element | null = leaf;
+        while (target && !['BUTTON', 'A', 'LI', 'TP-YT-PAPER-ITEM', 'YTCP-MENU-ITEM', 'PAPER-ITEM'].includes(target.tagName)) {
+          target = target.parentElement;
+        }
+        (target ?? leaf as Element).dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+        return true;
+      });
+
+      if (!csvClicked) {
+        log('ERROR: CSV dropdown option not found via shadow DOM traversal');
+        await screenshotOnError(page, 'channel-export');
+        return;
+      }
+      log('Clicked CSV option via evaluate — waiting for download');
+
+      download = await downloadPromise;
     } catch (err) {
       log(`ERROR: Download failed — ${err}`);
       await screenshotOnError(page, 'channel-export');
