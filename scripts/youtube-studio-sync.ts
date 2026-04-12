@@ -233,18 +233,14 @@ async function processVideo(
   downloadDir: string,
 ): Promise<Record<string, unknown>[]> {
   try {
-    // Step 1: Navigate to analytics in the existing SPA session
+    // Step 1: Navigate to basic analytics URL
     log(`[${videoId}] Navigating to analytics...`);
     try {
       await page.goto(
-        `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default/explore?entity_type=VIDEO&entity_id=${videoId}&time_period=4_weeks&explore_type=TABLE_AND_CHART&c=${channelId}`,
+        `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default?c=${channelId}`,
         { waitUntil: 'load', timeout: 30000 },
       );
       log(`[${videoId}] Analytics page URL: ${page.url()}`);
-      // Wait for SPA to render — networkidle may never fire on Studio so catch the timeout
-      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => {
-        log(`[${videoId}] networkidle timeout — proceeding`);
-      });
     } catch (err) {
       log(`[${videoId}] ERROR: Navigation failed — ${err}`);
       await screenshotOnError(page, videoId);
@@ -254,19 +250,23 @@ async function processVideo(
     // Check for error page
     const bodyText = await page.locator('body').innerText().catch(() => '');
     if (/something went wrong|oops/i.test(bodyText)) {
-      log(`[${videoId}] ERROR: Page shows error state at ${page.url()} — skipping video`);
+      log(`[${videoId}] ERROR: Page shows error state — skipping video`);
       await screenshotOnError(page, videoId);
       return [];
     }
 
-    // Step 2: Wait for page to have visible content, then find export button
-    // Wait for any known Studio element before attempting to find the export button
-    await page.waitForFunction(
-      () => document.body.innerText.trim().length > 50,
-      { timeout: 30000 },
-    ).catch(() => log(`[${videoId}] WARNING: Page body still sparse after 30s`));
+    // Step 2: Click "Advanced mode" and wait for transition
+    log(`[${videoId}] Clicking Advanced mode...`);
+    try {
+      await page.click('text="Advanced mode"', { timeout: 10000 });
+      log(`[${videoId}] Advanced mode clicked`);
+    } catch {
+      log(`[${videoId}] WARNING: Advanced mode button not found — continuing`);
+    }
+    await page.waitForTimeout(5000);
+    log(`[${videoId}] Post-transition URL: ${page.url()}`);
 
-    // Audit all buttons/icon-buttons on the page to help identify the export button
+    // Audit all buttons to identify the export button
     const buttonAudit = await page.evaluate(() => {
       const els = Array.from(document.querySelectorAll(
         'button, [role="button"], tp-yt-paper-icon-button, ytcp-icon-button, ytcp-button',
@@ -280,6 +280,7 @@ async function processVideo(
     });
     log(`[${videoId}] Buttons on page: ${JSON.stringify(buttonAudit)}`);
 
+    // Step 3: Find and click export/download button
     const exportSelectors = [
       '[aria-label="Download"]',
       'tp-yt-paper-icon-button[title*="download" i]',
