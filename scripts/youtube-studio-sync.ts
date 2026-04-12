@@ -259,19 +259,40 @@ async function processVideo(
       return [];
     }
 
-    // Step 2: Export — wait up to 20s on the first selector, 3s on the rest
+    // Step 2: Wait for page to have visible content, then find export button
+    // Wait for any known Studio element before attempting to find the export button
+    await page.waitForFunction(
+      () => document.body.innerText.trim().length > 50,
+      { timeout: 30000 },
+    ).catch(() => log(`[${videoId}] WARNING: Page body still sparse after 30s`));
+
+    // Audit all buttons/icon-buttons on the page to help identify the export button
+    const buttonAudit = await page.evaluate(() => {
+      const els = Array.from(document.querySelectorAll(
+        'button, [role="button"], tp-yt-paper-icon-button, ytcp-icon-button, ytcp-button',
+      ));
+      return els.map(el => ({
+        tag: el.tagName.toLowerCase(),
+        ariaLabel: el.getAttribute('aria-label'),
+        title: el.getAttribute('title'),
+        text: el.textContent?.trim().slice(0, 40),
+      })).filter(b => b.ariaLabel || b.title || b.text);
+    });
+    log(`[${videoId}] Buttons on page: ${JSON.stringify(buttonAudit)}`);
+
     const exportSelectors = [
-      'button:has-text("Export")',
+      '[aria-label="Download"]',
+      'tp-yt-paper-icon-button[title*="download" i]',
+      'ytcp-icon-button[aria-label*="download" i]',
       '[aria-label*="export" i]',
+      'button:has-text("Export")',
       'button:has-text("Download")',
       'ytcp-button:has-text("Export")',
     ];
     let exportSelector: string | null = null;
-    for (let i = 0; i < exportSelectors.length; i++) {
-      const sel = exportSelectors[i];
-      const timeout = i === 0 ? 20000 : 3000;
+    for (const sel of exportSelectors) {
       try {
-        await page.waitForSelector(sel, { timeout });
+        await page.waitForSelector(sel, { timeout: 3000 });
         exportSelector = sel;
         break;
       } catch {
