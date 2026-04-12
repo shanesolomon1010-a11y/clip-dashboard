@@ -365,7 +365,69 @@ async function main(): Promise<void> {
     process.exit(0);
   }
 
-  throw new Error('main() not yet fully implemented — run with --dry-run');
+  // Chrome safety check
+  if (isChromeRunning()) {
+    log('ERROR: Google Chrome is already running. Close Chrome before running this script.');
+    logStream.end();
+    process.exit(1);
+  }
+
+  // Validate env vars
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!supabaseUrl || !supabaseKey) {
+    log('ERROR: Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local');
+    logStream.end();
+    process.exit(1);
+  }
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  // Prepare download directory — clear it each run
+  const downloadDir = path.join(os.tmpdir(), 'yt-studio-sync');
+  fs.rmSync(downloadDir, { recursive: true, force: true });
+  fs.mkdirSync(downloadDir, { recursive: true });
+
+  log(`Starting YouTube Studio sync for ${Object.keys(VIDEO_MAP).length} videos`);
+
+  let context: BrowserContext | null = null;
+  try {
+    context = await chromium.launchPersistentContext(CHROME_USER_DATA_DIR, {
+      executablePath: CHROME_EXECUTABLE,
+      headless: false,
+      args: ['--disable-blink-features=AutomationControlled'],
+      acceptDownloads: true,
+    });
+
+    const allRows: Record<string, unknown>[] = [];
+    for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
+      log(`Processing ${videoId} (${clipDetailsCode})...`);
+      const rows = await processVideo(context, videoId, clipDetailsCode, downloadDir);
+      allRows.push(...rows);
+    }
+
+    log(`Total rows collected: ${allRows.length}`);
+
+    if (allRows.length > 0) {
+      log('Upserting to Supabase...');
+      const { error } = await supabase.from('posts').upsert(allRows, {
+        onConflict: 'clip_details_code,platform,stat_date',
+        ignoreDuplicates: false,
+      });
+      if (error) {
+        log(`ERROR: Upsert failed — ${JSON.stringify(error)}`);
+      } else {
+        log(`SUCCESS: Upserted ${allRows.length} rows`);
+      }
+    } else {
+      log('No rows collected — nothing to upsert');
+    }
+
+  } finally {
+    if (context) {
+      await context.close();
+    }
+    logStream.end();
+  }
 }
 
 // Guard: only invoke main() when this file is run directly (not imported for tests).
