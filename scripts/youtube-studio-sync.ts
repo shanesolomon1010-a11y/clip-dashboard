@@ -267,40 +267,11 @@ async function processVideo(
     log(`[${videoId}] Post-transition URL: ${page.url()}`);
 
     // Audit all buttons to identify the export button
-    const buttonAudit = await page.evaluate(() => {
-      const els = Array.from(document.querySelectorAll(
-        'button, [role="button"], tp-yt-paper-icon-button, ytcp-icon-button, ytcp-button',
-      ));
-      return els.map(el => ({
-        tag: el.tagName.toLowerCase(),
-        ariaLabel: el.getAttribute('aria-label'),
-        title: el.getAttribute('title'),
-        text: el.textContent?.trim().slice(0, 40),
-      })).filter(b => b.ariaLabel || b.title || b.text);
-    });
-    log(`[${videoId}] Buttons on page: ${JSON.stringify(buttonAudit)}`);
-
-    // Step 3: Find and click export/download button
-    const exportSelectors = [
-      '[aria-label="Download"]',
-      'tp-yt-paper-icon-button[title*="download" i]',
-      'ytcp-icon-button[aria-label*="download" i]',
-      '[aria-label*="export" i]',
-      'button:has-text("Export")',
-      'button:has-text("Download")',
-      'ytcp-button:has-text("Export")',
-    ];
-    let exportSelector: string | null = null;
-    for (const sel of exportSelectors) {
-      try {
-        await page.waitForSelector(sel, { timeout: 3000 });
-        exportSelector = sel;
-        break;
-      } catch {
-        // try next selector
-      }
-    }
-    if (!exportSelector) {
+    // Step 3: Click export button and wait for download
+    const exportSelector = '[aria-label="Export current view"]';
+    try {
+      await page.waitForSelector(exportSelector, { timeout: 10000 });
+    } catch {
       log(`[${videoId}] ERROR: Export button not found — skipping video`);
       await screenshotOnError(page, videoId);
       return [];
@@ -310,11 +281,12 @@ async function processVideo(
     let download: import('playwright-core').Download;
     try {
       [download] = await Promise.all([
-        page.waitForEvent('download', { timeout: 30000 }),
+        page.waitForEvent('download', { timeout: 60000 }),
         page.click(exportSelector),
       ]);
     } catch (err) {
       log(`[${videoId}] ERROR: Download failed — ${err}`);
+      await screenshotOnError(page, videoId);
       return [];
     }
     await download.saveAs(filePath);
