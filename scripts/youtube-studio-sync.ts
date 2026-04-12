@@ -388,6 +388,15 @@ async function main(): Promise<void> {
     await page.goto(CHANNEL_ANALYTICS_URL, { waitUntil: 'load', timeout: 60000 });
     log(`Analytics page URL: ${page.url()}`);
 
+    // Wait for the data table to render before attempting export
+    try {
+      await page.waitForSelector('ytd-analytics-main-app-element, [data-test-id="analytics-table"], ytcp-analytics-data-table, ytcp-analytics-table', { timeout: 30000 });
+      log('Data table rendered');
+    } catch {
+      log('WARNING: Data table selector not found — proceeding anyway');
+    }
+    await page.waitForTimeout(3000);
+
     // Wait for export button
     const exportSelector = '[aria-label="Export current view"]';
     try {
@@ -398,12 +407,26 @@ async function main(): Promise<void> {
       return;
     }
 
+    // Click export button to open the dropdown menu
+    await page.click(exportSelector);
+    log('Clicked export button — waiting for dropdown menu');
+
+    // Wait for CSV option in the dropdown and click it
+    const csvOptionSelector = 'tp-yt-paper-item:has-text("Comma separated"), ytcp-menu-item:has-text("Comma separated"), [role="menuitem"]:has-text("Comma separated")';
+    try {
+      await page.waitForSelector(csvOptionSelector, { timeout: 10000 });
+    } catch {
+      log('ERROR: CSV dropdown option not found');
+      await screenshotOnError(page, 'channel-export');
+      return;
+    }
+
     const filePath = path.join(downloadDir, 'channel-export.bin');
     let download: import('playwright-core').Download;
     try {
       [download] = await Promise.all([
         page.waitForEvent('download', { timeout: 60000 }),
-        page.click(exportSelector),
+        page.click(csvOptionSelector),
       ]);
     } catch (err) {
       log(`ERROR: Download failed — ${err}`);
