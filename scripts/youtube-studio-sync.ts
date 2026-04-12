@@ -242,7 +242,7 @@ async function main(): Promise<void> {
 
 // Guard: only invoke main() when this file is run directly (not imported for tests).
 // process.argv[1] is the test runner path during `npx tsx --test`, not this file.
-if (process.argv[1]?.includes('youtube-studio-sync')) {
+if (process.argv[1]?.includes('youtube-studio-sync') && !process.argv[1]?.includes('.test.')) {
   main().catch(err => {
     console.error(err);
     process.exit(1);
