@@ -362,7 +362,7 @@ async function main(): Promise<void> {
       channel: 'chrome',
       headless: false,
       acceptDownloads: true,
-      ignoreDefaultArgs: ['--enable-automation'],
+      ignoreDefaultArgs: ['--enable-automation', '--no-sandbox'],
       args: [
         '--disable-blink-features=AutomationControlled',
         '--exclude-switches=enable-automation',
@@ -381,7 +381,10 @@ async function main(): Promise<void> {
     let channelId: string;
 
     if (needsLogin) {
-      log('Login required — please log into YouTube Studio in the Chrome window that just opened, then press Enter in this terminal to continue.');
+      log('Login required — please log into YouTube Studio in the Chrome window that just opened.');
+      log('Waiting 60 seconds for you to complete login...');
+      await new Promise(r => setTimeout(r, 60000));
+      log('Press Enter when you are logged into YouTube Studio...');
       await new Promise<void>(resolve => {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
         rl.question('', () => { rl.close(); resolve(); });
