@@ -60,6 +60,7 @@ export const COLUMN_MAP: Record<string, string> = {
 
 const CHROME_AUTOMATION_PROFILE = path.join(__dirname, '../.chrome-automation-profile');
 const LOG_PATH = path.join(__dirname, '../logs/youtube-studio-sync.log');
+const CHANNEL_ID = 'UC-Ly0V7fa_9TaF3WXvsroZA';
 
 const CHANNEL_ANALYTICS_URL =
   'https://studio.youtube.com/channel/UC-Ly0V7fa_9TaF3WXvsroZA/analytics/tab-overview/period-default/explore' +
@@ -339,6 +340,70 @@ async function screenshotOnError(page: import('playwright-core').Page, videoId: 
   }
 }
 
+async function exportVideoCSV(
+  page: import('playwright-core').Page,
+  videoId: string,
+  clipDetailsCode: string,
+  downloadDir: string,
+): Promise<Record<string, unknown>[]> {
+  const url = `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default?c=${CHANNEL_ID}`;
+  log(`[${videoId}] Navigating to video analytics...`);
+  try {
+    await page.goto(url, { waitUntil: 'load', timeout: 30000 });
+  } catch (err) {
+    log(`[${videoId}] ERROR: Navigation failed — ${err}`);
+    await screenshotOnError(page, videoId);
+    return [];
+  }
+
+  // Click Advanced mode to get per-day data
+  try {
+    await page.click('text="Advanced mode"', { timeout: 10000 });
+    log(`[${videoId}] Advanced mode clicked`);
+  } catch {
+    log(`[${videoId}] WARNING: Advanced mode button not found — continuing`);
+  }
+  await page.waitForTimeout(5000);
+
+  const exportSelector = '[aria-label="Export current view"]';
+  try {
+    await page.waitForSelector(exportSelector, { timeout: 15000 });
+  } catch {
+    log(`[${videoId}] ERROR: Export button not found`);
+    await screenshotOnError(page, videoId);
+    return [];
+  }
+
+  await page.click(exportSelector);
+  await page.waitForTimeout(2000);
+
+  const filePath = path.join(downloadDir, `${videoId}.bin`);
+  let download: import('playwright-core').Download;
+  try {
+    [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 60000 }),
+      page.getByText('Comma-separated values (.csv)').click(),
+    ]);
+  } catch (err) {
+    log(`[${videoId}] ERROR: Download failed — ${err}`);
+    await screenshotOnError(page, videoId);
+    return [];
+  }
+  await download.saveAs(filePath);
+
+  let csvContent: string;
+  try {
+    csvContent = getCSVContent(filePath);
+  } catch (err) {
+    log(`[${videoId}] ERROR: Could not extract CSV — ${err}`);
+    return [];
+  }
+
+  const rows = parseCSVRows(csvContent, clipDetailsCode);
+  log(`[${videoId}] Parsed ${rows.length} rows`);
+  return rows;
+}
+
 async function main(): Promise<void> {
   const isDryRun = process.argv.includes('--dry-run');
 
@@ -440,10 +505,6 @@ async function main(): Promise<void> {
     log('Clicked export button — waiting for dropdown menu');
     await page.waitForTimeout(2000);
 
-    // Log all visible text to diagnose dropdown content
-    const pageText = await page.evaluate(() => document.body.innerText);
-    log(`Page text after export click (last 500 chars): ...${pageText.slice(-500)}`);
-
     const filePath = path.join(downloadDir, 'channel-export.bin');
     let download: import('playwright-core').Download;
     try {
@@ -457,7 +518,7 @@ async function main(): Promise<void> {
       return;
     }
     await download.saveAs(filePath);
-    log(`Saved download to ${filePath}`);
+    log(`Saved channel export to ${filePath}`);
 
     let csvContent: string;
     try {
@@ -467,7 +528,22 @@ async function main(): Promise<void> {
       return;
     }
 
-    const allRows = parseChannelCSVRows(csvContent);
+    const channelRows = parseChannelCSVRows(csvContent);
+    log(`Channel export: ${channelRows.length} rows`);
+
+    // Identify which videos the channel export missed (low-view videos are excluded)
+    const matchedCodes = new Set(channelRows.map(r => r.clip_details_code as string));
+    const missingVideos = Object.entries(VIDEO_MAP).filter(([, code]) => !matchedCodes.has(code));
+    log(`Channel export covered ${matchedCodes.size} videos; running per-video export for ${missingVideos.length} missing`);
+
+    const perVideoRows: Record<string, unknown>[] = [];
+    for (const [videoId, clipDetailsCode] of missingVideos) {
+      const rows = await exportVideoCSV(page, videoId, clipDetailsCode, downloadDir);
+      perVideoRows.push(...rows);
+    }
+    log(`Per-video export: ${perVideoRows.length} rows`);
+
+    const allRows = [...channelRows, ...perVideoRows];
     log(`Total rows collected: ${allRows.length}`);
 
     // Deduplicate — keep last occurrence of each (clip_details_code, platform, stat_date)
