@@ -315,8 +315,8 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
     rows.push(row);
   }
 
-  const matchedIds = [...seenIds].filter(id => VIDEO_MAP[id]);
-  const csvOnlyIds = [...unmatchedIds]; // in CSV but not in VIDEO_MAP
+  const matchedIds = Array.from(seenIds).filter(id => VIDEO_MAP[id]);
+  const csvOnlyIds = Array.from(unmatchedIds); // in CSV but not in VIDEO_MAP
   const missingFromCsv = Object.keys(VIDEO_MAP).filter(id => !seenIds.has(id));
 
   log(`Unique video IDs in CSV: ${seenIds.size} — matched: ${matchedIds.length}, unmatched: ${csvOnlyIds.length}`);
