@@ -258,20 +258,22 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
     if (trimmed) log(`CSV row ${i - headerIdx}: ${trimmed.slice(0, 200)}`);
   }
 
-  // "Content" column contains the video identifier (ID or title)
+  // "Content" column contains the video ID, "Date" column has the row date
   const contentColIdx = headers.findIndex(h => h === 'Content');
+  const dateColIdx = headers.findIndex(h => h === 'Date');
   if (contentColIdx === -1) {
     log('ERROR: No "Content" column found in channel CSV headers');
     return [];
   }
-
-  // Build a reverse title→code map in case Content holds video titles
-  const titleMap: Record<string, string> = {};
-  for (const [videoId, clipCode] of Object.entries(VIDEO_MAP)) {
-    titleMap[videoId] = clipCode; // ID lookup still works
+  if (dateColIdx === -1) {
+    log('ERROR: No "Date" column found in channel CSV headers');
+    return [];
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  // Tally unique video IDs and match rate for diagnosis
+  const seenIds = new Set<string>();
+  const unmatchedIds = new Set<string>();
+
   const rows: Record<string, unknown>[] = [];
 
   for (let i = headerIdx + 1; i < lines.length; i++) {
@@ -279,13 +281,17 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
     if (!line) continue;
     const cells = splitCSVLine(line);
 
-    const contentVal = cells[contentColIdx]?.trim();
-    // Try direct video ID lookup first; Content column format TBD from logs
+    const contentVal = cells[contentColIdx]?.trim().replace(/^["']|["']$/g, '');
+    seenIds.add(contentVal ?? '');
+
     const clipDetailsCode = contentVal ? VIDEO_MAP[contentVal] : undefined;
     if (!clipDetailsCode) {
-      log(`WARNING: No clip_details_code for Content value "${contentVal}" — skipping`);
+      unmatchedIds.add(contentVal ?? '');
       continue;
     }
+
+    const statDate = cells[dateColIdx]?.trim();
+    if (!statDate || !/^\d{4}-\d{2}-\d{2}$/.test(statDate)) continue;
 
     const clipCode = deriveClipCode(clipDetailsCode);
     const row: Record<string, unknown> = {
@@ -293,7 +299,7 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
       content_type: 'short',
       clip_details_code: clipDetailsCode,
       clip_code: clipCode,
-      stat_date: today,
+      stat_date: statDate,
     };
 
     for (let j = 0; j < headers.length; j++) {
@@ -308,6 +314,12 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
     }
     rows.push(row);
   }
+
+  log(`Unique video IDs in CSV: ${seenIds.size} — matched: ${seenIds.size - unmatchedIds.size}, unmatched: ${unmatchedIds.size}`);
+  if (unmatchedIds.size > 0) {
+    log(`Unmatched IDs (check VIDEO_MAP): ${[...unmatchedIds].join(', ')}`);
+  }
+
   return rows;
 }
 
