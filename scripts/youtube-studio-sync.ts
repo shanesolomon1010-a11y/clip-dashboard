@@ -315,10 +315,14 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
     rows.push(row);
   }
 
-  log(`Unique video IDs in CSV: ${seenIds.size} — matched: ${seenIds.size - unmatchedIds.size}, unmatched: ${unmatchedIds.size}`);
-  if (unmatchedIds.size > 0) {
-    log(`Unmatched IDs (check VIDEO_MAP): ${[...unmatchedIds].join(', ')}`);
-  }
+  const matchedIds = [...seenIds].filter(id => VIDEO_MAP[id]);
+  const csvOnlyIds = [...unmatchedIds]; // in CSV but not in VIDEO_MAP
+  const missingFromCsv = Object.keys(VIDEO_MAP).filter(id => !seenIds.has(id));
+
+  log(`Unique video IDs in CSV: ${seenIds.size} — matched: ${matchedIds.length}, unmatched: ${csvOnlyIds.length}`);
+  log(`Matched IDs: ${matchedIds.join(', ')}`);
+  if (csvOnlyIds.length > 0) log(`In CSV but not in VIDEO_MAP: ${csvOnlyIds.join(', ')}`);
+  if (missingFromCsv.length > 0) log(`In VIDEO_MAP but absent from CSV: ${missingFromCsv.join(', ')}`);
 
   return rows;
 }
