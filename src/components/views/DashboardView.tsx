@@ -9,7 +9,7 @@ import { IconEye } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter } from '@/context/FilterContext';
-import { getAllPostsByDate } from '@/lib/db';
+import { getAllPostsByDate, getLatestPostsPerClip } from '@/lib/db';
 import { DateFilterBar, useDateFilter } from '@/components/DateFilterBar';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
@@ -52,11 +52,13 @@ export default function DashboardView({ posts }: Props) {
   const { platform } = useFilter();
 
   const [allDailyPosts, setAllDailyPosts] = useState<UnifiedPost[]>([]);
+  const [latestClipPosts, setLatestClipPosts] = useState<UnifiedPost[]>([]);
 
   const { filterPreset, setFilterPreset, customRange, setCustomRange, filterStart, filterEnd, filterLabel } = useDateFilter('30d');
 
   useEffect(() => {
     getAllPostsByDate('youtube').then(setAllDailyPosts).catch(() => setAllDailyPosts([]));
+    getLatestPostsPerClip('youtube').then(setLatestClipPosts).catch(() => setLatestClipPosts([]));
   }, []);
 
   const filteredPosts = useMemo(() => {
@@ -148,14 +150,12 @@ export default function DashboardView({ posts }: Props) {
 
 
   const statsGrid = useMemo(() => {
-    let sumViews = 0, sumImpressions = 0, sumWeightedCtr = 0;
-    let sumUniqueViewers = 0, sumLikes = 0, sumComments = 0, sumShares = 0;
+    let sumViews = 0, sumImpressions = 0;
+    let sumLikes = 0, sumComments = 0, sumShares = 0;
     let sumDuration = 0, countDuration = 0;
     for (const p of dateFilteredDailyPosts) {
       sumViews += p.views;
       sumImpressions += p.impressions ?? 0;
-      if (p.impressions && p.impression_ctr != null) sumWeightedCtr += p.impressions * p.impression_ctr;
-      sumUniqueViewers += p.unique_viewers ?? 0;
       sumLikes += p.likes;
       sumComments += p.comments;
       sumShares += p.shares;
@@ -164,14 +164,29 @@ export default function DashboardView({ posts }: Props) {
     return {
       totalViews: sumViews,
       totalImpressions: sumImpressions,
-      impressionCtr: sumImpressions > 0 ? sumWeightedCtr / sumImpressions : 0,
-      uniqueViewers: sumUniqueViewers,
       totalLikes: sumLikes,
       totalComments: sumComments,
       totalShares: sumShares,
       avgDuration: countDuration > 0 ? sumDuration / countDuration : 0,
     };
   }, [dateFilteredDailyPosts]);
+
+  const impressionCtrDisplay = useMemo(() => {
+    let sumImpressions = 0, sumWeightedCtr = 0;
+    for (const p of latestClipPosts) {
+      if (p.impressions) {
+        sumImpressions += p.impressions;
+        if (p.impression_ctr != null) sumWeightedCtr += p.impressions * p.impression_ctr;
+      }
+    }
+    return sumImpressions > 0 ? `${(sumWeightedCtr / sumImpressions).toFixed(1)}%` : 'N/A';
+  }, [latestClipPosts]);
+
+  const uniqueViewersDisplay = useMemo(() => {
+    const withData = latestClipPosts.filter((p) => p.unique_viewers != null);
+    if (withData.length === 0) return 'N/A';
+    return formatNum(withData.reduce((s, p) => s + (p.unique_viewers ?? 0), 0));
+  }, [latestClipPosts]);
 
   const isClipTotal = (item: ClipTotal | UnifiedPost): item is ClipTotal =>
     'total_views' in item;
@@ -194,8 +209,8 @@ export default function DashboardView({ posts }: Props) {
           {([
             { label: 'Total Views',       value: formatNum(statsGrid.totalViews) },
             { label: 'Total Impressions', value: formatNum(statsGrid.totalImpressions) },
-            { label: 'Impression CTR',    value: `${statsGrid.impressionCtr.toFixed(1)}%` },
-            { label: 'Unique Viewers',    value: formatNum(statsGrid.uniqueViewers) },
+            { label: 'Impression CTR',    value: impressionCtrDisplay },
+            { label: 'Unique Viewers',    value: uniqueViewersDisplay },
             { label: 'Total Likes',       value: formatNum(statsGrid.totalLikes) },
             { label: 'Total Comments',    value: formatNum(statsGrid.totalComments) },
             { label: 'Total Shares',      value: formatNum(statsGrid.totalShares) },

@@ -18,7 +18,7 @@ const METRIC_LABELS: Record<string, string> = {
   views: 'Views',
   daily_engaged_views: 'Daily Engaged Views',
   total_engaged_views: 'Total Engaged Views',
-  watch_time_hours: 'Watch Time (hrs)',
+  watch_time_hours: 'Total Watch Time',
   watch_time_minutes: 'Watch Time (min)',
   avg_view_duration_seconds: 'Avg View Duration',
   avg_view_percentage: 'Avg View %',
