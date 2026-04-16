@@ -286,6 +286,7 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
   // "Content" column contains the video ID, "Date" column has the row date
   const contentColIdx = headers.findIndex(h => h === 'Content');
   const dateColIdx = headers.findIndex(h => h === 'Date');
+  const viewsColIdx = headers.findIndex(h => h === 'Views' || h === 'Engaged views');
   if (contentColIdx === -1) {
     log('ERROR: No "Content" column found in channel CSV headers');
     return [];
@@ -297,7 +298,8 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
 
   // Tally unique video IDs and match rate for diagnosis
   const seenIds = new Set<string>();
-  const unmatchedIds = new Set<string>();
+  // Maps unmapped video ID → total views across all its rows in this export
+  const unmatchedViews = new Map<string, number>();
 
   const rows: Record<string, unknown>[] = [];
 
@@ -311,7 +313,9 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
 
     const clipDetailsCode = contentVal ? VIDEO_MAP[contentVal] : undefined;
     if (!clipDetailsCode) {
-      unmatchedIds.add(contentVal ?? '');
+      const id = contentVal ?? '';
+      const rowViews = viewsColIdx !== -1 ? (safeNum(cells[viewsColIdx]) ?? 0) : 0;
+      unmatchedViews.set(id, (unmatchedViews.get(id) ?? 0) + rowViews);
       continue;
     }
 
@@ -341,12 +345,17 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
   }
 
   const matchedIds = Array.from(seenIds).filter(id => VIDEO_MAP[id]);
-  const csvOnlyIds = Array.from(unmatchedIds); // in CSV but not in VIDEO_MAP
+  const csvOnlyIds = Array.from(unmatchedViews.keys()); // in CSV but not in VIDEO_MAP
   const missingFromCsv = Object.keys(VIDEO_MAP).filter(id => !seenIds.has(id));
 
   log(`Unique video IDs in CSV: ${seenIds.size} — matched: ${matchedIds.length}, unmatched: ${csvOnlyIds.length}`);
   log(`Matched IDs: ${matchedIds.join(', ')}`);
-  if (csvOnlyIds.length > 0) log(`In CSV but not in VIDEO_MAP: ${csvOnlyIds.join(', ')}`);
+  if (csvOnlyIds.length > 0) {
+    log(`In CSV but not in VIDEO_MAP: ${csvOnlyIds.join(', ')}`);
+    for (const [id, totalViews] of unmatchedViews) {
+      console.warn(`[channel-export] UNMAPPED video skipped: ${id} (${totalViews.toLocaleString()} views) — add to VIDEO_MAP to include`);
+    }
+  }
   if (missingFromCsv.length > 0) log(`In VIDEO_MAP but absent from CSV: ${missingFromCsv.join(', ')}`);
 
   return rows;
