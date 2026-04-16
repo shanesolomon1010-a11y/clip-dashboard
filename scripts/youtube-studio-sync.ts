@@ -175,12 +175,14 @@ export function getCSVContent(filePath: string): string {
     const entries = zip.getEntries().filter(e =>
       e.entryName.toLowerCase().endsWith('.csv'),
     );
-    const entry =
-      entries.find(e => e.entryName.toLowerCase().includes('chart')) ||
-      entries.find(e => e.entryName.toLowerCase().includes('table')) ||
-      entries[0];
-    if (!entry) throw new Error(`No CSV entry found in ZIP for ${filePath}`);
-    return zip.readAsText(entry);
+    if (!entries.length) throw new Error(`No CSV entry found in ZIP for ${filePath}`);
+    // Prefer the entry whose first line starts with "Date" — that's the per-day data table.
+    // Fall back to the first CSV if none match.
+    const dateEntry = entries.find(e => {
+      const firstLine = zip.readAsText(e).split('\n')[0] ?? '';
+      return firstLine.split(',')[0].replace(/"/g, '').trim() === 'Date';
+    });
+    return zip.readAsText(dateEntry ?? entries[0]);
   }
   return buf.toString('utf-8');
 }
@@ -379,8 +381,8 @@ async function exportVideoCSV(
   clipDetailsCode: string,
   downloadDir: string,
 ): Promise<Record<string, unknown>[]> {
-  const url = buildVideoAnalyticsUrl(videoId);
-  log(`[${videoId}] Navigating to video analytics explore URL...`);
+  const url = `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default?c=${CHANNEL_ID}`;
+  log(`[${videoId}] Navigating to video analytics...`);
   try {
     await page.goto(url, { waitUntil: 'load', timeout: 30000 });
   } catch (err) {
@@ -389,15 +391,21 @@ async function exportVideoCSV(
     return [];
   }
 
-  // Wait for the data table to render (explore URL loads directly into the right view)
-  await page.waitForTimeout(5000);
+  // Click Advanced mode to get the per-day data table
+  try {
+    await page.click('text="Advanced mode"', { timeout: 10000 });
+    log(`[${videoId}] Advanced mode clicked`);
+  } catch {
+    log(`[${videoId}] WARNING: Advanced mode button not found — continuing`);
+  }
+  await page.waitForTimeout(3000);
 
-  // Wait for export button
+  // Wait for export button — low-view videos may not render it; skip with a warning if so
   const exportSelector = '[aria-label="Export current view"]';
   try {
     await page.waitForSelector(exportSelector, { timeout: 30000 });
   } catch {
-    log(`[${videoId}] ERROR: Export button not found`);
+    log(`[${videoId}] WARNING: Export button not found within 30s — skipping (not enough data)`);
     await screenshotOnError(page, videoId);
     return [];
   }
