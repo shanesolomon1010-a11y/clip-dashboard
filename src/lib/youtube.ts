@@ -77,6 +77,8 @@ export async function fetchAnalyticsForVideo(
     throw new Error(`YouTube Analytics API error for ${videoId}: ${data.error?.message ?? res.status}`);
   }
 
+  console.log(`[youtube-analytics] raw response for ${videoId}:`, JSON.stringify(data, null, 2));
+
   return (data.rows ?? []).map((row) => ({
     date:                    row[0] as string,
     views:                   Number(row[1]),
