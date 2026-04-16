@@ -10,8 +10,6 @@ interface AnalyticsRow {
   averageViewPercentage: number;
   subscribersGained: number;
   subscribersLost: number;
-  impressions: number;
-  impression_ctr: number;
 }
 
 interface TokenResponse {
@@ -61,8 +59,6 @@ export async function fetchAnalyticsForVideo(
     'averageViewPercentage',
     'subscribersGained',
     'subscribersLost',
-    'impressions',
-    'cardImpressionRate',
   ].join(',');
 
   const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
@@ -99,7 +95,5 @@ export async function fetchAnalyticsForVideo(
     averageViewPercentage:   Number(row[idx('averageViewPercentage')]),
     subscribersGained:       Number(row[idx('subscribersGained')]),
     subscribersLost:         Number(row[idx('subscribersLost')]),
-    impressions:             Number(row[idx('impressions')]),
-    impression_ctr:          Number(row[idx('cardImpressionRate')]),
   }));
 }
