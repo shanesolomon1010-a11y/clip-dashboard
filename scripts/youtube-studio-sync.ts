@@ -82,6 +82,30 @@ const CHANNEL_ANALYTICS_URL =
   '&t_metrics=TOTAL_ESTIMATED_EARNINGS&t_metrics=VIDEO_THUMBNAIL_IMPRESSIONS&t_metrics=VIDEO_THUMBNAIL_IMPRESSIONS_VTR' +
   '&dimension=VIDEO&o_column=ENGAGED_VIEWS&o_direction=ANALYTICS_ORDER_DIRECTION_DESC';
 
+// Per-video explore URL: same metrics as the channel export but scoped to a single
+// video with dimension=DAY so the CSV has Date as the first column.
+function buildVideoAnalyticsUrl(videoId: string): string {
+  return (
+    `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default/explore` +
+    `?entity_type=VIDEO&entity_id=${videoId}` +
+    `&time_period=4_weeks&explore_type=TABLE_AND_CHART&metric=ENGAGED_VIEWS&granularity=DAY` +
+    `&t_metrics=ENGAGED_VIEWS&t_metrics=AVERAGE_WATCH_TIME&t_metrics=AVERAGE_WATCH_PERCENTAGE` +
+    `&t_metrics=VIDEO_COUNT_NEW&t_metrics=VIDEO_COUNT_FIRST_PUBLISHED&t_metrics=SHORTS_FEED_IMPRESSIONS_VTR` +
+    `&t_metrics=ESTIMATED_UNIQUE_VIEWERS&t_metrics=AVERAGE_VIEWS_PER_VIEWER` +
+    `&t_metrics=RECENT_VIEWERS&t_metrics=OCCASIONAL_VIEWERS&t_metrics=FREQUENT_VIEWERS&t_metrics=RETURNING_VIEWERS` +
+    `&t_metrics=HYPES&t_metrics=HYPE_POINTS&t_metrics=SUBSCRIBERS_GAINED&t_metrics=SUBSCRIBERS_LOST` +
+    `&t_metrics=RATINGS_LIKES&t_metrics=COMMENTS&t_metrics=SHARINGS` +
+    `&t_metrics=LIKES_PER_LIKES_PLUS_DISLIKES_PERCENT&t_metrics=RATINGS_DISLIKES` +
+    `&t_metrics=POST_IMPRESSIONS&t_metrics=POST_LIKES&t_metrics=POST_LIKES_PER_IMPRESSIONS` +
+    `&t_metrics=POST_VOTES&t_metrics=POST_VOTES_PER_IMPRESSIONS&t_metrics=POST_SUBSCRIBERS_NET_CHANGE` +
+    `&t_metrics=SHORTS_REMIX_COUNT&t_metrics=SHORTS_REMIX_VIEWS` +
+    `&t_metrics=CLIP_VIDEO_WATCHTIME&t_metrics=CLIP_VIEWS` +
+    `&t_metrics=EXTERNAL_VIEWS&t_metrics=EXTERNAL_WATCH_TIME&t_metrics=SUBSCRIBERS_NET_CHANGE` +
+    `&t_metrics=TOTAL_ESTIMATED_EARNINGS&t_metrics=VIDEO_THUMBNAIL_IMPRESSIONS&t_metrics=VIDEO_THUMBNAIL_IMPRESSIONS_VTR` +
+    `&dimension=DAY`
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Logging — ensure logs/ directory exists before opening the write stream
 // ---------------------------------------------------------------------------
@@ -346,8 +370,10 @@ async function exportVideoCSV(
   clipDetailsCode: string,
   downloadDir: string,
 ): Promise<Record<string, unknown>[]> {
-  const url = `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default?c=${CHANNEL_ID}`;
-  log(`[${videoId}] Navigating to video analytics...`);
+  // Navigate directly to the explore URL with all metrics + dimension=DAY so the
+  // exported CSV has Date as the first column — same pattern as the channel export.
+  const url = buildVideoAnalyticsUrl(videoId);
+  log(`[${videoId}] Navigating to video analytics explore...`);
   try {
     await page.goto(url, { waitUntil: 'load', timeout: 30000 });
   } catch (err) {
@@ -356,14 +382,17 @@ async function exportVideoCSV(
     return [];
   }
 
-  // Click Advanced mode to get per-day data
+  // Wait for the data table to render before attempting export (same as channel export)
   try {
-    await page.click('text="Advanced mode"', { timeout: 10000 });
-    log(`[${videoId}] Advanced mode clicked`);
+    await page.waitForSelector(
+      'ytd-analytics-main-app-element, [data-test-id="analytics-table"], ytcp-analytics-data-table, ytcp-analytics-table',
+      { timeout: 30000 },
+    );
+    log(`[${videoId}] Data table rendered`);
   } catch {
-    log(`[${videoId}] WARNING: Advanced mode button not found — continuing`);
+    log(`[${videoId}] WARNING: Data table selector not found — proceeding anyway`);
   }
-  await page.waitForTimeout(5000);
+  await page.waitForTimeout(3000);
 
   const exportSelector = '[aria-label="Export current view"]';
   try {
@@ -374,7 +403,9 @@ async function exportVideoCSV(
     return [];
   }
 
+  // Click export button to open the dropdown menu (same flow as channel export)
   await page.click(exportSelector);
+  log(`[${videoId}] Clicked export button — waiting for dropdown menu`);
   await page.waitForTimeout(2000);
 
   const filePath = path.join(downloadDir, `${videoId}.bin`);
@@ -400,6 +431,7 @@ async function exportVideoCSV(
   }
 
   const rows = parseCSVRows(csvContent, clipDetailsCode);
+  console.log(`[${videoId}] Per-video CSV parsed: ${rows.length} rows`);
   log(`[${videoId}] Parsed ${rows.length} rows`);
   return rows;
 }
