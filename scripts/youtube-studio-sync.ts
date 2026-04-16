@@ -379,10 +379,8 @@ async function exportVideoCSV(
   clipDetailsCode: string,
   downloadDir: string,
 ): Promise<Record<string, unknown>[]> {
-  // Navigate directly to the explore URL with all metrics + dimension=DAY so the
-  // exported CSV has Date as the first column — same pattern as the channel export.
-  const url = buildVideoAnalyticsUrl(videoId);
-  log(`[${videoId}] Navigating to video analytics explore...`);
+  const url = `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default?c=${CHANNEL_ID}`;
+  log(`[${videoId}] Navigating to video analytics...`);
   try {
     await page.goto(url, { waitUntil: 'load', timeout: 30000 });
   } catch (err) {
@@ -391,28 +389,26 @@ async function exportVideoCSV(
     return [];
   }
 
-  // Wait for the data table to render before attempting export (same as channel export)
+  // Click Advanced mode to get the per-day data table
   try {
-    await page.waitForSelector(
-      'ytd-analytics-main-app-element, [data-test-id="analytics-table"], ytcp-analytics-data-table, ytcp-analytics-table',
-      { timeout: 30000 },
-    );
-    log(`[${videoId}] Data table rendered`);
+    await page.click('text="Advanced mode"', { timeout: 10000 });
+    log(`[${videoId}] Advanced mode clicked`);
   } catch {
-    log(`[${videoId}] WARNING: Data table selector not found — proceeding anyway`);
+    log(`[${videoId}] WARNING: Advanced mode button not found — continuing`);
   }
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(5000);
 
+  // Wait for export button
   const exportSelector = '[aria-label="Export current view"]';
   try {
-    await page.waitForSelector(exportSelector, { timeout: 15000 });
+    await page.waitForSelector(exportSelector, { timeout: 30000 });
   } catch {
     log(`[${videoId}] ERROR: Export button not found`);
     await screenshotOnError(page, videoId);
     return [];
   }
 
-  // Click export button to open the dropdown menu (same flow as channel export)
+  // Click export button to open the dropdown menu
   await page.click(exportSelector);
   log(`[${videoId}] Clicked export button — waiting for dropdown menu`);
   await page.waitForTimeout(2000);
@@ -430,6 +426,7 @@ async function exportVideoCSV(
     return [];
   }
   await download.saveAs(filePath);
+  log(`[${videoId}] Saved per-video export to ${filePath}`);
 
   let csvContent: string;
   try {
