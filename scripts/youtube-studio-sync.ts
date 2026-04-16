@@ -352,7 +352,7 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
   log(`Matched IDs: ${matchedIds.join(', ')}`);
   if (csvOnlyIds.length > 0) {
     log(`In CSV but not in VIDEO_MAP: ${csvOnlyIds.join(', ')}`);
-    for (const [id, totalViews] of unmatchedViews) {
+    for (const [id, totalViews] of Array.from(unmatchedViews)) {
       console.warn(`[channel-export] UNMAPPED video skipped: ${id} (${totalViews.toLocaleString()} views) — add to VIDEO_MAP to include`);
     }
   }
