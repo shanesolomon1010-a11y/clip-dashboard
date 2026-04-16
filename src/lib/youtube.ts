@@ -10,6 +10,8 @@ interface AnalyticsRow {
   averageViewPercentage: number;
   subscribersGained: number;
   subscribersLost: number;
+  impressions: number;
+  impression_ctr: number;
 }
 
 interface TokenResponse {
@@ -18,6 +20,7 @@ interface TokenResponse {
 }
 
 interface AnalyticsResponse {
+  columnHeaders?: { name: string; columnType: string; dataType: string }[];
   rows?: (string | number)[][];
   error?: { message: string };
 }
@@ -58,6 +61,8 @@ export async function fetchAnalyticsForVideo(
     'averageViewPercentage',
     'subscribersGained',
     'subscribersLost',
+    'impressions',
+    'cardImpressionRate',
   ].join(',');
 
   const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
@@ -79,17 +84,22 @@ export async function fetchAnalyticsForVideo(
 
   console.log(`[youtube-analytics] raw response for ${videoId}:`, JSON.stringify(data, null, 2));
 
+  const headers = (data.columnHeaders ?? []).map((h) => h.name);
+  const idx = (name: string) => headers.indexOf(name);
+
   return (data.rows ?? []).map((row) => ({
-    date:                    row[0] as string,
-    views:                   Number(row[1]),
-    likes:                   Number(row[2]),
-    dislikes:                Number(row[3]),
-    comments:                Number(row[4]),
-    shares:                  Number(row[5]),
-    estimatedMinutesWatched: Number(row[6]),
-    averageViewDuration:     Number(row[7]),
-    averageViewPercentage:   Number(row[8]),
-    subscribersGained:       Number(row[9]),
-    subscribersLost:         Number(row[10]),
+    date:                    row[idx('day')] as string,
+    views:                   Number(row[idx('views')]),
+    likes:                   Number(row[idx('likes')]),
+    dislikes:                Number(row[idx('dislikes')]),
+    comments:                Number(row[idx('comments')]),
+    shares:                  Number(row[idx('shares')]),
+    estimatedMinutesWatched: Number(row[idx('estimatedMinutesWatched')]),
+    averageViewDuration:     Number(row[idx('averageViewDuration')]),
+    averageViewPercentage:   Number(row[idx('averageViewPercentage')]),
+    subscribersGained:       Number(row[idx('subscribersGained')]),
+    subscribersLost:         Number(row[idx('subscribersLost')]),
+    impressions:             Number(row[idx('impressions')]),
+    impression_ctr:          Number(row[idx('cardImpressionRate')]),
   }));
 }

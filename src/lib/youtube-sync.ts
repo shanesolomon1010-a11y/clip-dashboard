@@ -73,6 +73,8 @@ export async function runYouTubeSync(): Promise<number> {
         avg_view_percentage: row.averageViewPercentage,
         subscribers_gained: row.subscribersGained,
         subscribers_lost: row.subscribersLost,
+        impressions: row.impressions,
+        impression_ctr: row.impression_ctr,
       });
     }
   }
