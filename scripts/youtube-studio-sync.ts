@@ -379,8 +379,8 @@ async function exportVideoCSV(
   clipDetailsCode: string,
   downloadDir: string,
 ): Promise<Record<string, unknown>[]> {
-  const url = `https://studio.youtube.com/video/${videoId}/analytics/tab-overview/period-default?c=${CHANNEL_ID}`;
-  log(`[${videoId}] Navigating to video analytics...`);
+  const url = buildVideoAnalyticsUrl(videoId);
+  log(`[${videoId}] Navigating to video analytics explore URL...`);
   try {
     await page.goto(url, { waitUntil: 'load', timeout: 30000 });
   } catch (err) {
@@ -389,13 +389,7 @@ async function exportVideoCSV(
     return [];
   }
 
-  // Click Advanced mode to get the per-day data table
-  try {
-    await page.click('text="Advanced mode"', { timeout: 10000 });
-    log(`[${videoId}] Advanced mode clicked`);
-  } catch {
-    log(`[${videoId}] WARNING: Advanced mode button not found — continuing`);
-  }
+  // Wait for the data table to render (explore URL loads directly into the right view)
   await page.waitForTimeout(5000);
 
   // Wait for export button
@@ -436,8 +430,9 @@ async function exportVideoCSV(
     return [];
   }
 
+  const firstLines = csvContent.split('\n').slice(0, 5).map(l => l.slice(0, 120));
+  log(`[${videoId}] CSV first 5 lines: ${JSON.stringify(firstLines)}`);
   const rows = parseCSVRows(csvContent, clipDetailsCode);
-  console.log(`[${videoId}] Per-video CSV parsed: ${rows.length} rows`);
   log(`[${videoId}] Parsed ${rows.length} rows`);
   return rows;
 }
