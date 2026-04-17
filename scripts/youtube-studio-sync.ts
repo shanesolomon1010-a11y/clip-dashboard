@@ -730,7 +730,13 @@ async function main(): Promise<void> {
 
     if (deduped.length > 0) {
       log('Upserting to Supabase...');
-      const { error } = await supabase.from('posts').upsert(deduped, {
+      // Strip null/undefined values from every row so the ON CONFLICT DO UPDATE SET clause
+      // only touches columns we actually have data for. Columns absent from the row object
+      // are not included in the SET clause, preserving existing non-null DB values.
+      const toUpsert = deduped.map(row =>
+        Object.fromEntries(Object.entries(row).filter(([, v]) => v !== null && v !== undefined))
+      );
+      const { error } = await supabase.from('posts').upsert(toUpsert, {
         onConflict: 'clip_details_code,platform,stat_date',
         ignoreDuplicates: false,
       });
