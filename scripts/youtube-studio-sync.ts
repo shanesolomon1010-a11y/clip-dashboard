@@ -260,26 +260,41 @@ export function parseTableAggregates(
   return result;
 }
 
-// Build aggregate sentinel rows (stat_date='9999-12-31') from parsed Table data aggregates.
-// These rows are always the "latest" entry returned by getLatestPostsPerClip, so the
-// dashboard displays the period-aggregate metrics (impressions, CTR, unique viewers, etc.).
-export function buildAggregateRows(
+// Aggregate/rate columns from Table data.csv that get merged into the most recent real daily
+// row only — not distributed across every day (they are period totals, not daily deltas).
+const AGGREGATE_MERGE_COLS: ReadonlyArray<string> = ['impressions', 'impression_ctr', 'unique_viewers'];
+
+// Merge aggregate metrics from Table data.csv into the most recent real stat_date row for
+// each video. Delta columns (views, likes, comments, shares) are left on every daily row as-is.
+export function mergeAggregatesIntoLatestRow(
+  rows: Record<string, unknown>[],
   aggregates: Map<string, Record<string, unknown>>,
-): Record<string, unknown>[] {
-  const rows: Record<string, unknown>[] = [];
-  for (const [vid, metrics] of Array.from(aggregates)) {
-    const clipDetailsCode = VIDEO_MAP[vid];
-    if (!clipDetailsCode) continue;
-    rows.push({
-      platform: 'youtube',
-      content_type: 'short',
-      clip_details_code: clipDetailsCode,
-      clip_code: deriveClipCode(clipDetailsCode),
-      stat_date: '9999-12-31',
-      ...metrics,
-    });
+): void {
+  if (rows.length === 0 || aggregates.size === 0) return;
+
+  const byCode = new Map<string, Record<string, unknown>[]>();
+  for (const row of rows) {
+    const code = row.clip_details_code as string;
+    if (!code) continue;
+    if (!byCode.has(code)) byCode.set(code, []);
+    byCode.get(code)!.push(row);
   }
-  return rows;
+
+  for (const [videoId, metrics] of Array.from(aggregates)) {
+    const clipDetailsCode = VIDEO_MAP[videoId];
+    if (!clipDetailsCode) continue;
+    const videoRows = byCode.get(clipDetailsCode);
+    if (!videoRows || videoRows.length === 0) continue;
+
+    const latestRow = videoRows.reduce((best, row) =>
+      (row.stat_date as string) > (best.stat_date as string) ? row : best
+    );
+
+    for (const col of AGGREGATE_MERGE_COLS) {
+      const val = metrics[col];
+      if (val != null) latestRow[col] = val;
+    }
+  }
 }
 
 function splitCSVLine(line: string): string[] {
@@ -538,15 +553,13 @@ async function exportVideoCSV(
   const rows = parseCSVRows(csvContent, clipDetailsCode);
   log(`[${videoId}] Parsed ${rows.length} rows`);
 
-  // Extract aggregate metrics from Table data.csv and add a sentinel aggregate row.
+  // Merge aggregate metrics (impressions, CTR, unique_viewers) from Table data.csv into
+  // the most recent daily row. These are period totals, not per-day values.
   const tableCSV = getTableCSVContent(filePath);
   if (tableCSV) {
     const aggregates = parseTableAggregates(tableCSV, false, videoId);
-    const aggRows = buildAggregateRows(aggregates);
-    if (aggRows.length > 0) {
-      log(`[${videoId}] Adding aggregate sentinel row (impressions, CTR, etc.)`);
-      rows.push(...aggRows);
-    }
+    mergeAggregatesIntoLatestRow(rows, aggregates);
+    if (aggregates.size > 0) log(`[${videoId}] Merged aggregate metrics into latest row`);
   }
 
   return rows;
@@ -679,21 +692,17 @@ async function main(): Promise<void> {
     const channelRows = parseChannelCSVRows(csvContent);
     log(`Channel export: ${channelRows.length} rows`);
 
-    // Parse aggregate metrics from Table data.csv and add sentinel aggregate rows.
+    // Merge aggregate metrics (impressions, CTR, unique_viewers) from Table data.csv into
+    // the most recent daily row per video.
     const channelTableCSV = getTableCSVContent(filePath);
     if (channelTableCSV) {
       const channelAggregates = parseTableAggregates(channelTableCSV, true);
-      const aggRows = buildAggregateRows(channelAggregates);
-      log(`Channel aggregate rows: ${aggRows.length} (from Table data.csv)`);
-      channelRows.push(...aggRows);
+      mergeAggregatesIntoLatestRow(channelRows, channelAggregates);
+      log(`Channel aggregate metrics merged for ${channelAggregates.size} videos`);
     }
 
     // Identify which videos the channel export missed (low-view videos are excluded)
-    const matchedCodes = new Set(
-      channelRows
-        .filter(r => r.stat_date !== '9999-12-31')
-        .map(r => r.clip_details_code as string)
-    );
+    const matchedCodes = new Set(channelRows.map(r => r.clip_details_code as string));
     const missingVideos = Object.entries(VIDEO_MAP).filter(([, code]) => !matchedCodes.has(code));
     log(`Channel export covered ${matchedCodes.size} videos; running per-video export for ${missingVideos.length} missing`);
 
