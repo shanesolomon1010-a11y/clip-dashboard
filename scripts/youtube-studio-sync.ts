@@ -35,14 +35,18 @@ export const VIDEO_MAP: Record<string, string> = {
   'a3bRUFpilGI': 'MBM016-CLIP-001',
   'tPsydEmTaOo': 'MBM016-CLIP-006',
   'VH42AvIjbk0': 'MBM016-CLIP-005',
+  '-cXhRAIu_AE': 'MBM016-CLIP-013',
 };
 
 export const COLUMN_MAP: Record<string, string> = {
   'Date': 'stat_date',
   'Views': 'views',
+  'Engaged views': 'views',           // channel Chart data.csv uses this header instead of "Views"
   'Watch time (hours)': 'watch_time_hours',
   'Average view duration': 'avg_view_duration_seconds',
   'Average percentage viewed (%)': 'avg_view_percentage',
+  'Stayed to watch (%)': 'stayed_to_watch_pct',
+  'Duration': 'duration_seconds',
   'Impressions': 'impressions',
   'Impressions click-through rate (%)': 'impression_ctr',
   'Likes': 'likes',
@@ -56,6 +60,9 @@ export const COLUMN_MAP: Record<string, string> = {
   'Returning viewers': 'returning_viewers',
   'Casual viewers': 'casual_viewers',
   'Regular viewers': 'regular_viewers',
+  'Hypes': 'hypes',
+  'Hype points': 'hype_points',
+  'Post subscribers': 'post_subscribers',
 };
 
 const CHROME_AUTOMATION_PROFILE = path.join(__dirname, '../.chrome-automation-profile');
@@ -185,6 +192,94 @@ export function getCSVContent(filePath: string): string {
     return zip.readAsText(dateEntry ?? entries[0]);
   }
   return buf.toString('utf-8');
+}
+
+// Extract the "Table data.csv" entry from a ZIP export — returns null if not applicable.
+// Table data.csv contains per-period aggregate metrics (impressions, CTR, unique viewers, etc.).
+export function getTableCSVContent(filePath: string): string | null {
+  const buf = fs.readFileSync(filePath);
+  if (!isZipBuffer(buf)) return null;
+  const zip = new AdmZip(buf);
+  const entry = zip.getEntries().find(e => e.entryName.trim() === 'Table data.csv');
+  return entry ? zip.readAsText(entry) : null;
+}
+
+// Parse aggregate metrics from a Table data.csv.
+// channelMode=true:  Content column contains video IDs (skip the "Total" summary row).
+// channelMode=false: single-video export — one data row attributed to the provided videoId.
+// Returns a map of videoId → DB column fields ready for upsert.
+export function parseTableAggregates(
+  tableCsv: string,
+  channelMode: boolean,
+  videoId?: string,
+): Map<string, Record<string, unknown>> {
+  const lines = tableCsv.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return new Map();
+
+  const headers = splitCSVLine(lines[0]).map(h => h.trim());
+  log(`Table data.csv headers (${channelMode ? 'channel' : 'per-video'}): ${headers.join(' | ')}`);
+
+  const contentIdx = headers.findIndex(h => h === 'Content');
+  const result = new Map<string, Record<string, unknown>>();
+
+  for (let i = 1; i < lines.length; i++) {
+    const cells = splitCSVLine(lines[i]);
+
+    let rowVideoId: string;
+    if (!channelMode) {
+      if (!videoId) continue;
+      rowVideoId = videoId; // per-video export: one known video
+    } else {
+      if (contentIdx === -1) continue;
+      const contentVal = cells[contentIdx]?.trim();
+      if (!contentVal || contentVal === 'Total') continue;
+      if (!VIDEO_MAP[contentVal]) continue; // skip unmapped videos
+      rowVideoId = contentVal;
+    }
+
+    if (result.has(rowVideoId)) continue;
+
+    const metrics: Record<string, unknown> = {};
+    for (let j = 0; j < headers.length; j++) {
+      const col = headers[j];
+      if (col === 'Content' || col === 'Video title' || col === 'Video publish time') continue;
+      const dbCol = COLUMN_MAP[col];
+      if (!dbCol || dbCol === 'stat_date') continue;
+      const val = cells[j];
+      if (dbCol === 'avg_view_duration_seconds') {
+        metrics[dbCol] = parseTimeToSeconds(val);
+      } else {
+        metrics[dbCol] = safeNum(val);
+      }
+    }
+    result.set(rowVideoId, metrics);
+
+    if (!channelMode) break; // per-video: only one row needed
+  }
+
+  return result;
+}
+
+// Build aggregate sentinel rows (stat_date='9999-12-31') from parsed Table data aggregates.
+// These rows are always the "latest" entry returned by getLatestPostsPerClip, so the
+// dashboard displays the period-aggregate metrics (impressions, CTR, unique viewers, etc.).
+export function buildAggregateRows(
+  aggregates: Map<string, Record<string, unknown>>,
+): Record<string, unknown>[] {
+  const rows: Record<string, unknown>[] = [];
+  for (const [vid, metrics] of Array.from(aggregates)) {
+    const clipDetailsCode = VIDEO_MAP[vid];
+    if (!clipDetailsCode) continue;
+    rows.push({
+      platform: 'youtube',
+      content_type: 'short',
+      clip_details_code: clipDetailsCode,
+      clip_code: deriveClipCode(clipDetailsCode),
+      stat_date: '9999-12-31',
+      ...metrics,
+    });
+  }
+  return rows;
 }
 
 function splitCSVLine(line: string): string[] {
@@ -442,6 +537,18 @@ async function exportVideoCSV(
   log(`[${videoId}] CSV first 5 lines: ${JSON.stringify(firstLines)}`);
   const rows = parseCSVRows(csvContent, clipDetailsCode);
   log(`[${videoId}] Parsed ${rows.length} rows`);
+
+  // Extract aggregate metrics from Table data.csv and add a sentinel aggregate row.
+  const tableCSV = getTableCSVContent(filePath);
+  if (tableCSV) {
+    const aggregates = parseTableAggregates(tableCSV, false, videoId);
+    const aggRows = buildAggregateRows(aggregates);
+    if (aggRows.length > 0) {
+      log(`[${videoId}] Adding aggregate sentinel row (impressions, CTR, etc.)`);
+      rows.push(...aggRows);
+    }
+  }
+
   return rows;
 }
 
@@ -572,8 +679,21 @@ async function main(): Promise<void> {
     const channelRows = parseChannelCSVRows(csvContent);
     log(`Channel export: ${channelRows.length} rows`);
 
+    // Parse aggregate metrics from Table data.csv and add sentinel aggregate rows.
+    const channelTableCSV = getTableCSVContent(filePath);
+    if (channelTableCSV) {
+      const channelAggregates = parseTableAggregates(channelTableCSV, true);
+      const aggRows = buildAggregateRows(channelAggregates);
+      log(`Channel aggregate rows: ${aggRows.length} (from Table data.csv)`);
+      channelRows.push(...aggRows);
+    }
+
     // Identify which videos the channel export missed (low-view videos are excluded)
-    const matchedCodes = new Set(channelRows.map(r => r.clip_details_code as string));
+    const matchedCodes = new Set(
+      channelRows
+        .filter(r => r.stat_date !== '9999-12-31')
+        .map(r => r.clip_details_code as string)
+    );
     const missingVideos = Object.entries(VIDEO_MAP).filter(([, code]) => !matchedCodes.has(code));
     log(`Channel export covered ${matchedCodes.size} videos; running per-video export for ${missingVideos.length} missing`);
 
