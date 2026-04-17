@@ -262,7 +262,14 @@ export function parseTableAggregates(
 
 // Aggregate/rate columns from Table data.csv that get merged into the most recent real daily
 // row only — not distributed across every day (they are period totals, not daily deltas).
-const AGGREGATE_MERGE_COLS: ReadonlyArray<string> = ['impressions', 'impression_ctr', 'unique_viewers'];
+const AGGREGATE_MERGE_COLS: ReadonlyArray<string> = [
+  'impressions', 'impression_ctr', 'unique_viewers',
+  'likes', 'comments', 'shares',
+  'avg_view_duration_seconds', 'watch_time_hours', 'avg_view_percentage',
+  'subscribers_gained', 'subscribers_lost',
+  'new_viewers', 'casual_viewers', 'regular_viewers', 'returning_viewers',
+  'hypes', 'hype_points', 'post_subscribers', 'stayed_to_watch_pct',
+];
 
 // Merge aggregate metrics from Table data.csv into the most recent real stat_date row for
 // each video. Delta columns (views, likes, comments, shares) are left on every daily row as-is.
