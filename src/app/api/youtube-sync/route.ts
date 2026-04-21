@@ -11,6 +11,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ rowsProcessed });
   } catch (err) {
     console.error('youtube-sync error:', err);
-    return NextResponse.json({ error: (err as Error).message });
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
