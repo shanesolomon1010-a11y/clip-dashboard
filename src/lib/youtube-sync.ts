@@ -20,9 +20,19 @@ const VIDEO_MAP: Record<string, string> = {
   'BjAdnIfIls4': 'MBM015-CLIP-021',
   'XaQfjuTzdDE': 'MBM015-CLIP-022',
   'a3bRUFpilGI': 'MBM016-CLIP-001',
+  'JJI4swcaLJQ': 'MBM016-CLIP-003',
+  'QYcNH8fKXTs': 'MBM016-CLIP-004',
   'VH42AvIjbk0': 'MBM016-CLIP-005',
   'tPsydEmTaOo': 'MBM016-CLIP-006',
+  'OKyFroQrWwM': 'MBM016-CLIP-007',
+  '51DR6H8GQBc': 'MBM016-CLIP-009',
+  'AqtzZNYdxTE': 'MBM016-CLIP-010',
+  'kXt894vwO1c': 'MBM016-CLIP-011',
+  'pkPSikierRM': 'MBM016-CLIP-012',
   '-cXhRAIu_AE': 'MBM016-CLIP-013',
+  'CGQryafzaAY': 'MBM016-CLIP-014',
+  'X6v-cvX2tew': 'MBM017-CLIP-001',
+  '5SImwiVgWWA': 'MBM017-CLIP-002',
 };
 
 export async function runYouTubeSync(): Promise<number> {
