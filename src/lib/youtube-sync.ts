@@ -22,6 +22,7 @@ const VIDEO_MAP: Record<string, string> = {
   'a3bRUFpilGI': 'MBM016-CLIP-001',
   'VH42AvIjbk0': 'MBM016-CLIP-005',
   'tPsydEmTaOo': 'MBM016-CLIP-006',
+  '-cXhRAIu_AE': 'MBM016-CLIP-013',
 };
 
 export async function runYouTubeSync(): Promise<number> {
