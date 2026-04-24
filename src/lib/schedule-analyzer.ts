@@ -11,45 +11,44 @@ export interface SlotPerformance {
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-const HOUR_BUCKETS: { label: string; min: number; max: number }[] = [
-  { label: 'Morning',   min: 6,  max: 11 },
-  { label: 'Midday',    min: 11, max: 14 },
-  { label: 'Afternoon', min: 14, max: 17 },
-  { label: 'Evening',   min: 17, max: 20 },
-  { label: 'Night',     min: 20, max: 23 },
-];
+function dayOfWeekFromDateString(isoDate: string): string {
+  // Anchor at noon UTC to eliminate timezone ambiguity for all US timezones
+  const d = new Date(isoDate + 'T12:00:00Z');
+  return DAYS[d.getUTCDay()];
+}
 
-// Parse time strings like "6:30 PM CT", "14:00", "6:00 PM", "6 PM"
-// Returns the 24-hour integer hour, or null if unparseable.
-function parseHour(timeStr: string): number | null {
-  // Strip trailing timezone suffix: CT, ET, PT, MT, CDT, EDT, etc.
-  const cleaned = timeStr.replace(/\s+[A-Z]{2,4}\s*$/i, '').trim();
+function parsePostTimeToHour(postTime: string): number | null {
+  if (!postTime) return null;
+  // Strip timezone suffix: "6:00 PM CT" → "6:00 PM"
+  const stripped = postTime.trim().replace(/\s+[A-Z]{2,4}\s*$/, '');
 
-  // 24-hour: "14:00" or "9:30"
-  const milMatch = cleaned.match(/^(\d{1,2}):(\d{2})$/);
-  if (milMatch) {
-    const h = parseInt(milMatch[1], 10);
-    return h >= 0 && h <= 23 ? h : null;
+  // Try 12-hour format: "6:00 PM", "11:30 AM", "12:30 PM"
+  const match12 = stripped.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (match12) {
+    let hour = parseInt(match12[1], 10);
+    const meridiem = match12[3].toUpperCase();
+    // 12 AM = 0, 12 PM = 12, 1-11 AM = 1-11, 1-11 PM = 13-23
+    if (meridiem === 'AM' && hour === 12) hour = 0;
+    else if (meridiem === 'PM' && hour !== 12) hour += 12;
+    return hour;
   }
 
-  // 12-hour: "6:30 PM", "6 PM", "6:30PM", "6PM"
-  const ampmMatch = cleaned.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/i);
-  if (ampmMatch) {
-    let h = parseInt(ampmMatch[1], 10);
-    const period = ampmMatch[3].toUpperCase();
-    if (period === 'PM' && h !== 12) h += 12;
-    if (period === 'AM' && h === 12) h = 0;
-    return h >= 0 && h <= 23 ? h : null;
+  // Try 24-hour format: "14:00", "18:30"
+  const match24 = stripped.match(/^(\d{1,2}):(\d{2})$/);
+  if (match24) {
+    const hour = parseInt(match24[1], 10);
+    if (hour >= 0 && hour < 24) return hour;
   }
 
   return null;
 }
 
-function toHourBucket(hour: number): string | null {
-  for (const b of HOUR_BUCKETS) {
-    if (hour >= b.min && hour < b.max) return b.label;
-  }
-  return null;
+function toHourBucket(hour: number): string {
+  if (hour >= 6  && hour <= 10) return 'Morning';
+  if (hour >= 11 && hour <= 13) return 'Midday';
+  if (hour >= 14 && hour <= 16) return 'Afternoon';
+  if (hour >= 17 && hour <= 20) return 'Evening';
+  return 'Night'; // 21-23 and 0-5
 }
 
 function medianSorted(sorted: number[]): number {
@@ -89,11 +88,10 @@ export function analyzeScheduleSlots(
     if (views === undefined) continue;
 
     const watchTime = clipWatchTime.get(clipCode) ?? 0;
-    const dayOfWeek = DAYS[new Date(scheduledDate + 'T00:00:00').getUTCDay()];
-    const hour      = parseHour(postTime);
+    const dayOfWeek  = dayOfWeekFromDateString(scheduledDate);
+    const hour       = parsePostTimeToHour(postTime);
     if (hour === null) continue;
     const hourBucket = toHourBucket(hour);
-    if (!hourBucket) continue;
 
     const key = `${dayOfWeek}|${hourBucket}`;
     if (!slotViews.has(key)) {

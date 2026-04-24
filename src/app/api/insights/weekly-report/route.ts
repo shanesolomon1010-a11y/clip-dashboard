@@ -142,6 +142,18 @@ export async function POST(request: Request): Promise<NextResponse> {
       const d = cs.filter(c => c.avg_view_duration_s !== null);
       return d.length ? d.reduce((s, c) => s + (c.avg_view_duration_s ?? 0), 0) / d.length : 0;
     };
+    const curWeekStart  = payload.current_week.start;
+    const curWeekEnd    = payload.current_week.end;
+    const prevWeekStart = payload.previous_week.start;
+    const prevWeekEnd   = payload.previous_week.end;
+    const currentNewClips  = curCS.filter(c => {
+      const p = c.posted_at;
+      return p != null && p >= curWeekStart && p <= curWeekEnd;
+    }).length;
+    const previousNewClips = prevCS.filter(c => {
+      const p = c.posted_at;
+      return p != null && p >= prevWeekStart && p <= prevWeekEnd;
+    }).length;
     const payloadFull = {
       ...payload,
       week_comparison: {
@@ -155,7 +167,7 @@ export async function POST(request: Request): Promise<NextResponse> {
           'h',
         ),
         avg_view_duration_seconds: describeChange(durAvg(curCS), durAvg(prevCS), 's'),
-        new_clips_posted:          describeChange(curCS.length, prevCS.length),
+        new_clips_posted:          describeChange(currentNewClips, previousNewClips),
       },
     };
 
