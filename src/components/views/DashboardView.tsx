@@ -185,10 +185,16 @@ export default function DashboardView({ posts }: Props) {
     return sumImpressions > 0 ? `${(sumWeightedCtr / sumImpressions).toFixed(1)}%` : 'N/A';
   }, [latestClipPosts]);
 
-  const uniqueViewersDisplay = useMemo(() => {
-    const withData = latestClipPosts.filter((p) => p.unique_viewers != null);
-    if (withData.length === 0) return 'N/A';
-    return formatNum(withData.reduce((s, p) => s + (p.unique_viewers ?? 0), 0));
+  const uniqueViewersStat = useMemo(() => {
+    const withData = latestClipPosts
+      .filter((p) => p.unique_viewers != null)
+      .sort((a, b) => (b.stat_date ?? '').localeCompare(a.stat_date ?? ''));
+    if (withData.length === 0) return { value: 'No data yet', subtitle: undefined };
+    const latest = withData[0];
+    return {
+      value: `${formatNum(latest.unique_viewers ?? 0)} viewers`,
+      subtitle: latest.stat_date ? `Last snapshot: ${latest.stat_date}` : undefined,
+    };
   }, [latestClipPosts]);
 
   const isClipTotal = (item: ClipTotal | UnifiedPost): item is ClipTotal =>
@@ -213,15 +219,16 @@ export default function DashboardView({ posts }: Props) {
             { label: 'Total Views',       value: formatNum(statsGrid.totalViews) },
             { label: 'Total Impressions', value: formatNum(statsGrid.totalImpressions) },
             { label: 'Impression CTR',    value: impressionCtrDisplay },
-            { label: 'Unique Viewers',    value: uniqueViewersDisplay },
+            { label: 'Unique Viewers',    value: uniqueViewersStat.value, subtitle: uniqueViewersStat.subtitle },
             { label: 'Total Likes',       value: formatNum(statsGrid.totalLikes) },
             { label: 'Total Comments',    value: formatNum(statsGrid.totalComments) },
             { label: 'Total Shares',      value: formatNum(statsGrid.totalShares) },
             { label: 'Avg View Duration', value: fmtDuration(statsGrid.avgDuration) },
-          ] as { label: string; value: string }[]).map(({ label, value }) => (
+          ] as { label: string; value: string; subtitle?: string }[]).map(({ label, value, subtitle }) => (
             <div key={label} className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4">
               <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-3)] mb-2">{label}</p>
               <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{value}</p>
+              {subtitle && <p className="text-[10px] text-[var(--text-3)] mt-1.5">{subtitle}</p>}
             </div>
           ))}
         </div>

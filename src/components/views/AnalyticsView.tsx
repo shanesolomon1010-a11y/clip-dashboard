@@ -4,7 +4,14 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getAllPostsByDate, getTotalViewsPerClip } from '@/lib/db';
+import { getAllPostsByDate, getTotalViewsPerClip, getLatestPostsPerClip } from '@/lib/db';
+import {
+  TrafficSourcesChart,
+  DeviceDistributionChart,
+  SubscriberStatusChart,
+  CountriesChart,
+  PlaybackLocationChart,
+} from '@/components/charts/BreakdownCharts';
 import {
   LineChart, Line,
   BarChart, Bar, LabelList,
@@ -21,24 +28,13 @@ const METRIC_LABELS: Record<string, string> = {
   watch_time_minutes: 'Watch Time (min)',
   avg_view_duration_seconds: 'Avg View Duration',
   avg_view_percentage: 'Avg View %',
-  impressions: 'Impressions',
-  impression_ctr: 'Impression CTR',
   likes: 'Likes',
   dislikes: 'Dislikes',
   shares: 'Shares',
   comments: 'Comments',
   subscribers_gained: 'Subscribers Gained',
   subscribers_lost: 'Subscribers Lost',
-  unique_viewers: 'Unique Viewers',
   duration_seconds: 'Duration (sec)',
-  stayed_to_watch_pct: 'Stayed to Watch %',
-  new_viewers: 'New Viewers',
-  returning_viewers: 'Returning Viewers',
-  casual_viewers: 'Casual Viewers',
-  regular_viewers: 'Regular Viewers',
-  hypes: 'Hypes',
-  hype_points: 'Hype Points',
-  post_subscribers: 'Post Subscribers',
   plays: 'Plays',
   reach: 'Reach',
   saves: 'Saves',
@@ -52,10 +48,9 @@ const METRIC_LABELS: Record<string, string> = {
 const YOUTUBE_METRICS = [
   'views', 'watch_time_hours',
   'watch_time_minutes', 'avg_view_duration_seconds', 'avg_view_percentage',
-  'impressions', 'impression_ctr', 'likes', 'dislikes', 'shares', 'comments',
-  'subscribers_gained', 'subscribers_lost', 'unique_viewers',
-  'duration_seconds', 'stayed_to_watch_pct', 'new_viewers', 'returning_viewers',
-  'casual_viewers', 'regular_viewers', 'hypes', 'hype_points', 'post_subscribers',
+  'likes', 'dislikes', 'shares', 'comments',
+  'subscribers_gained', 'subscribers_lost',
+  'duration_seconds',
 ];
 
 const INSTAGRAM_METRICS = [
@@ -64,25 +59,24 @@ const INSTAGRAM_METRICS = [
 ];
 
 const YOUTUBE_DEFAULTS = [
-  'views', 'impressions', 'impression_ctr', 'avg_view_duration_seconds', 'likes', 'watch_time_hours',
+  'views', 'avg_view_duration_seconds', 'likes', 'watch_time_hours',
 ];
 const INSTAGRAM_DEFAULTS = ['views', 'likes', 'comments', 'shares'];
 
 // Simple unweighted average (no clean weight field available)
 const AVG_METRICS = new Set([
-  'stayed_to_watch_pct', 'engagement_rate',
+  'engagement_rate',
 ]);
 
 // Weighted-average metrics: key → weight field
 const WEIGHTED_AVG_METRICS: Record<string, string> = {
   avg_view_duration_seconds: 'views',
   avg_view_percentage:       'views',
-  impression_ctr:            'impressions',
 };
 
 // Metrics whose formatted value gets a % suffix
 const PCT_METRICS = new Set([
-  'impression_ctr', 'avg_view_percentage', 'stayed_to_watch_pct', 'engagement_rate',
+  'avg_view_percentage', 'engagement_rate',
 ]);
 
 
@@ -497,6 +491,9 @@ export default function AnalyticsView({ posts }: Props) {
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [clipData, setClipData] = useState<UnifiedPost[]>([]);
   const [clipViewTotals, setClipViewTotals] = useState<Record<string, number>>({});
+  const [latestClips, setLatestClips] = useState<UnifiedPost[]>([]);
+  const [perfSortCol, setPerfSortCol] = useState<string>('views');
+  const [perfSortDir, setPerfSortDir] = useState<SortDir>('desc');
   const dropRef = useRef<HTMLDivElement>(null);
   const calendarRef = useRef<HTMLDivElement>(null);
 
@@ -507,6 +504,11 @@ export default function AnalyticsView({ posts }: Props) {
       for (const t of totals) map[t.clip_code] = t.total_views;
       setClipViewTotals(map);
     }).catch(() => setClipViewTotals({}));
+    if (platform === 'youtube') {
+      getLatestPostsPerClip('youtube').then(setLatestClips).catch(() => setLatestClips([]));
+    } else {
+      setLatestClips([]);
+    }
   }, [platform]);
 
   useEffect(() => {
@@ -620,6 +622,22 @@ export default function AnalyticsView({ posts }: Props) {
     setSelectedMetrics((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
     );
+  }
+
+  const sortedLatestClips = useMemo(() => {
+    const getVal = (p: UnifiedPost): number => {
+      if (perfSortCol === 'views') return clipViewTotals[p.clip_code ?? ''] ?? 0;
+      const v = p[perfSortCol as keyof UnifiedPost];
+      return typeof v === 'number' ? v : -1;
+    };
+    return [...latestClips].sort((a, b) =>
+      perfSortDir === 'asc' ? getVal(a) - getVal(b) : getVal(b) - getVal(a)
+    );
+  }, [latestClips, perfSortCol, perfSortDir, clipViewTotals]);
+
+  function handlePerfSort(col: string) {
+    if (perfSortCol === col) setPerfSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setPerfSortCol(col); setPerfSortDir('desc'); }
   }
 
   const platformColor = platform === 'youtube' ? '#FF4444' : '#C855E8';
@@ -758,6 +776,22 @@ export default function AnalyticsView({ posts }: Props) {
           </div>
         )}
       </div>
+
+      {/* Breakdowns section — YouTube only */}
+      {platform === 'youtube' && (
+        <div className="space-y-4">
+          <h2 className="text-[13px] font-semibold text-[var(--text-1)] tracking-wide">Breakdowns</h2>
+          <TrafficSourcesChart dateFrom={filterStart ?? undefined} dateTo={filterEnd ?? undefined} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <DeviceDistributionChart dateFrom={filterStart ?? undefined} dateTo={filterEnd ?? undefined} />
+            <SubscriberStatusChart dateFrom={filterStart ?? undefined} dateTo={filterEnd ?? undefined} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CountriesChart />
+            <PlaybackLocationChart />
+          </div>
+        </div>
+      )}
 
       {/* Metric card grid */}
       {cardList.length > 0 && (
@@ -918,6 +952,77 @@ export default function AnalyticsView({ posts }: Props) {
           </div>
         )}
       </div>
+
+      {/* Clip Performance table — YouTube only, period-aggregate metrics */}
+      {platform === 'youtube' && sortedLatestClips.length > 0 && (
+        <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+          <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.04)]">
+            <h3 className="text-[15px] font-semibold text-[var(--text-1)]">Clip Performance</h3>
+            <p className="text-[11px] text-[var(--text-3)] mt-0.5">Period aggregates from YouTube Studio — one row per clip</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[rgba(247,231,206,0.04)]">
+                  {([
+                    { col: 'clip_code',           label: 'Clip'         },
+                    { col: 'views',               label: 'Views'        },
+                    { col: 'unique_viewers',      label: 'Unique'       },
+                    { col: 'impressions',         label: 'Impressions'  },
+                    { col: 'impression_ctr',      label: 'CTR'          },
+                    { col: 'new_viewers',         label: 'New'          },
+                    { col: 'returning_viewers',   label: 'Returning'    },
+                    { col: 'casual_viewers',      label: 'Casual'       },
+                    { col: 'regular_viewers',     label: 'Regular'      },
+                    { col: 'stayed_to_watch_pct', label: 'Stayed %'     },
+                    { col: 'hypes',               label: 'Hypes'        },
+                    { col: 'hype_points',         label: 'Hype Pts'     },
+                    { col: 'post_subscribers',    label: 'Post Subs'    },
+                  ] as { col: string; label: string }[]).map(({ col, label }) => (
+                    <th
+                      key={col}
+                      onClick={() => col !== 'clip_code' && handlePerfSort(col)}
+                      className="px-4 py-3 text-left text-[10px] font-medium text-[var(--text-3)] uppercase tracking-[0.12em] whitespace-nowrap"
+                      style={{ cursor: col !== 'clip_code' ? 'pointer' : 'default' }}
+                    >
+                      {label}{perfSortCol === col && (perfSortDir === 'asc' ? ' ↑' : ' ↓')}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[rgba(247,231,206,0.04)]">
+                {sortedLatestClips.map((clip) => {
+                  const totalViews = clipViewTotals[clip.clip_code ?? ''] ?? clip.views;
+                  const fmt = (v: number | undefined | null, isPct = false): string => {
+                    if (v == null) return '—';
+                    if (isPct) return `${v.toFixed(1)}%`;
+                    return formatNum(v);
+                  };
+                  return (
+                    <tr key={clip.id} className="hover:bg-[rgba(247,231,206,0.02)] transition-colors">
+                      <td className="px-4 py-3 text-[var(--text-1)] text-[12px] font-semibold whitespace-nowrap" style={{ fontFamily: 'var(--font-mono)' }}>
+                        {clip.clip_details_code ?? clip.clip_code}
+                      </td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{formatNum(totalViews)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.unique_viewers)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.impressions)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.impression_ctr, true)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.new_viewers)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.returning_viewers)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.casual_viewers)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.regular_viewers)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.stayed_to_watch_pct, true)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.hypes)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.hype_points)}</td>
+                      <td className="px-4 py-3 text-[var(--text-2)] text-[12px] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{fmt(clip.post_subscribers)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
