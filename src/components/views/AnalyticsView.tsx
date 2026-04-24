@@ -7,6 +7,7 @@ import { useVideoModal } from '@/context/VideoModalContext';
 import { getAllPostsByDate, getTotalViewsPerClip } from '@/lib/db';
 import {
   LineChart, Line,
+  BarChart, Bar, LabelList,
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
@@ -97,6 +98,9 @@ function getMetricValue(post: UnifiedPost, key: string): number {
 }
 
 function formatMetricValue(key: string, val: number): string {
+  if (key === 'duration_seconds') {
+    return `${Math.round(val)}s`;
+  }
   if (key === 'avg_view_duration_seconds') {
     const m = Math.floor(val / 60);
     const s = Math.floor(val % 60);
@@ -276,6 +280,55 @@ function CardLineChart({ metric, rows }: { metric: string; rows: UnifiedPost[] }
         </div>
       )}
     </div>
+  );
+}
+
+function DurationBarChart({ rows }: { rows: UnifiedPost[] }) {
+  const maxByClip = new Map<string, number>();
+  for (const p of rows) {
+    const key = p.clip_details_code ?? p.clip_code ?? p.id;
+    const val = typeof p.duration_seconds === 'number' ? p.duration_seconds : 0;
+    if (val > 0) maxByClip.set(key, Math.max(maxByClip.get(key) ?? 0, val));
+  }
+  const data = Array.from(maxByClip.entries()).map(([code, dur]) => ({
+    code,
+    label: code.split('-CLIP-')[1] ?? code,
+    dur: Math.round(dur),
+  }));
+  if (data.length === 0) return null;
+  return (
+    <ResponsiveContainer width="100%" height={100}>
+      <BarChart data={data} margin={{ top: 14, right: 4, left: 0, bottom: 0 }}>
+        <XAxis
+          dataKey="label"
+          tick={{ fill: 'rgba(247,231,206,0.25)', fontSize: 7, fontFamily: 'JetBrains Mono' }}
+          axisLine={false}
+          tickLine={false}
+          interval={0}
+        />
+        <YAxis hide />
+        <Tooltip
+          content={(props) => {
+            if (!props.active || !props.payload?.length) return null;
+            const { code, dur } = props.payload[0].payload as { code: string; dur: number };
+            return (
+              <div style={TOOLTIP_STYLE}>
+                <p style={{ color: 'rgba(247,231,206,0.45)', marginBottom: 4 }}>{code}</p>
+                <p style={{ color: LINE_COLORS[0], fontWeight: 600 }}>{dur}s</p>
+              </div>
+            );
+          }}
+        />
+        <Bar dataKey="dur" fill={LINE_COLORS[0]} radius={[2, 2, 0, 0]}>
+          <LabelList
+            dataKey="dur"
+            position="top"
+            formatter={(v) => `${Math.round(Number(v ?? 0))}s`}
+            style={{ fill: 'rgba(247,231,206,0.4)', fontSize: 7, fontFamily: 'JetBrains Mono' }}
+          />
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 
@@ -714,7 +767,7 @@ export default function AnalyticsView({ posts }: Props) {
             const hasData = cardHasData(metric, filteredClips);
             const label = METRIC_LABELS[metric] ?? metric;
             const totalDisplay = formatMetricValue(metric, total);
-            const totalLabel = AVG_METRICS.has(metric) ? 'Avg' : 'Total';
+            const totalLabel = (AVG_METRICS.has(metric) || metric in WEIGHTED_AVG_METRICS || metric === 'duration_seconds') ? 'Avg' : 'Total';
 
             return (
               <div
@@ -737,7 +790,9 @@ export default function AnalyticsView({ posts }: Props) {
                   <span className="text-[10px] text-[var(--text-3)]">{totalLabel}</span>
                 </div>
                 {hasData ? (
-                  <CardLineChart metric={metric} rows={filteredClips} />
+                  metric === 'duration_seconds'
+                    ? <DurationBarChart rows={filteredClips} />
+                    : <CardLineChart metric={metric} rows={filteredClips} />
                 ) : (
                   <div className="h-[72px] flex items-center justify-center">
                     <span className="text-[12px] text-[var(--text-3)]">No data</span>
