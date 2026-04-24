@@ -336,6 +336,7 @@ function splitCSVLine(line: string): string[] {
 export function parseCSVRows(
   csvContent: string,
   clipDetailsCode: string,
+  videoId = '',
 ): Record<string, unknown>[] {
   const lines = csvContent.split('\n');
 
@@ -366,6 +367,7 @@ export function parseCSVRows(
       content_type: 'short',
       clip_details_code: clipDetailsCode,
       clip_code: clipCode,
+      ...(videoId ? { content_id: videoId } : {}),
     };
 
     for (let j = 0; j < headers.length; j++) {
@@ -458,6 +460,7 @@ export function parseChannelCSVRows(csvContent: string): Record<string, unknown>
       clip_details_code: clipDetailsCode,
       clip_code: clipCode,
       stat_date: statDate,
+      content_id: contentVal,
     };
 
     for (let j = 0; j < headers.length; j++) {
@@ -567,7 +570,7 @@ async function exportVideoCSV(
 
   const firstLines = csvContent.split('\n').slice(0, 5).map(l => l.slice(0, 120));
   log(`[${videoId}] CSV first 5 lines: ${JSON.stringify(firstLines)}`);
-  const rows = parseCSVRows(csvContent, clipDetailsCode);
+  const rows = parseCSVRows(csvContent, clipDetailsCode, videoId);
   log(`[${videoId}] Parsed ${rows.length} rows`);
 
   // Merge aggregate metrics (impressions, CTR, unique_viewers) from Table data.csv into
