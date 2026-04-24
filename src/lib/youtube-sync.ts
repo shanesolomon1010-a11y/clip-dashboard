@@ -37,6 +37,8 @@ const VIDEO_MAP: Record<string, string> = {
   '5SImwiVgWWA': 'MBM017-CLIP-002',
 };
 
+// ageGroupGender will return 0 rows until the channel crosses YouTube's demographic
+// privacy floor — this is expected and not a bug.
 const BREAKDOWN_CONFIGS: BreakdownConfig[] = [
   { name: 'insightTrafficSourceType',   apiDimensions: 'day,insightTrafficSourceType',  aggregate: false },
   { name: 'deviceType',                 apiDimensions: 'day,deviceType',                aggregate: false },
