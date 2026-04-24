@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/youtube-sync",
       "schedule": "0 14 * * *"
+    },
+    {
+      "path": "/api/insights/weekly-report",
+      "schedule": "0 14 * * 1"
     }
   ],
   "functions": {

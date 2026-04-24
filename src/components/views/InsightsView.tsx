@@ -2,14 +2,20 @@
 
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { getRecentAnalyses, PerformanceAnalysis } from '@/lib/insights-db';
+import {
+  getRecentAnalyses,
+  PerformanceAnalysis,
+  getLatestWeeklyReport,
+  getRecentWeeklyReports,
+  WeeklyReport,
+} from '@/lib/insights-db';
 import { formatNum } from '@/lib/utils';
 
-function Spinner() {
+function Spinner({ color = '#FF4444' }: { color?: string }) {
   return (
     <div
       className="w-4 h-4 border-2 rounded-full animate-spin shrink-0"
-      style={{ borderColor: 'rgba(255,68,68,0.3)', borderTopColor: '#FF4444' }}
+      style={{ borderColor: 'rgba(255,68,68,0.3)', borderTopColor: color }}
     />
   );
 }
@@ -57,6 +63,16 @@ function MarkdownContent({ content }: { content: string }) {
       {content}
     </ReactMarkdown>
   );
+}
+
+function relativeTime(isoString: string): string {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const hours = diffMs / 3_600_000;
+  if (hours < 1) return 'just now';
+  if (hours < 24) return `${Math.floor(hours)} hours ago`;
+  const days = diffMs / 86_400_000;
+  if (days < 7) return `${Math.floor(days)} days ago`;
+  return new Date(isoString).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 function AnalysisCard({
@@ -121,6 +137,53 @@ function AnalysisCard({
   );
 }
 
+function WeeklyReportCard({ report }: { report: WeeklyReport }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-[rgba(247,231,206,0.02)] transition-colors text-left gap-4"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-[13px] font-semibold text-[var(--text-1)] shrink-0">
+            Week of {report.week_start} – {report.week_end}
+          </span>
+          {report.tokens_used != null && (
+            <span
+              className="text-[10px] text-[var(--text-3)] px-2 py-0.5 rounded-full shrink-0"
+              style={{ background: 'rgba(247,231,206,0.05)' }}
+            >
+              {formatNum(report.tokens_used)} tokens
+            </span>
+          )}
+          <span className="text-[10px] text-[var(--text-3)] shrink-0">
+            {relativeTime(report.created_at)}
+          </span>
+        </div>
+        <svg
+          className="w-4 h-4 text-[var(--text-3)] transition-transform shrink-0"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-5 pb-6 border-t border-[rgba(247,231,206,0.04)]">
+          <div className="mt-4">
+            <MarkdownContent content={report.report_markdown} />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function InsightsView() {
   const [loading, setLoading]               = useState(false);
   const [currentMarkdown, setCurrentMarkdown] = useState<string | null>(null);
@@ -128,11 +191,28 @@ export default function InsightsView() {
   const [analysesLoading, setAnalysesLoading] = useState(true);
   const [error, setError]                     = useState<string | null>(null);
 
+  const [latestWeeklyReport, setLatestWeeklyReport]   = useState<WeeklyReport | null>(null);
+  const [recentWeeklyReports, setRecentWeeklyReports] = useState<WeeklyReport[]>([]);
+  const [weeklyLoading, setWeeklyLoading]             = useState(true);
+  const [weeklyGenerating, setWeeklyGenerating]       = useState(false);
+  const [weeklyError, setWeeklyError]                 = useState<string | null>(null);
+
   useEffect(() => {
-    getRecentAnalyses(10)
-      .then(setRecentAnalyses)
+    Promise.all([
+      getRecentAnalyses(10),
+      getLatestWeeklyReport(),
+      getRecentWeeklyReports(8),
+    ])
+      .then(([analyses, latest, recent]) => {
+        setRecentAnalyses(analyses);
+        setLatestWeeklyReport(latest);
+        setRecentWeeklyReports(recent);
+      })
       .catch(() => {})
-      .finally(() => setAnalysesLoading(false));
+      .finally(() => {
+        setAnalysesLoading(false);
+        setWeeklyLoading(false);
+      });
   }, []);
 
   async function handleAnalyze() {
@@ -181,6 +261,32 @@ export default function InsightsView() {
     }
   }
 
+  async function handleGenerateWeekly() {
+    setWeeklyGenerating(true);
+    setWeeklyError(null);
+    try {
+      const res = await fetch('/api/insights/weekly-report', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '',
+        },
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      const [latest, recent] = await Promise.all([
+        getLatestWeeklyReport(),
+        getRecentWeeklyReports(8),
+      ]);
+      setLatestWeeklyReport(latest);
+      setRecentWeeklyReports(recent);
+    } catch (err) {
+      setWeeklyError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setWeeklyGenerating(false);
+    }
+  }
+
   return (
     <div className="p-5 space-y-6 max-w-4xl">
       {/* Header */}
@@ -190,6 +296,96 @@ export default function InsightsView() {
           AI-powered analysis of your YouTube Shorts — top clips, underperformers, traffic sources, audience insights, and actionable recommendations.
         </p>
       </div>
+
+      {/* Weekly Report */}
+      {weeklyLoading ? (
+        <div className="flex items-center gap-2 py-4 text-[12px] text-[var(--text-3)]">
+          <Spinner />
+          <span>Loading weekly report…</span>
+        </div>
+      ) : latestWeeklyReport ? (
+        <>
+          <div
+            className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-6 py-5"
+            style={{ borderLeft: '3px solid #4AA3DF' }}
+          >
+            <div className="flex items-start justify-between gap-4 flex-wrap mb-4">
+              <div>
+                <p className="text-[13px] font-semibold text-[var(--text-1)]">Weekly Report</p>
+                <p className="text-[11px] text-[var(--text-3)] mt-0.5">
+                  Week of {latestWeeklyReport.week_start} to {latestWeeklyReport.week_end}
+                </p>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <span className="text-[11px] text-[var(--text-3)]">
+                  Generated {relativeTime(latestWeeklyReport.created_at)}
+                  {latestWeeklyReport.triggered_by ? ` via ${latestWeeklyReport.triggered_by}` : ''}
+                </span>
+                <button
+                  onClick={handleGenerateWeekly}
+                  disabled={weeklyGenerating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  style={{ background: 'rgba(74,163,223,0.15)', color: '#4AA3DF', border: '1px solid rgba(74,163,223,0.3)' }}
+                >
+                  {weeklyGenerating && <Spinner color="#4AA3DF" />}
+                  {weeklyGenerating ? 'Generating…' : 'Generate new'}
+                </button>
+              </div>
+            </div>
+            <MarkdownContent content={latestWeeklyReport.report_markdown} />
+            {weeklyError && (
+              <div
+                className="mt-4 px-4 py-3 rounded-xl text-[12px]"
+                style={{ background: 'rgba(255,68,68,0.08)', color: '#FF6B6B', border: '1px solid rgba(255,68,68,0.2)' }}
+              >
+                {weeklyError}
+              </div>
+            )}
+          </div>
+
+          {recentWeeklyReports.length > 1 && (
+            <div>
+              <h2 className="text-[13px] font-semibold text-[var(--text-1)] mb-3">Previous Weekly Reports</h2>
+              <div className="space-y-2">
+                {recentWeeklyReports.slice(1).map(r => (
+                  <WeeklyReportCard key={r.id} report={r} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div
+          className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-6 py-5"
+          style={{ borderLeft: '3px solid #4AA3DF' }}
+        >
+          <div className="flex items-start justify-between gap-4 flex-wrap">
+            <div>
+              <p className="text-[13px] font-semibold text-[var(--text-1)] mb-1">Weekly Report</p>
+              <p className="text-[12px] text-[var(--text-3)]">
+                No weekly report yet. The first one will generate Monday morning, or click Generate to create one now.
+              </p>
+            </div>
+            <button
+              onClick={handleGenerateWeekly}
+              disabled={weeklyGenerating}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold transition-all shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+              style={{ background: 'rgba(74,163,223,0.15)', color: '#4AA3DF', border: '1px solid rgba(74,163,223,0.3)' }}
+            >
+              {weeklyGenerating && <Spinner color="#4AA3DF" />}
+              {weeklyGenerating ? 'Generating…' : 'Generate'}
+            </button>
+          </div>
+          {weeklyError && (
+            <div
+              className="mt-4 px-4 py-3 rounded-xl text-[12px]"
+              style={{ background: 'rgba(255,68,68,0.08)', color: '#FF6B6B', border: '1px solid rgba(255,68,68,0.2)' }}
+            >
+              {weeklyError}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Trigger card */}
       <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-6">

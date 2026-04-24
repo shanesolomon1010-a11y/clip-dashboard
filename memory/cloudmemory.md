@@ -1373,3 +1373,538 @@ Changed files:
   - next.config.mjs
   - src/components/views/CompressView.tsx
 
+
+## 2026-04-11 13:18:06 — 3fe34e9
+**Revert Compress tab and COEP header change**
+
+Changed files:
+  - debug-youtube-raw.js
+  - memory/cloudmemory.md
+  - next.config.mjs
+  - src/app/page.tsx
+  - src/components/Sidebar.tsx
+  - src/components/views/CompressView.tsx
+  - verify-youtube-analytics.js
+
+
+## 2026-04-11 13:27:48 — e6af227
+**Add 7-Day Watch Time metric card to Dashboard and Analytics views**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-04-11 13:35:24 — b0e3114
+**Add watch_time_hours as default metric card in AnalyticsView; revert dashboard change**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-04-11 21:29:55 — b80dda4
+**docs: add YouTube Studio Playwright sync design spec**
+
+Changed files:
+  - docs/superpowers/specs/2026-04-11-youtube-studio-sync-design.md
+
+
+## 2026-04-11 21:42:05 — 4653bdc
+**docs: add YouTube Studio sync implementation plan**
+
+Changed files:
+  - docs/superpowers/plans/2026-04-11-youtube-studio-sync.md
+
+
+## 2026-04-11 21:47:44 — 5c15410
+**chore: add yt-studio-sync deps, migration, logs dir**
+
+Changed files:
+  - .gitignore
+  - logs/.gitkeep
+  - package-lock.json
+  - package.json
+  - supabase/migrations/20260411_posts_youtube_upsert_constraint.sql
+
+
+## 2026-04-11 21:49:26 — caeb4dc
+**fix: pin playwright-core to 1.58.2 to match @playwright/test**
+
+Changed files:
+  - package-lock.json
+  - package.json
+
+
+## 2026-04-11 21:50:59 — d781300
+**feat: add yt-studio-sync script skeleton with dry-run**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:03:10 — c61082f
+**fix: handle undefined in parseTimeToSeconds, use proper CSV cell parser**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:04:33 — 6927ae6
+**test: add unit tests for yt-studio-sync utility functions**
+
+Changed files:
+  - scripts/youtube-studio-sync.test.ts
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:07:16 — b838898
+**feat: implement processVideo browser automation flow**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:09:09 — 9b6ae35
+**fix: log actual metric click count, warn if Advanced mode not confirmed**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:10:30 — 18b710c
+**feat: implement main() with Chrome launch, video loop, and batch upsert**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:12:29 — 357a20b
+**feat: add shell wrapper, launchd plist, and README**
+
+Changed files:
+  - scripts/README.md
+  - scripts/com.clipstudio.youtubesync.plist
+  - scripts/youtube-studio-sync.sh
+
+
+## 2026-04-11 23:27:53 — a7682ce
+**fix: resolve .env.local from process.cwd() for reliable dotenv loading**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:39:29 — 705ab77
+**fix: switch Chrome launch to CDP remote debugging to bypass profile restriction**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:41:39 — 2ab4bae
+**fix: copy Default profile to temp dir and use launchPersistentContext with channel:chrome**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:45:57 — 3308c35
+**fix: revert to CDP approach with port check, 30s timeout, and poll logging**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:51:15 — 66292d2
+**fix: switch to dedicated automation profile with first-run login detection**
+
+Changed files:
+  - .gitignore
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-11 23:55:51 — e466ba7
+**fix: suppress automation flags so Google allows sign-in**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 00:00:25 — 67dbd34
+**fix: two-step navigation for editor accounts + error page detection + screenshots**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 00:04:31 — d18fdd0
+**fix: use channel-scoped analytics URL for editor accounts**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 17:28:49 — 9be804c
+**fix: wipe automation profile on each run, suppress crash restore dialog**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 17:38:33 — b1b7d8a
+**fix: only reset profile on --reset flag, keep session across normal runs**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 17:49:50 — 7c9f435
+**fix: remove --no-sandbox on Mac, add 60s login window before Enter prompt**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 17:58:01 — e4cba1d
+**debug: audit page buttons + expand export selectors + wait for content**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:02:06 — 50064a9
+**fix: drop /explore URL, click Advanced mode button then find export**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:20:08 — 5e0264f
+**fix: use aria-label='Export current view', 60s download timeout**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:34:34 — 416e8d8
+**refactor: replace per-video loop with single channel-level export**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:37:59 — d00dd47
+**fix: click CSV option from export dropdown instead of waiting for direct download**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:44:27 — 5b1d5d0
+**fix: use text= selector for CSV dropdown option**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:46:54 — 14b872b
+**fix: shadow DOM traversal to click CSV option + log page text for diagnosis**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:49:05 — cb00c9c
+**fix: use getByText to click CSV option instead of page.evaluate**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:51:10 — ae0b660
+**fix: use Content column for video lookup, log first 3 CSV rows for diagnosis**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 18:55:23 — 9b06811
+**fix: deduplicate rows before upsert to avoid ON CONFLICT batch error**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 19:03:21 — d82ec74
+**fix: use Date column for stat_date, log unmatched video IDs**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 19:05:28 — 04fa652
+**debug: log matched IDs, CSV-only IDs, and VIDEO_MAP entries absent from CSV**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 19:22:28 — 91aa4f8
+**fix: replace Set spread with Array.from to fix TS2802 build error**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-12 19:25:28 — f5a01bc
+**feat: per-video fallback export for videos missing from channel export**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 14:27:03 — 0674773
+**Add diagnostic logging to YouTube sync pipeline**
+
+Changed files:
+  - src/lib/db.ts
+  - src/lib/youtube.ts
+
+
+## 2026-04-16 14:40:21 — b8bc401
+**Fix YouTube Analytics field mapping and add impressions metrics**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+  - src/lib/youtube.ts
+
+
+## 2026-04-16 14:47:14 — a1ca732
+**Remove unsupported impressions/cardImpressionRate metrics from YouTube sync**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+  - src/lib/youtube.ts
+
+
+## 2026-04-16 15:09:45 — 06de2af
+**Fix Impression CTR, Unique Viewers, and Watch Time label display**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-04-16 15:18:55 — 18f0d17
+**Fix time-edit save: add missing UPDATE RLS policy for scheduled_posts**
+
+Changed files:
+  - supabase/migrations/20260416_scheduled_posts_update_policy.sql
+
+
+## 2026-04-16 15:31:58 — 5fe82ce
+**Fix per-video fallback export: use explore URL with dimension=DAY and all metrics**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 15:33:27 — f6dc8ef
+**Warn on unmapped video IDs in channel export, showing total views**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 15:39:36 — f21efac
+**Fix Map iteration TS error: wrap unmatchedViews in Array.from()**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 15:42:09 — d725e05
+**Fix per-video export: restore basic URL + Advanced mode + export dropdown**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 15:51:38 — 1e98e28
+**fix(youtube-studio-sync): use explore URL for per-video export to get per-day data**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 16:07:01 — 358b2b1
+**fix(youtube-studio-sync): revert per-video export to basic URL + Advanced mode**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 22:57:12 — fcd39e6
+**Fix YouTube Studio sync: add VIDEO_MAP entry and parse aggregate metrics**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 23:14:11 — db34c9e
+**Replace sentinel row approach with merge-into-latest-row for aggregate metrics**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 23:21:59 — 9938676
+**Fix data loss: strip null values before upsert to preserve existing DB columns**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-16 23:31:40 — ad7fe80
+**Expand AGGREGATE_MERGE_COLS to include all Table data.csv metrics**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-21 18:58:27 — 6505d8d
+**fix(api): return HTTP 500 on youtube-sync errors instead of 200**
+
+Changed files:
+  - src/app/api/youtube-sync/route.ts
+
+
+## 2026-04-21 19:21:50 — 06b6039
+**feat: shift cron to 9 AM Central and add MBM016-CLIP-013 to VIDEO_MAP**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+  - vercel.json
+
+
+## 2026-04-21 22:28:08 — 4f0eca2
+**feat: add 10 new VIDEO_MAP entries for MBM016/MBM017 clips**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+  - src/lib/youtube-sync.ts
+
+
+## 2026-04-23 22:50:48 — fa30b23
+**feat: add YouTube Data API integration and fix posted_at bug**
+
+Changed files:
+  - src/app/api/youtube-sync/route.ts
+  - src/lib/youtube-sync.ts
+  - src/lib/youtube.ts
+  - vercel.json
+
+
+## 2026-04-23 23:07:30 — 91abaff
+**fix(studio-sync): populate content_id on every upserted row**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-23 23:38:42 — 6c57687
+**fix(analytics): fix metric aggregations and remove dead cards**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-04-23 23:54:06 — 27cc0f8
+**fix(analytics): fix Duration card formatting and chart type**
+
+Changed files:
+  - src/components/views/AnalyticsView.tsx
+
+
+## 2026-04-24 00:01:00 — ea52225
+**feat(breakdown-sync): add per-dimension YouTube Analytics breakdown table and sync**
+
+Changed files:
+  - src/app/api/cron/youtube-sync/route.ts
+  - src/app/api/youtube-sync/route.ts
+  - src/lib/db.ts
+  - src/lib/youtube-sync.ts
+  - src/lib/youtube.ts
+  - supabase/migrations/20260424_post_breakdowns.sql
+
+
+## 2026-04-24 00:06:06 — 4790681
+**temp: add diagnose-dimensions API route for breakdown investigation**
+
+Changed files:
+  - src/app/api/diagnose-dimensions/route.ts
+
+
+## 2026-04-24 00:12:31 — 4cf3e52
+**fix(breakdown-sync): fix 4 failing dimensions based on API diagnosis**
+
+Changed files:
+  - src/app/api/diagnose-dimensions/route.ts
+  - src/lib/youtube-sync.ts
+  - src/lib/youtube.ts
+
+
+## 2026-04-24 00:16:47 — 1f6b0f2
+**docs(breakdown-sync): note ageGroupGender privacy floor expectation**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+
+
+## 2026-04-24 00:28:05 — 2a1ec36
+**feat(analytics): add Breakdowns section, Clip Performance table, fix Unique Viewers**
+
+Changed files:
+  - src/components/charts/BreakdownCharts.tsx
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/lib/breakdowns-db.ts
+
+
+## 2026-04-24 00:32:02 — 26f3409
+**fix(lint): remove unused _props params from CountriesChart and PlaybackLocationChart**
+
+Changed files:
+  - src/components/charts/BreakdownCharts.tsx
+
+
+## 2026-04-24 00:41:53 — da12880
+**fix(db): merge agent fields in getLatestPostsPerClip, fix watch_time sibling gap**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-04-24 00:51:27 — 129cf59
+**feat: top clips UV card, demographics notice, and ageGroupGender alert**
+
+Changed files:
+  - src/components/DemographicsNotice.tsx
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/lib/youtube-sync.ts
+
+
+## 2026-04-24 01:07:52 — 9f0386a
+**feat(insights): add Performance Analyst tab with Claude-powered analysis**
+
+Changed files:
+  - package-lock.json
+  - package.json
+  - src/app/api/insights/analyze/route.ts
+  - src/components/views/InsightsView.tsx
+  - src/lib/insights-db.ts
+  - supabase/migrations/20260424_performance_analyses.sql
+

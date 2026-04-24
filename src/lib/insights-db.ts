@@ -1,5 +1,99 @@
 import { supabase } from './supabase';
 
+// ── Weekly reports ────────────────────────────────────────────────────────────
+
+export interface WeeklyReport {
+  id: number;
+  platform: string;
+  week_start: string;
+  week_end: string;
+  report_markdown: string;
+  input_summary: Record<string, unknown> | null;
+  model_used: string | null;
+  tokens_used: number | null;
+  triggered_by: string | null;
+  created_at: string;
+}
+
+export async function saveWeeklyReport(
+  row: Omit<WeeklyReport, 'id' | 'created_at'>,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('weekly_reports')
+    .insert(row)
+    .select('id')
+    .single();
+  if (error) throw error;
+  return (data as { id: number }).id;
+}
+
+export async function getLatestWeeklyReport(): Promise<WeeklyReport | null> {
+  const { data, error } = await supabase
+    .from('weekly_reports')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as WeeklyReport | null;
+}
+
+export async function getRecentWeeklyReports(limit = 8): Promise<WeeklyReport[]> {
+  const { data, error } = await supabase
+    .from('weekly_reports')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as WeeklyReport[];
+}
+
+export async function gatherWeeklyData(platform = 'youtube') {
+  const now   = Date.now();
+  const today = new Date(now).toISOString().split('T')[0];
+  const day7  = new Date(now -  7 * 86400000).toISOString().split('T')[0];
+  const day8  = new Date(now -  8 * 86400000).toISOString().split('T')[0];
+  const day14 = new Date(now - 14 * 86400000).toISOString().split('T')[0];
+
+  const [
+    curPostsRes, curBdRes, curSchedRes,
+    prevPostsRes, prevBdRes, prevSchedRes,
+    clipDetailsRes,
+  ] = await Promise.all([
+    supabase.from('posts').select('*').eq('platform', platform).gte('stat_date', day7).lte('stat_date', today),
+    supabase.from('post_breakdowns').select('dimension_type, dimension_value, views, watch_time_minutes, stat_date').eq('platform', platform).gte('stat_date', day7).lte('stat_date', today),
+    supabase.from('scheduled_posts').select('clip_code, platform, scheduled_date, post_time, status').gte('scheduled_date', day7).lte('scheduled_date', today),
+    supabase.from('posts').select('*').eq('platform', platform).gte('stat_date', day14).lte('stat_date', day8),
+    supabase.from('post_breakdowns').select('dimension_type, dimension_value, views, watch_time_minutes, stat_date').eq('platform', platform).gte('stat_date', day14).lte('stat_date', day8),
+    supabase.from('scheduled_posts').select('clip_code, platform, scheduled_date, post_time, status').gte('scheduled_date', day14).lte('scheduled_date', day8),
+    supabase.from('clip_details').select('clip_code, clip_details_code, title, caption_youtube_title'),
+  ]);
+
+  if (curPostsRes.error)  throw curPostsRes.error;
+  if (curBdRes.error)     throw curBdRes.error;
+  if (curSchedRes.error)  throw curSchedRes.error;
+  if (prevPostsRes.error) throw prevPostsRes.error;
+  if (prevBdRes.error)    throw prevBdRes.error;
+  if (prevSchedRes.error) throw prevSchedRes.error;
+  if (clipDetailsRes.error) throw clipDetailsRes.error;
+
+  return {
+    currentWeek: {
+      start: day7, end: today,
+      posts:          curPostsRes.data  ?? [],
+      breakdowns:     curBdRes.data     ?? [],
+      scheduledPosts: curSchedRes.data  ?? [],
+    },
+    previousWeek: {
+      start: day14, end: day8,
+      posts:          prevPostsRes.data ?? [],
+      breakdowns:     prevBdRes.data    ?? [],
+      scheduledPosts: prevSchedRes.data ?? [],
+    },
+    clipDetails: clipDetailsRes.data ?? [],
+  };
+}
+
 export interface PerformanceAnalysis {
   id: number;
   platform: string;
