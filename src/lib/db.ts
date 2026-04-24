@@ -393,6 +393,40 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
   if (error) throw error;
 }
 
+export interface BreakdownUpsertRow {
+  clip_details_code: string;
+  clip_code: string | null;
+  content_id: string;
+  platform: string;
+  stat_date: string;
+  dimension_type: string;
+  dimension_value: string;
+  views: number;
+  watch_time_minutes: number;
+  avg_view_duration_seconds: number;
+  updated_at: string;
+}
+
+export async function upsertBreakdowns(rows: BreakdownUpsertRow[]): Promise<void> {
+  const seen = new Map<string, BreakdownUpsertRow>();
+  for (const row of rows) {
+    const key = `${row.content_id}|${row.platform}|${row.stat_date}|${row.dimension_type}|${row.dimension_value}`;
+    seen.set(key, row);
+  }
+  const deduped = Array.from(seen.values());
+
+  const CHUNK = 500;
+  for (let i = 0; i < deduped.length; i += CHUNK) {
+    const { error } = await supabase
+      .from('post_breakdowns')
+      .upsert(deduped.slice(i, i + CHUNK), {
+        onConflict: 'content_id,platform,stat_date,dimension_type,dimension_value',
+        ignoreDuplicates: false,
+      });
+    if (error) throw error;
+  }
+}
+
 export async function updatePostContentType(
   platform: string,
   title: string,

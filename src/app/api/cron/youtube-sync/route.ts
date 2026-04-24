@@ -12,8 +12,8 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   try {
-    const rowsProcessed = await runYouTubeSync();
-    return NextResponse.json({ rowsProcessed });
+    const { rowsProcessed, breakdownsProcessed } = await runYouTubeSync();
+    return NextResponse.json({ rowsProcessed, breakdownsProcessed });
   } catch (err) {
     console.error('cron youtube-sync error:', err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

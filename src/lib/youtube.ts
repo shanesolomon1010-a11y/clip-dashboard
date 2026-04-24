@@ -167,3 +167,50 @@ export async function fetchVideoMetadata(
 
   return map;
 }
+
+export interface BreakdownRow {
+  dimensionValue: string;
+  date: string;
+  views: number;
+  watchTimeMinutes: number;
+  avgViewDurationSeconds: number;
+}
+
+export async function fetchBreakdownForVideo(
+  videoId: string,
+  dimension: string,
+  startDate: string,
+  endDate: string,
+  accessToken: string
+): Promise<BreakdownRow[]> {
+  const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
+  url.searchParams.set('ids', 'channel==MINE');
+  url.searchParams.set('startDate', startDate);
+  url.searchParams.set('endDate', endDate);
+  url.searchParams.set('dimensions', `day,${dimension}`);
+  url.searchParams.set('metrics', 'views,estimatedMinutesWatched,averageViewDuration');
+  url.searchParams.set('filters', `video==${videoId}`);
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  const data = await res.json() as AnalyticsResponse;
+  if (!res.ok) {
+    console.warn(`[breakdown] ${videoId}/${dimension}: ${data.error?.message ?? res.status} — skipping`);
+    return [];
+  }
+
+  const headers = (data.columnHeaders ?? []).map((h) => h.name);
+  const idx = (name: string) => headers.indexOf(name);
+  const dayIdx = idx('day');
+  const dimIdx = idx(dimension);
+
+  return (data.rows ?? []).map((row) => ({
+    date: row[dayIdx] as string,
+    dimensionValue: String(row[dimIdx] ?? ''),
+    views: Number(row[idx('views')]),
+    watchTimeMinutes: Number(row[idx('estimatedMinutesWatched')]),
+    avgViewDurationSeconds: Number(row[idx('averageViewDuration')]),
+  }));
+}

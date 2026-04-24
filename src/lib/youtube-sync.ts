@@ -1,5 +1,6 @@
-import { upsertPosts } from './db';
-import { getAccessToken, fetchAnalyticsForVideo, fetchVideoMetadata } from './youtube';
+import { upsertPosts, upsertBreakdowns } from './db';
+import type { BreakdownUpsertRow } from './db';
+import { getAccessToken, fetchAnalyticsForVideo, fetchVideoMetadata, fetchBreakdownForVideo } from './youtube';
 import type { VideoMetadata } from './youtube';
 import type { UnifiedPost } from '@/types';
 
@@ -36,7 +37,74 @@ const VIDEO_MAP: Record<string, string> = {
   '5SImwiVgWWA': 'MBM017-CLIP-002',
 };
 
-export async function runYouTubeSync(): Promise<number> {
+const BREAKDOWN_DIMENSIONS = [
+  'insightTrafficSourceType',
+  'deviceType',
+  'country',
+  'ageGroup',
+  'gender',
+  'playbackLocationType',
+  'subscribedStatus',
+];
+
+export async function runBreakdownSync(accessToken: string): Promise<number> {
+  const endDate = new Date().toISOString().split('T')[0];
+  const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  const allRows: BreakdownUpsertRow[] = [];
+  let apiCalls = 0;
+  const now = new Date().toISOString();
+
+  for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
+    const clipCode = clipDetailsCode.split('-CLIP-')[0];
+
+    for (const dimension of BREAKDOWN_DIMENSIONS) {
+      apiCalls++;
+      let rows;
+      try {
+        rows = await fetchBreakdownForVideo(videoId, dimension, startDate, endDate, accessToken);
+      } catch (err) {
+        console.warn(`breakdown-sync: skipping ${videoId}/${dimension}:`, err);
+        continue;
+      }
+
+      if (rows.length > 0) {
+        console.log(`breakdown-sync: ${clipDetailsCode}/${dimension}: ${rows.length} rows`);
+      }
+
+      for (const row of rows) {
+        allRows.push({
+          clip_details_code: clipDetailsCode,
+          clip_code: clipCode,
+          content_id: videoId,
+          platform: 'youtube',
+          stat_date: row.date,
+          dimension_type: dimension,
+          dimension_value: row.dimensionValue,
+          views: row.views,
+          watch_time_minutes: row.watchTimeMinutes,
+          avg_view_duration_seconds: row.avgViewDurationSeconds,
+          updated_at: now,
+        });
+      }
+    }
+  }
+
+  console.log(`breakdown-sync: ${apiCalls} API calls, ${allRows.length} rows collected`);
+
+  if (allRows.length > 0) {
+    try {
+      await upsertBreakdowns(allRows);
+    } catch (err) {
+      console.error('breakdown-sync: upsertBreakdowns failed:', err);
+      throw err;
+    }
+  }
+
+  return allRows.length;
+}
+
+export async function runYouTubeSync(): Promise<{ rowsProcessed: number; breakdownsProcessed: number }> {
   let accessToken: string;
   try {
     accessToken = await getAccessToken();
@@ -114,5 +182,14 @@ export async function runYouTubeSync(): Promise<number> {
     }
   }
 
-  return allPosts.length;
+  const rowsProcessed = allPosts.length;
+
+  let breakdownsProcessed = 0;
+  try {
+    breakdownsProcessed = await runBreakdownSync(accessToken);
+  } catch (err) {
+    console.error('youtube-sync: breakdown sync failed (non-fatal):', err);
+  }
+
+  return { rowsProcessed, breakdownsProcessed };
 }
