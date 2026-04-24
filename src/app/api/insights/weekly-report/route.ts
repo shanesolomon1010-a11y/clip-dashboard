@@ -65,7 +65,10 @@ Rules:
 - This report is read by the channel manager on Monday morning for the previous week — write it for that audience
 - Anomalies (like 100%+ retention) are data quirks, not insights — do not treat them as meaningful signal
 - Each section should be concise: this is a weekly check-in, not a deep dive
-- The One Thing must be a singular action, not a list`;
+- The One Thing must be a singular action, not a list
+- Verify direction before writing direction language. Before writing "increased", "rose", "improved", "grew" — confirm the current value is GREATER than the previous value. Before writing "decreased", "fell", "dropped", "declined" — confirm the current value is LESS than the previous value. If you state a comparison like "X improved from A to B", A must be less than B. If A is greater than B, the correct word is "declined" or "fell", not "improved" or "rose".
+- Flag data anomalies, do not treat them as insights. Retention percentages above 100%, negative counts, or other impossible values are data artifacts (typically from viewer rewatches). Call them out as anomalies if relevant, but never use them as evidence of content quality.
+- When comparing metrics week-over-week, the format is: "[metric] [direction verb] from [previous week value] to [current week value] ([absolute delta] / [percent delta])". Example: "Total views declined from 923 to 592 (-331, -35.9%)". Do not mix directions within a single comparison sentence.`;
 
 export async function POST(request: Request): Promise<NextResponse> {
   // Dual auth: cron bearer OR dashboard secret
