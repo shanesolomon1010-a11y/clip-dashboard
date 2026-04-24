@@ -5,6 +5,7 @@ import { UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { getAllPostsByDate, getTotalViewsPerClip, getLatestPostsPerClip } from '@/lib/db';
+import DemographicsNotice from '@/components/DemographicsNotice';
 import {
   TrafficSourcesChart,
   DeviceDistributionChart,
@@ -728,6 +729,9 @@ export default function AnalyticsView({ posts }: Props) {
           })}
         </div>
       </div>
+
+      {/* Demographics availability notice — YouTube only */}
+      {platform === 'youtube' && <DemographicsNotice />}
 
       {/* Metric selector */}
       <div className="relative" ref={dropRef}>

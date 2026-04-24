@@ -72,6 +72,9 @@ export async function runBreakdownSync(accessToken: string): Promise<number> {
       if (rows.length > 0) {
         console.log(`breakdown-sync: ${clipDetailsCode}/${config.name}: ${rows.length} rows`);
       }
+      if (config.name === 'ageGroupGender' && rows.length > 0) {
+        console.log(`[demographics] threshold crossed: ${rows.length} rows for ${videoId}`);
+      }
 
       for (const row of rows) {
         allRows.push({
