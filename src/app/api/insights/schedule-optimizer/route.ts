@@ -40,7 +40,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       supabase
         .from('scheduled_posts')
         .select('clip_code, platform, scheduled_date, post_time, status')
-        .eq('platform', 'youtube')
+        .eq('platform', 'yt')
         .gte('scheduled_date', cutoff),
       supabase
         .from('posts')

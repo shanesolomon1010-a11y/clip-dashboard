@@ -14,6 +14,25 @@ interface AnthropicContent { type: string; text: string; }
 interface AnthropicUsage   { input_tokens: number; output_tokens: number; }
 interface AnthropicResponse { content: AnthropicContent[]; usage: AnthropicUsage; }
 
+function describeChange(current: number, previous: number, unit = ''): {
+  current: number;
+  previous: number;
+  absolute_delta: number;
+  percent_delta: number | null;
+  direction: 'rose' | 'fell' | 'held steady';
+  arrow: '↑' | '↓' | '→';
+  formatted_sentence: string;
+} {
+  const delta = current - previous;
+  const pct = previous === 0 ? null : (delta / previous) * 100;
+  const direction = delta > 0 ? 'rose' : delta < 0 ? 'fell' : 'held steady';
+  const arrow     = delta > 0 ? '↑'    : delta < 0 ? '↓'    : '→';
+  const pctStr    = pct === null ? 'n/a' : `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+  const deltaStr  = `${delta >= 0 ? '+' : ''}${delta.toFixed(unit === 's' ? 1 : 1)}${unit}`;
+  const formatted_sentence = `${direction} from ${previous.toFixed(1)}${unit} to ${current.toFixed(1)}${unit} (${deltaStr}, ${pctStr})`;
+  return { current, previous, absolute_delta: delta, percent_delta: pct, direction, arrow, formatted_sentence };
+}
+
 function buildWeekPayload(
   week: {
     start: string; end: string;
@@ -40,7 +59,9 @@ const SYSTEM_PROMPT = `You are a performance marketing analyst producing a weekl
 Produce a structured report with exactly these 6 sections using H2 markdown headers:
 
 ## The Week in Numbers
-Compact top-line metrics for the current week vs previous week. For each: current value, delta vs last week (absolute and %), with ↑ ↓ → arrows. Include: total views, total watch time hours, avg view duration, new clips posted.
+Use the pre-computed week_comparison data. For each metric, write a single sentence using the exact formatted_sentence value provided in the data. Append the arrow character after the sentence. Do NOT recompute direction — the direction, delta, and percent are already calculated for you. Your job is only to present them readably.
+
+Example format: "Total views fell from 923.0 to 592.0 (-331.0, -35.9%) ↓"
 
 ## What Changed
 Specific shifts between the two weeks. Focus on behavioral and distributional shifts, not just metric movement. Examples of good shifts: traffic source mix shifting, device mix shifting, subscribed share changing, average view duration drifting. Cite specific numbers from both weeks.
@@ -66,9 +87,8 @@ Rules:
 - Anomalies (like 100%+ retention) are data quirks, not insights — do not treat them as meaningful signal
 - Each section should be concise: this is a weekly check-in, not a deep dive
 - The One Thing must be a singular action, not a list
-- CRITICAL: Before writing ANY comparison sentence, perform this check: (1) compute delta = current - previous. (2) If delta > 0, the only valid verbs are: rose, grew, increased, climbed, jumped. (3) If delta < 0, the only valid verbs are: fell, dropped, declined, decreased, collapsed. (4) If delta == 0, the only valid phrasing is: held steady, remained flat, unchanged. Never mix a negative delta with a positive verb like "increased" or "rose". Never mix a positive delta with a negative verb like "fell" or "dropped". This includes metric counts like "new clips posted" — going from 7 to 2 is a decrease. Apply this check mentally to every single comparison sentence before writing it.
 - Flag data anomalies, do not treat them as insights. Retention percentages above 100%, negative counts, or other impossible values are data artifacts (typically from viewer rewatches). Call them out as anomalies if relevant, but never use them as evidence of content quality.
-- When comparing metrics week-over-week, the format is: "[metric] [direction verb] from [previous week value] to [current week value] ([absolute delta] / [percent delta])". Example: "Total views declined from 923 to 592 (-331, -35.9%)". Do not mix directions within a single comparison sentence. The direction verb in the sentence must match the sign of the delta — no exceptions.`;
+- For the "Week in Numbers" section, use the pre-computed formatted_sentence values from week_comparison. For all other comparisons (in What Changed, Wins, Drags sections), follow this rule: direction verb must match the sign of the delta. Positive delta uses rose/grew/increased; negative delta uses fell/dropped/declined. No exceptions.`;
 
 export async function POST(request: Request): Promise<NextResponse> {
   // Dual auth: cron bearer OR dashboard secret
@@ -115,8 +135,32 @@ export async function POST(request: Request): Promise<NextResponse> {
       clip_titles:   clipTitles,
     };
 
+    // Pre-compute headline comparisons so Claude receives exact direction labels
+    const curCS  = payload.current_week.clips_summary;
+    const prevCS = payload.previous_week.clips_summary;
+    const durAvg = (cs: typeof curCS) => {
+      const d = cs.filter(c => c.avg_view_duration_s !== null);
+      return d.length ? d.reduce((s, c) => s + (c.avg_view_duration_s ?? 0), 0) / d.length : 0;
+    };
+    const payloadFull = {
+      ...payload,
+      week_comparison: {
+        total_views:               describeChange(
+          curCS.reduce((s, c)  => s + c.total_views, 0),
+          prevCS.reduce((s, c) => s + c.total_views, 0),
+        ),
+        total_watch_time_hours:    describeChange(
+          curCS.reduce((s, c)  => s + c.total_watch_time_hours, 0),
+          prevCS.reduce((s, c) => s + c.total_watch_time_hours, 0),
+          'h',
+        ),
+        avg_view_duration_seconds: describeChange(durAvg(curCS), durAvg(prevCS), 's'),
+        new_clips_posted:          describeChange(curCS.length, prevCS.length),
+      },
+    };
+
     // 3. Estimate token size
-    const payloadJson           = JSON.stringify(payload);
+    const payloadJson           = JSON.stringify(payloadFull);
     const estimatedInputTokens  = Math.round(payloadJson.length / 4);
     console.log(`[weekly-report] payload: ${payloadJson.length} chars, ~${estimatedInputTokens} estimated tokens, triggered_by=${triggeredBy}`);
     if (estimatedInputTokens > 150000) {
@@ -127,7 +171,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     const userPrompt = `Generate the weekly report based on the following two weeks of data:
 
 <data>
-${JSON.stringify(payload, null, 2)}
+${JSON.stringify(payloadFull, null, 2)}
 </data>
 
 Produce the 6-section weekly report as specified.`;
