@@ -94,6 +94,42 @@ export async function gatherWeeklyData(platform = 'youtube') {
   };
 }
 
+// ── Schedule recommendations ──────────────────────────────────────────────────
+
+export interface ScheduleRecommendation {
+  id: number;
+  platform: string;
+  analysis_window_days: number;
+  slot_analysis: Record<string, unknown>[];
+  recommended_schedule: { day: string; hour_bucket: string; reason: string }[];
+  narrative_markdown: string | null;
+  tokens_used: number | null;
+  created_at: string;
+}
+
+export async function saveScheduleRecommendation(
+  row: Omit<ScheduleRecommendation, 'id' | 'created_at'>,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from('schedule_recommendations')
+    .insert(row)
+    .select('id')
+    .single();
+  if (error) throw error;
+  return (data as { id: number }).id;
+}
+
+export async function getLatestScheduleRecommendation(): Promise<ScheduleRecommendation | null> {
+  const { data, error } = await supabase
+    .from('schedule_recommendations')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data as ScheduleRecommendation | null;
+}
+
 export interface PerformanceAnalysis {
   id: number;
   platform: string;

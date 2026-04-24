@@ -1908,3 +1908,23 @@ Changed files:
   - src/lib/insights-db.ts
   - supabase/migrations/20260424_performance_analyses.sql
 
+
+## 2026-04-24 01:28:11 — eecb3f0
+**feat(insights): add Weekly Report agent — cron, route, and UI**
+
+Changed files:
+  - memory/cloudmemory.md
+  - src/app/api/insights/weekly-report/route.ts
+  - src/components/views/InsightsView.tsx
+  - src/lib/insights-db.ts
+  - src/lib/insights-helpers.ts
+  - supabase/migrations/20260424_weekly_reports.sql
+  - vercel.json
+
+
+## 2026-04-24 01:37:09 — ee26c05
+**fix(insights): tighten weekly report prompt rules for direction and anomalies**
+
+Changed files:
+  - src/app/api/insights/weekly-report/route.ts
+

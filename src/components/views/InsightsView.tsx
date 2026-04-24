@@ -8,6 +8,8 @@ import {
   getLatestWeeklyReport,
   getRecentWeeklyReports,
   WeeklyReport,
+  getLatestScheduleRecommendation,
+  ScheduleRecommendation,
 } from '@/lib/insights-db';
 import { formatNum } from '@/lib/utils';
 
@@ -197,21 +199,30 @@ export default function InsightsView() {
   const [weeklyGenerating, setWeeklyGenerating]       = useState(false);
   const [weeklyError, setWeeklyError]                 = useState<string | null>(null);
 
+  const [scheduleRec, setScheduleRec]               = useState<ScheduleRecommendation | null>(null);
+  const [scheduleLoading, setScheduleLoading]       = useState(true);
+  const [scheduleGenerating, setScheduleGenerating] = useState(false);
+  const [scheduleError, setScheduleError]           = useState<string | null>(null);
+  const [slotDetailOpen, setSlotDetailOpen]         = useState(false);
+
   useEffect(() => {
     Promise.all([
       getRecentAnalyses(10),
       getLatestWeeklyReport(),
       getRecentWeeklyReports(8),
+      getLatestScheduleRecommendation(),
     ])
-      .then(([analyses, latest, recent]) => {
+      .then(([analyses, latest, recent, schedule]) => {
         setRecentAnalyses(analyses);
         setLatestWeeklyReport(latest);
         setRecentWeeklyReports(recent);
+        setScheduleRec(schedule);
       })
       .catch(() => {})
       .finally(() => {
         setAnalysesLoading(false);
         setWeeklyLoading(false);
+        setScheduleLoading(false);
       });
   }, []);
 
@@ -284,6 +295,29 @@ export default function InsightsView() {
       setWeeklyError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setWeeklyGenerating(false);
+    }
+  }
+
+  async function handleAnalyzeSchedule() {
+    setScheduleGenerating(true);
+    setScheduleError(null);
+    try {
+      const res = await fetch('/api/insights/schedule-optimizer', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '',
+        },
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      const fresh = await getLatestScheduleRecommendation();
+      setScheduleRec(fresh);
+      setSlotDetailOpen(false);
+    } catch (err) {
+      setScheduleError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setScheduleGenerating(false);
     }
   }
 
@@ -386,6 +420,163 @@ export default function InsightsView() {
           )}
         </div>
       )}
+
+      {/* Schedule Optimizer */}
+      <div
+        className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl"
+        style={{ borderLeft: '3px solid #4ADE80' }}
+      >
+        <div className="flex items-start justify-between gap-4 flex-wrap px-6 py-5">
+          <div>
+            <p className="text-[13px] font-semibold text-[var(--text-1)]">Posting Schedule Optimizer</p>
+            <p className="text-[12px] text-[var(--text-3)] mt-0.5">
+              Data-driven recommendation based on historical slot performance
+            </p>
+          </div>
+          <button
+            onClick={handleAnalyzeSchedule}
+            disabled={scheduleGenerating}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold transition-all shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: 'rgba(74,222,128,0.15)', color: '#4ADE80', border: '1px solid rgba(74,222,128,0.3)' }}
+          >
+            {scheduleGenerating && <Spinner color="#4ADE80" />}
+            {scheduleGenerating ? 'Analyzing ~60 days of posts…' : 'Analyze Schedule'}
+          </button>
+        </div>
+
+        {scheduleError && (
+          <div
+            className="mx-6 mb-4 px-4 py-3 rounded-xl text-[12px]"
+            style={{ background: 'rgba(255,68,68,0.08)', color: '#FF6B6B', border: '1px solid rgba(255,68,68,0.2)' }}
+          >
+            {scheduleError}
+          </div>
+        )}
+
+        {scheduleLoading ? (
+          <div className="flex items-center gap-2 px-6 pb-5 text-[12px] text-[var(--text-3)]">
+            <Spinner />
+            <span>Loading…</span>
+          </div>
+        ) : scheduleRec ? (
+          <>
+            {/* Recommended schedule */}
+            <div className="px-6 pb-5 border-t border-[rgba(247,231,206,0.04)] pt-4">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-3)] mb-3">
+                Recommended Schedule
+              </p>
+              <div className="space-y-1">
+                {scheduleRec.recommended_schedule.map(row => {
+                  const conf =
+                    row.reason.includes('strong')   ? 'high'   :
+                    row.reason.includes('moderate') ? 'medium' :
+                    row.reason.includes('limited')  ? 'low'    : null;
+                  const dotColor =
+                    conf === 'high'   ? '#4ADE80' :
+                    conf === 'medium' ? '#FACC15' : '#6B7280';
+                  return (
+                    <div
+                      key={row.day}
+                      className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                      style={{ background: 'rgba(247,231,206,0.03)' }}
+                    >
+                      <span className="text-[12px] font-semibold text-[var(--text-1)] w-9 shrink-0">{row.day}</span>
+                      {row.hour_bucket !== '—' ? (
+                        <>
+                          <span
+                            className="text-[11px] font-medium px-2 py-0.5 rounded shrink-0"
+                            style={{ background: 'rgba(74,222,128,0.1)', color: '#4ADE80' }}
+                          >
+                            {row.hour_bucket}
+                          </span>
+                          <span className="text-[11px] text-[var(--text-3)] flex-1 min-w-0">{row.reason}</span>
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-[var(--text-3)] italic flex-1">{row.reason}</span>
+                      )}
+                      {conf && (
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ background: dotColor }} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Collapsible detailed slot table */}
+            <div className="border-t border-[rgba(247,231,206,0.04)]">
+              <button
+                onClick={() => setSlotDetailOpen(v => !v)}
+                className="w-full flex items-center justify-between px-6 py-3 hover:bg-[rgba(247,231,206,0.02)] transition-colors text-left"
+              >
+                <span className="text-[11px] text-[var(--text-3)]">
+                  Detailed slot performance ({scheduleRec.slot_analysis.length} slots)
+                </span>
+                <svg
+                  className="w-4 h-4 text-[var(--text-3)] transition-transform shrink-0"
+                  style={{ transform: slotDetailOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                  fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {slotDetailOpen && (
+                <div className="px-6 pb-5 overflow-x-auto">
+                  <div className="min-w-[480px] space-y-1">
+                    <div className="grid grid-cols-[64px_90px_48px_80px_80px_64px] gap-2 px-2 pb-1">
+                      {['Day', 'Slot', 'Posts', 'Avg Views', 'Med Views', 'Confidence'].map(h => (
+                        <span key={h} className="text-[10px] text-[var(--text-3)] uppercase tracking-wider">{h}</span>
+                      ))}
+                    </div>
+                    {(scheduleRec.slot_analysis as Array<{
+                      day_of_week: string;
+                      hour_bucket: string;
+                      post_count: number;
+                      avg_views: number;
+                      median_views: number;
+                      confidence: string;
+                    }>).map((slot, i) => (
+                      <div
+                        key={i}
+                        className="grid grid-cols-[64px_90px_48px_80px_80px_64px] gap-2 items-center px-2 py-1.5 rounded"
+                        style={{ background: 'rgba(247,231,206,0.02)' }}
+                      >
+                        <span className="text-[11px] text-[var(--text-2)]">{slot.day_of_week}</span>
+                        <span className="text-[11px] text-[var(--text-2)]">{slot.hour_bucket}</span>
+                        <span className="text-[11px] text-[var(--text-2)]">{slot.post_count}</span>
+                        <span className="text-[11px] font-medium text-[var(--text-1)]">{slot.avg_views.toLocaleString()}</span>
+                        <span className="text-[11px] text-[var(--text-2)]">{slot.median_views.toLocaleString()}</span>
+                        <span
+                          className="text-[11px] font-medium"
+                          style={{
+                            color: slot.confidence === 'high'   ? '#4ADE80' :
+                                   slot.confidence === 'medium' ? '#FACC15' : '#6B7280',
+                          }}
+                        >
+                          {slot.confidence}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Claude narrative */}
+            {scheduleRec.narrative_markdown && (
+              <div className="px-6 pb-6 pt-4 border-t border-[rgba(247,231,206,0.04)]">
+                <MarkdownContent content={scheduleRec.narrative_markdown} />
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="px-6 pb-5">
+            <p className="text-[12px] text-[var(--text-3)]">
+              No schedule analysis yet. Click Analyze Schedule to see your optimal posting times.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Trigger card */}
       <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-6">
