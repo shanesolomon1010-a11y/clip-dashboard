@@ -78,8 +78,6 @@ export async function fetchAnalyticsForVideo(
     throw new Error(`YouTube Analytics API error for ${videoId}: ${data.error?.message ?? res.status}`);
   }
 
-  console.log(`[youtube-analytics] raw response for ${videoId}:`, JSON.stringify(data, null, 2));
-
   const headers = (data.columnHeaders ?? []).map((h) => h.name);
   const idx = (name: string) => headers.indexOf(name);
 
@@ -96,4 +94,76 @@ export async function fetchAnalyticsForVideo(
     subscribersGained:       Number(row[idx('subscribersGained')]),
     subscribersLost:         Number(row[idx('subscribersLost')]),
   }));
+}
+
+export interface VideoMetadata {
+  videoId: string;
+  title: string;
+  publishedAt: string;
+  url: string;
+  thumbnailUrl: string | null;
+  durationSeconds: number | null;
+}
+
+interface VideoMetadataResponse {
+  items?: {
+    id: string;
+    snippet: {
+      title: string;
+      publishedAt: string;
+      thumbnails: {
+        maxres?: { url: string };
+        high?: { url: string };
+      };
+    };
+    contentDetails: {
+      duration: string;
+    };
+  }[];
+  error?: { message: string };
+}
+
+function parseDurationSeconds(iso: string): number {
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (Number(m[1] ?? 0) * 3600) + (Number(m[2] ?? 0) * 60) + Number(m[3] ?? 0);
+}
+
+export async function fetchVideoMetadata(
+  videoIds: string[],
+  accessToken: string
+): Promise<Map<string, VideoMetadata>> {
+  const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+  url.searchParams.set('id', videoIds.join(','));
+  url.searchParams.set('part', 'snippet,contentDetails');
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  const data = await res.json() as VideoMetadataResponse;
+  if (!res.ok) {
+    throw new Error(`YouTube Data API error: ${data.error?.message ?? res.status}`);
+  }
+
+  const returned = new Set((data.items ?? []).map((item) => item.id));
+  const missing = videoIds.filter((id) => !returned.has(id));
+  if (missing.length > 0) {
+    console.warn(`[youtube-metadata] missing ${missing.length} video(s):`, missing.join(', '));
+  }
+
+  const map = new Map<string, VideoMetadata>();
+  for (const item of data.items ?? []) {
+    const { thumbnails } = item.snippet;
+    map.set(item.id, {
+      videoId: item.id,
+      title: item.snippet.title,
+      publishedAt: item.snippet.publishedAt,
+      url: `https://www.youtube.com/shorts/${item.id}`,
+      thumbnailUrl: thumbnails.maxres?.url ?? thumbnails.high?.url ?? null,
+      durationSeconds: parseDurationSeconds(item.contentDetails.duration),
+    });
+  }
+
+  return map;
 }

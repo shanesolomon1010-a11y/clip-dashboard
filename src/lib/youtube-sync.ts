@@ -1,5 +1,6 @@
 import { upsertPosts } from './db';
-import { getAccessToken, fetchAnalyticsForVideo } from './youtube';
+import { getAccessToken, fetchAnalyticsForVideo, fetchVideoMetadata } from './youtube';
+import type { VideoMetadata } from './youtube';
 import type { UnifiedPost } from '@/types';
 
 const VIDEO_MAP: Record<string, string> = {
@@ -47,9 +48,22 @@ export async function runYouTubeSync(): Promise<number> {
   const endDate = new Date().toISOString().split('T')[0];
   const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
+  let metadataMap: Map<string, VideoMetadata>;
+  try {
+    metadataMap = await fetchVideoMetadata(Object.keys(VIDEO_MAP), accessToken);
+  } catch (err) {
+    console.error('youtube-sync: fetchVideoMetadata failed:', err);
+    throw err;
+  }
+
   const allPosts: UnifiedPost[] = [];
 
   for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
+    const metadata = metadataMap.get(videoId);
+    if (!metadata) {
+      console.warn(`youtube-sync: no metadata for ${videoId} (${clipDetailsCode}), skipping`);
+      continue;
+    }
     const clipCode = clipDetailsCode.split('-CLIP-')[0];
 
     let rows;
@@ -68,9 +82,12 @@ export async function runYouTubeSync(): Promise<number> {
         content_id: videoId,
         platform: 'youtube',
         content_type: 'short',
-        date: row.date,
+        date: metadata.publishedAt.slice(0, 10),
         stat_date: row.date,
-        title: '',
+        title: metadata.title,
+        url: metadata.url,
+        thumbnail_url: metadata.thumbnailUrl ?? undefined,
+        duration_seconds: metadata.durationSeconds ?? undefined,
         views: row.views,
         likes: row.likes,
         dislikes: row.dislikes,

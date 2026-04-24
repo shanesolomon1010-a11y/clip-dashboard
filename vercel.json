@@ -4,5 +4,13 @@
       "path": "/api/cron/youtube-sync",
       "schedule": "0 14 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/cron/youtube-sync/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/youtube-sync/route.ts": {
+      "maxDuration": 60
+    }
+  }
 }
