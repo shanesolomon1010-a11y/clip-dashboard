@@ -1,120 +1,179 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { IconSparkles } from '@/components/Icons';
-import { useVideoModal } from '@/context/VideoModalContext';
-import type { UnifiedPost } from '@/types';
+import { useState, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
+import { getRecentAnalyses, PerformanceAnalysis } from '@/lib/insights-db';
+import { formatNum } from '@/lib/utils';
 
-const SUPABASE_STORAGE = 'https://bfpjexlmoqoacoglqugl.supabase.co/storage/v1/object/public/Clips';
-
-interface ClipRef {
-  clip_details_code: string;
-  reason: string;
+function Spinner() {
+  return (
+    <div
+      className="w-4 h-4 border-2 rounded-full animate-spin shrink-0"
+      style={{ borderColor: 'rgba(255,68,68,0.3)', borderTopColor: '#FF4444' }}
+    />
+  );
 }
 
-interface BatchInsightItem {
-  batch: string;
-  total_views: number;
-  avg_retention: number | null;
-  top_clip: string;
-  clip_count: number;
-  assessment: string;
+function MarkdownContent({ content }: { content: string }) {
+  return (
+    <ReactMarkdown
+      components={{
+        h2: ({ children }) => (
+          <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--text-3)] mt-6 mb-2 pb-1.5 border-b border-[rgba(247,231,206,0.06)]">
+            {children}
+          </h2>
+        ),
+        h3: ({ children }) => (
+          <h3 className="text-[13px] font-semibold text-[var(--text-1)] mt-3 mb-1">{children}</h3>
+        ),
+        p: ({ children }) => (
+          <p className="text-[13px] text-[var(--text-2)] leading-relaxed mb-3">{children}</p>
+        ),
+        ul: ({ children }) => (
+          <ul className="mb-3 pl-1 space-y-1">{children}</ul>
+        ),
+        ol: ({ children }) => (
+          <ol className="mb-3 pl-4 space-y-1 list-decimal">{children}</ol>
+        ),
+        li: ({ children }) => (
+          <li className="text-[13px] text-[var(--text-2)] leading-relaxed flex gap-2">
+            <span className="text-[var(--text-3)] shrink-0 mt-0.5">–</span>
+            <span>{children}</span>
+          </li>
+        ),
+        strong: ({ children }) => (
+          <strong className="font-semibold text-[var(--text-1)]">{children}</strong>
+        ),
+        code: ({ children }) => (
+          <code
+            className="text-[11px] px-1.5 py-0.5 rounded"
+            style={{ background: 'rgba(247,231,206,0.06)', color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}
+          >
+            {children}
+          </code>
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  );
 }
 
-interface InsightsReport {
-  summary: string;
-  topPerformers: ClipRef[];
-  underperformers: ClipRef[];
-  retentionInsights: string;
-  timingInsights: string;
-  hookAnalysis: string;
-  recommendations: string[];
-  batchInsights?: BatchInsightItem[];
-}
+function AnalysisCard({
+  analysis,
+  defaultOpen = false,
+}: {
+  analysis: PerformanceAnalysis;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const date = new Date(analysis.created_at).toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
 
-const STORAGE_KEY = 'clip_studio_insights_report_v1';
-
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
-      <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)]">
-        <h3 className="text-[13px] font-semibold text-[var(--text-1)]">{title}</h3>
-      </div>
-      <div className="px-5 py-4">{children}</div>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-5 py-4 hover:bg-[rgba(247,231,206,0.02)] transition-colors text-left gap-4"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="text-[13px] font-semibold text-[var(--text-1)] shrink-0">{date}</span>
+          {analysis.tokens_used != null && (
+            <span
+              className="text-[10px] text-[var(--text-3)] px-2 py-0.5 rounded-full shrink-0"
+              style={{ background: 'rgba(247,231,206,0.05)' }}
+            >
+              {formatNum(analysis.tokens_used)} tokens
+            </span>
+          )}
+          {analysis.input_summary && (
+            <span className="text-[10px] text-[var(--text-3)] truncate">
+              {(analysis.input_summary as { total_clips?: number; total_views?: number }).total_clips} clips ·{' '}
+              {formatNum((analysis.input_summary as { total_clips?: number; total_views?: number }).total_views ?? 0)} views
+            </span>
+          )}
+        </div>
+        <svg
+          className="w-4 h-4 text-[var(--text-3)] transition-transform shrink-0"
+          style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)' }}
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+          strokeWidth={2}
+        >
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {open && (
+        <div className="px-5 pb-6 border-t border-[rgba(247,231,206,0.04)]">
+          <div className="mt-4">
+            <MarkdownContent content={analysis.analysis_markdown} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-function ClipCode({ code, onOpen }: { code: string; onOpen: (code: string) => void }) {
-  return (
-    <button
-      onClick={() => onOpen(code)}
-      className="text-[12px] font-semibold text-[var(--gold)] font-mono hover:opacity-70 transition-opacity text-left"
-    >
-      {code}
-    </button>
-  );
-}
-
-function ClipList({ items, onOpen }: { items: ClipRef[]; onOpen: (code: string) => void }) {
-  return (
-    <ul className="space-y-3">
-      {items.map((item) => (
-        <li key={item.clip_details_code} className="flex flex-col gap-0.5">
-          <ClipCode code={item.clip_details_code} onOpen={onOpen} />
-          <span className="text-[12px] text-[var(--text-2)] leading-relaxed">{item.reason}</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 export default function InsightsView() {
-  const { open: openModal } = useVideoModal();
-  const [report, setReport] = useState<InsightsReport | null>(null);
-  const [generatedAt, setGeneratedAt] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  function openClip(code: string) {
-    const minimalPost: UnifiedPost = {
-      id: code,
-      platform: 'youtube',
-      title: code,
-      date: new Date().toISOString().slice(0, 10),
-      views: 0, likes: 0, comments: 0, shares: 0, saves: 0, engagementRate: 0,
-      url: `${SUPABASE_STORAGE}/${code}.mp4`,
-    };
-    openModal(minimalPost, code);
-  }
+  const [loading, setLoading]               = useState(false);
+  const [currentMarkdown, setCurrentMarkdown] = useState<string | null>(null);
+  const [recentAnalyses, setRecentAnalyses]   = useState<PerformanceAnalysis[]>([]);
+  const [analysesLoading, setAnalysesLoading] = useState(true);
+  const [error, setError]                     = useState<string | null>(null);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as { report: InsightsReport; generatedAt: string };
-        setReport(parsed.report);
-        setGeneratedAt(parsed.generatedAt);
-      }
-    } catch {
-      // ignore corrupt localStorage
-    }
+    getRecentAnalyses(10)
+      .then(setRecentAnalyses)
+      .catch(() => {})
+      .finally(() => setAnalysesLoading(false));
   }, []);
 
-  async function handleGenerate() {
+  async function handleAnalyze() {
     setLoading(true);
     setError(null);
+    setCurrentMarkdown(null);
+
     try {
-      const res = await fetch('/api/insights', {
+      const res = await fetch('/api/insights/analyze', {
         method: 'POST',
-        headers: { 'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '',
+        },
       });
-      const data = await res.json() as InsightsReport & { error?: string };
-      if (data.error) throw new Error(data.error);
-      const ts = new Date().toISOString();
-      setReport(data);
-      setGeneratedAt(ts);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ report: data, generatedAt: ts }));
+
+      const data = await res.json() as {
+        markdown?: string;
+        error?: string;
+        analysisId?: number;
+        tokensUsed?: number;
+      };
+
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
+      setCurrentMarkdown(data.markdown ?? '');
+
+      if (data.analysisId) {
+        const fresh: PerformanceAnalysis = {
+          id:                data.analysisId,
+          platform:          'youtube',
+          date_range_start:  '',
+          date_range_end:    '',
+          analysis_markdown: data.markdown ?? '',
+          input_summary:     null,
+          model_used:        'claude-sonnet-4-20250514',
+          tokens_used:       data.tokensUsed ?? null,
+          created_at:        new Date().toISOString(),
+        };
+        setRecentAnalyses(prev => [fresh, ...prev]);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -122,156 +181,91 @@ export default function InsightsView() {
     }
   }
 
-  const formattedDate = generatedAt
-    ? new Date(generatedAt).toLocaleString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        hour: 'numeric',
-        minute: '2-digit',
-      })
-    : null;
-
   return (
-    <div className="p-8 max-w-4xl mx-auto space-y-6">
+    <div className="p-5 space-y-6 max-w-4xl">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-[22px] font-bold text-[var(--text-1)] leading-tight">Insights</h1>
-          <p className="text-[13px] text-[var(--text-3)] mt-1">
-            AI-powered video analysis and channel performance report
-          </p>
-          {formattedDate && !loading && (
-            <p className="text-[11px] text-[var(--text-3)] mt-1">
-              Last generated {formattedDate}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={handleGenerate}
-          disabled={loading}
-          className="shrink-0 flex items-center gap-2 px-4 py-2 text-[13px] font-semibold text-[var(--gold)] border border-[var(--gold-border)] bg-[var(--gold-dim)] hover:bg-[rgba(212,146,42,0.12)] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <IconSparkles className="w-4 h-4" />
-          {loading ? 'Analyzing…' : report ? 'Regenerate Report' : 'Generate Insights Report'}
-        </button>
+      <div>
+        <h1 className="text-[22px] font-bold text-[var(--text-1)]">Performance Analyst</h1>
+        <p className="text-[13px] text-[var(--text-3)] mt-1">
+          AI-powered analysis of your YouTube Shorts — top clips, underperformers, traffic sources, audience insights, and actionable recommendations.
+        </p>
       </div>
 
-      {/* Loading state */}
-      {loading && (
-        <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-8 flex flex-col items-center gap-4">
-          <div className="w-7 h-7 border-2 border-[var(--gold)] border-t-transparent rounded-full animate-spin" />
-          <p className="text-[13px] text-[var(--text-2)]">
-            Analyzing videos and data… this may take 1–2 minutes
-          </p>
-        </div>
-      )}
-
-      {/* Error state */}
-      {error && !loading && (
-        <div className="bg-[rgba(239,68,68,0.06)] border border-[rgba(239,68,68,0.15)] rounded-2xl px-5 py-4">
-          <p className="text-[13px] text-red-400">{error}</p>
-        </div>
-      )}
-
-      {/* Report */}
-      {report && !loading && (
-        <div className="space-y-4">
-          <Card title="Overview">
-            <p className="text-[13px] text-[var(--text-2)] leading-relaxed">{report.summary}</p>
-          </Card>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Card title="Top Performers">
-              <ClipList items={report.topPerformers} onOpen={openClip} />
-            </Card>
-            <Card title="Underperformers">
-              <ClipList items={report.underperformers} onOpen={openClip} />
-            </Card>
+      {/* Trigger card */}
+      <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div className="min-w-0">
+            <p className="text-[13px] font-semibold text-[var(--text-1)] mb-1">Run New Analysis</p>
+            <p className="text-[12px] text-[var(--text-3)]">
+              Pulls the last 30 days of posts, breakdowns, and posting schedule. Usually takes 20–30 seconds.
+            </p>
           </div>
+          <button
+            onClick={handleAnalyze}
+            disabled={loading}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[13px] font-semibold transition-all shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
+            style={{ background: '#FF4444', color: '#fff' }}
+          >
+            {loading && <Spinner />}
+            {loading ? 'Analyzing…' : 'Analyze My Performance'}
+          </button>
+        </div>
 
-          <Card title="Retention Insights">
-            <p className="text-[13px] text-[var(--text-2)] leading-relaxed">{report.retentionInsights}</p>
-          </Card>
-
-          <Card title="Timing Insights">
-            <p className="text-[13px] text-[var(--text-2)] leading-relaxed">{report.timingInsights}</p>
-          </Card>
-
-          <Card title="Hook Analysis">
-            <p className="text-[13px] text-[var(--text-2)] leading-relaxed">{report.hookAnalysis}</p>
-          </Card>
-
-          <Card title="Recommendations">
-            <ol className="space-y-2 list-none">
-              {report.recommendations.map((rec, i) => (
-                <li key={i} className="flex gap-3 items-start">
-                  <span className="shrink-0 w-5 h-5 rounded-full bg-[var(--gold-dim)] border border-[var(--gold-border)] text-[10px] font-bold text-[var(--gold)] flex items-center justify-center mt-px">
-                    {i + 1}
-                  </span>
-                  <span className="text-[13px] text-[var(--text-2)] leading-relaxed">{rec}</span>
-                </li>
-              ))}
-            </ol>
-          </Card>
-
-          {report.batchInsights && report.batchInsights.length > 0 && (
-            <div>
-              <h2 className="text-[15px] font-semibold text-[var(--text-1)] mb-3">Batch Breakdown</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {report.batchInsights.map((b) => (
-                  <div
-                    key={b.batch}
-                    className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden"
-                  >
-                    <div className="px-5 py-4 border-b border-[rgba(247,231,206,0.05)] flex items-center justify-between">
-                      <h3 className="text-[13px] font-semibold text-[var(--text-1)] font-mono">{b.batch}</h3>
-                      <span className="text-[10px] text-[var(--text-3)]">{b.clip_count} clip{b.clip_count !== 1 ? 's' : ''}</span>
-                    </div>
-                    <div className="px-5 py-4 space-y-3">
-                      <div className="flex gap-4">
-                        <div>
-                          <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--text-3)] font-semibold mb-0.5">Total Views</p>
-                          <p className="text-[14px] font-bold text-[var(--gold)] font-mono tabular-nums">
-                            {b.total_views.toLocaleString()}
-                          </p>
-                        </div>
-                        {b.avg_retention != null && (
-                          <div>
-                            <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--text-3)] font-semibold mb-0.5">Avg Retention</p>
-                            <p className="text-[14px] font-bold text-[var(--gold)] font-mono tabular-nums">
-                              {b.avg_retention.toFixed(1)}%
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-[9px] uppercase tracking-[0.14em] text-[var(--text-3)] font-semibold mb-1">Top Clip</p>
-                        <ClipCode code={b.top_clip} onOpen={openClip} />
-                      </div>
-                      {b.assessment && (
-                        <p className="text-[12px] text-[var(--text-2)] leading-relaxed border-t border-[rgba(247,231,206,0.05)] pt-3">
-                          {b.assessment}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
+        {loading && (
+          <div className="mt-4 space-y-2">
+            <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(247,231,206,0.06)' }}>
+              <div
+                className="h-full rounded-full"
+                style={{ width: '65%', background: 'linear-gradient(90deg, #FF4444, #FF8C42)', opacity: 0.6 }}
+              />
             </div>
-          )}
+            <p className="text-[11px] text-[var(--text-3)]">Contacting Claude… this usually takes 20–30 seconds.</p>
+          </div>
+        )}
+
+        {error && (
+          <div
+            className="mt-4 px-4 py-3 rounded-xl text-[12px]"
+            style={{ background: 'rgba(255,68,68,0.08)', color: '#FF6B6B', border: '1px solid rgba(255,68,68,0.2)' }}
+          >
+            {error}
+          </div>
+        )}
+      </div>
+
+      {/* Current analysis result */}
+      {currentMarkdown && (
+        <div
+          className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-6 py-5"
+          style={{ borderLeft: '3px solid #FF4444' }}
+        >
+          <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-3)] mb-4">
+            Latest Analysis
+          </p>
+          <MarkdownContent content={currentMarkdown} />
         </div>
       )}
 
-      {/* Empty state */}
-      {!report && !loading && !error && (
-        <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-12 flex flex-col items-center gap-3 text-center">
-          <IconSparkles className="w-8 h-8 text-[var(--text-3)]" />
-          <p className="text-[14px] font-medium text-[var(--text-2)]">No report yet</p>
-          <p className="text-[12px] text-[var(--text-3)] max-w-sm">
-            Click &quot;Generate Insights Report&quot; to analyze your videos with Gemini and get a full performance breakdown from Claude.
+      {/* Recent analyses */}
+      <div>
+        <h2 className="text-[13px] font-semibold text-[var(--text-1)] mb-3">Recent Analyses</h2>
+        {analysesLoading ? (
+          <div className="flex items-center gap-2 py-4 text-[12px] text-[var(--text-3)]">
+            <Spinner />
+            <span>Loading…</span>
+          </div>
+        ) : recentAnalyses.length === 0 ? (
+          <p className="text-[12px] text-[var(--text-3)] py-4">
+            No analyses yet. Run your first one above.
           </p>
-        </div>
-      )}
+        ) : (
+          <div className="space-y-2">
+            {recentAnalyses.map((a) => (
+              <AnalysisCard key={a.id} analysis={a} />
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
