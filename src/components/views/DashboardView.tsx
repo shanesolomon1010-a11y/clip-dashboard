@@ -152,14 +152,17 @@ export default function DashboardView({ posts }: Props) {
   const statsGrid = useMemo(() => {
     let sumViews = 0, sumImpressions = 0;
     let sumLikes = 0, sumComments = 0, sumShares = 0;
-    let sumDuration = 0, countDuration = 0;
+    let sumWeightedDuration = 0, sumViewsForDuration = 0;
     for (const p of dateFilteredDailyPosts) {
       sumViews += p.views;
       sumImpressions += p.impressions ?? 0;
       sumLikes += p.likes;
       sumComments += p.comments;
       sumShares += p.shares;
-      if (p.avg_view_duration_seconds != null) { sumDuration += p.avg_view_duration_seconds; countDuration++; }
+      if (p.avg_view_duration_seconds != null && p.views > 0) {
+        sumWeightedDuration += p.avg_view_duration_seconds * p.views;
+        sumViewsForDuration += p.views;
+      }
     }
     return {
       totalViews: sumViews,
@@ -167,7 +170,7 @@ export default function DashboardView({ posts }: Props) {
       totalLikes: sumLikes,
       totalComments: sumComments,
       totalShares: sumShares,
-      avgDuration: countDuration > 0 ? sumDuration / countDuration : 0,
+      avgDuration: sumViewsForDuration > 0 ? sumWeightedDuration / sumViewsForDuration : 0,
     };
   }, [dateFilteredDailyPosts]);
 

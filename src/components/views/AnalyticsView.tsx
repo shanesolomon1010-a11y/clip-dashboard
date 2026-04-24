@@ -16,8 +16,6 @@ type FilterPreset = '7d' | '30d' | 'all' | 'custom';
 
 const METRIC_LABELS: Record<string, string> = {
   views: 'Views',
-  daily_engaged_views: 'Daily Engaged Views',
-  total_engaged_views: 'Total Engaged Views',
   watch_time_hours: 'Total Watch Time',
   watch_time_minutes: 'Watch Time (min)',
   avg_view_duration_seconds: 'Avg View Duration',
@@ -31,7 +29,6 @@ const METRIC_LABELS: Record<string, string> = {
   subscribers_gained: 'Subscribers Gained',
   subscribers_lost: 'Subscribers Lost',
   unique_viewers: 'Unique Viewers',
-  youtube_premium_views: 'YouTube Premium Views',
   duration_seconds: 'Duration (sec)',
   stayed_to_watch_pct: 'Stayed to Watch %',
   new_viewers: 'New Viewers',
@@ -52,10 +49,10 @@ const METRIC_LABELS: Record<string, string> = {
 };
 
 const YOUTUBE_METRICS = [
-  'views', 'daily_engaged_views', 'total_engaged_views', 'watch_time_hours',
+  'views', 'watch_time_hours',
   'watch_time_minutes', 'avg_view_duration_seconds', 'avg_view_percentage',
   'impressions', 'impression_ctr', 'likes', 'dislikes', 'shares', 'comments',
-  'subscribers_gained', 'subscribers_lost', 'unique_viewers', 'youtube_premium_views',
+  'subscribers_gained', 'subscribers_lost', 'unique_viewers',
   'duration_seconds', 'stayed_to_watch_pct', 'new_viewers', 'returning_viewers',
   'casual_viewers', 'regular_viewers', 'hypes', 'hype_points', 'post_subscribers',
 ];
@@ -66,15 +63,21 @@ const INSTAGRAM_METRICS = [
 ];
 
 const YOUTUBE_DEFAULTS = [
-  'views', 'daily_engaged_views', 'impressions', 'impression_ctr', 'avg_view_duration_seconds', 'likes', 'watch_time_hours',
+  'views', 'impressions', 'impression_ctr', 'avg_view_duration_seconds', 'likes', 'watch_time_hours',
 ];
 const INSTAGRAM_DEFAULTS = ['views', 'likes', 'comments', 'shares'];
 
-// Metrics that are averaged across clips rather than summed
+// Simple unweighted average (no clean weight field available)
 const AVG_METRICS = new Set([
-  'impression_ctr', 'avg_view_percentage', 'avg_view_duration_seconds',
   'stayed_to_watch_pct', 'engagement_rate',
 ]);
+
+// Weighted-average metrics: key → weight field
+const WEIGHTED_AVG_METRICS: Record<string, string> = {
+  avg_view_duration_seconds: 'views',
+  avg_view_percentage:       'views',
+  impression_ctr:            'impressions',
+};
 
 // Metrics whose formatted value gets a % suffix
 const PCT_METRICS = new Set([
@@ -113,6 +116,31 @@ function formatMetricValue(key: string, val: number): string {
 
 
 function getCardTotal(metric: string, rows: UnifiedPost[]): number {
+  // duration_seconds is fixed per video — take MAX per clip then average across clips
+  if (metric === 'duration_seconds') {
+    const maxByClip = new Map<string, number>();
+    for (const p of rows) {
+      const key = p.clip_details_code ?? p.clip_code ?? p.id;
+      const val = getMetricValue(p, metric);
+      if (val > 0) maxByClip.set(key, Math.max(maxByClip.get(key) ?? 0, val));
+    }
+    const vals = Array.from(maxByClip.values());
+    return vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+  }
+  // Weighted average: SUM(metric × weight) / SUM(weight)
+  if (WEIGHTED_AVG_METRICS[metric]) {
+    const weightField = WEIGHTED_AVG_METRICS[metric];
+    let sumWeighted = 0, sumWeights = 0;
+    for (const p of rows) {
+      const w = getMetricValue(p, weightField);
+      if (w > 0) {
+        sumWeighted += getMetricValue(p, metric) * w;
+        sumWeights += w;
+      }
+    }
+    return sumWeights > 0 ? sumWeighted / sumWeights : 0;
+  }
+  // Simple unweighted average of non-zero values
   if (AVG_METRICS.has(metric)) {
     const nonZero = rows.map((p) => getMetricValue(p, metric)).filter((v) => v > 0);
     return nonZero.length ? nonZero.reduce((s, v) => s + v, 0) / nonZero.length : 0;
