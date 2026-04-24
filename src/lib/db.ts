@@ -198,17 +198,38 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
   const { data, error } = await query;
   if (error) throw error;
 
-  const seen = new Set<string>();
-  const result: UnifiedPost[] = [];
+  // Fields written only by the Playwright agent (period aggregates merged onto a
+  // specific stat_date row). The Analytics API writes newer daily rows without
+  // these, so the "latest" row is often null for them. We scan older rows to fill.
+  const AGENT_FIELDS = [
+    'unique_viewers', 'new_viewers', 'returning_viewers', 'casual_viewers',
+    'regular_viewers', 'impressions', 'impression_ctr', 'stayed_to_watch_pct',
+    'hypes', 'hype_points', 'post_subscribers',
+  ];
 
+  // Group all rows by clip_code::platform (already sorted stat_date DESC)
+  const byKey = new Map<string, Record<string, unknown>[]>();
   for (const row of data ?? []) {
     const key = row.clip_code
       ? `${row.clip_code as string}::${row.platform as string}`
       : row.id as string;
-    if (!seen.has(key)) {
-      seen.add(key);
-      result.push(mapPostRow(row as Record<string, unknown>));
+    if (!byKey.has(key)) byKey.set(key, []);
+    byKey.get(key)!.push(row as Record<string, unknown>);
+  }
+
+  // Use the latest row as the base, then back-fill any null agent-only fields
+  // from the most-recent older row that has a value for that field.
+  const result: UnifiedPost[] = [];
+  for (const rows of Array.from(byKey.values())) {
+    const merged: Record<string, unknown> = { ...rows[0] };
+    for (const field of AGENT_FIELDS) {
+      if (merged[field] == null) {
+        for (const row of rows) {
+          if (row[field] != null) { merged[field] = row[field]; break; }
+        }
+      }
     }
+    result.push(mapPostRow(merged));
   }
 
   return result;
@@ -321,6 +342,21 @@ export async function deletePost(id: string): Promise<void> {
 //   ADD COLUMN IF NOT EXISTS hypes INTEGER,
 //   ADD COLUMN IF NOT EXISTS hype_points INTEGER,
 //   ADD COLUMN IF NOT EXISTS post_subscribers INTEGER;
+function fillWatchTimeFields(
+  hours: number | null | undefined,
+  minutes: number | null | undefined,
+): { watch_time_hours: number | null; watch_time_minutes: number | null } {
+  const h = hours ?? null;
+  const m = minutes ?? null;
+  if (h != null && m == null) {
+    return { watch_time_hours: h, watch_time_minutes: Math.round(h * 60 * 100) / 100 };
+  }
+  if (m != null && h == null) {
+    return { watch_time_hours: Math.round((m / 60) * 100) / 100, watch_time_minutes: m };
+  }
+  return { watch_time_hours: h, watch_time_minutes: m };
+}
+
 export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
   const rows = posts.map((p) => ({
     clip_code: p.clip_code ?? null,
@@ -341,8 +377,7 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
     duration_seconds: p.duration_seconds ?? null,
     daily_engaged_views: p.daily_engaged_views ?? null,
     total_engaged_views: p.total_engaged_views ?? null,
-    watch_time_hours: p.watch_time_hours ?? null,
-    watch_time_minutes: p.watch_time_hours != null ? p.watch_time_hours * 60 : (p.watch_time_minutes ?? null),
+    ...fillWatchTimeFields(p.watch_time_hours, p.watch_time_minutes),
     avg_view_duration_seconds: p.avg_view_duration_seconds ?? null,
     avg_view_percentage: p.avg_view_percentage ?? null,
     impressions: p.impressions ?? null,
