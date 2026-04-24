@@ -378,7 +378,7 @@ export function SubscriberStatusChart({ dateFrom, dateTo }: BreakdownChartProps)
 
 // ── 4. CountriesChart ─────────────────────────────────────────────────────────
 
-export function CountriesChart(_props: BreakdownChartProps) {
+export function CountriesChart() {
   const [data, setData] = useState<BreakdownAggregate[] | null>(null);
 
   useEffect(() => {
@@ -406,7 +406,7 @@ export function CountriesChart(_props: BreakdownChartProps) {
 
 // ── 5. PlaybackLocationChart ──────────────────────────────────────────────────
 
-export function PlaybackLocationChart(_props: BreakdownChartProps) {
+export function PlaybackLocationChart() {
   const [data, setData] = useState<BreakdownAggregate[] | null>(null);
 
   useEffect(() => {
