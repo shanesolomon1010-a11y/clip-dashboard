@@ -13,7 +13,7 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
   { id: 'comparison',  label: 'Comparison',  icon: <IconComparison className="w-4 h-4" /> },
   { id: 'captions',    label: 'Captions',    icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
   { id: 'insights',       label: 'Insights',        icon: <IconSparkles        className="w-4 h-4" />, badge: 'AI' },
-  { id: 'social-copy',    label: 'Social Copy',     icon: <IconSocialCopy      className="w-4 h-4" />, badge: 'AI' },
+  // { id: 'social-copy',    label: 'Social Copy',     icon: <IconSocialCopy      className="w-4 h-4" />, badge: 'AI' }, // hidden — re-add when ready
   { id: 'transcriber',    label: 'Transcriber',     icon: <IconTranscriber     className="w-4 h-4" />, badge: 'AI' },
   { id: 'scriptAnalyzer', label: 'Script Analyzer', icon: <IconScriptAnalyzer  className="w-4 h-4" />, badge: 'AI' },
   { id: 'editor',         label: 'Editor',          icon: <IconScissors        className="w-4 h-4" />, badge: 'AI' },
@@ -22,7 +22,7 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', /* 'content', // hidden — re-add when ready */ 'schedule', 'analytics', /* 'platforms', // hidden — re-add when ready */ /* 'comparison', // hidden — re-add when ready */ 'insights', 'social-copy', 'library', 'settings'] },
+  { label: 'Analytics', items: ['dashboard', /* 'content', // hidden — re-add when ready */ 'schedule', 'analytics', /* 'platforms', // hidden — re-add when ready */ /* 'comparison', // hidden — re-add when ready */ 'insights', /* 'social-copy', // hidden — re-add when ready */ 'library', 'settings'] },
   // hidden — re-add when ready
   // { label: 'Tools', items: ['captions', 'insights', 'transcriber', 'scriptAnalyzer', 'editor'] },
 ];
