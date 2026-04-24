@@ -1,7 +1,7 @@
 import { upsertPosts, upsertBreakdowns } from './db';
 import type { BreakdownUpsertRow } from './db';
 import { getAccessToken, fetchAnalyticsForVideo, fetchVideoMetadata, fetchBreakdownForVideo } from './youtube';
-import type { VideoMetadata } from './youtube';
+import type { VideoMetadata, BreakdownConfig } from './youtube';
 import type { UnifiedPost } from '@/types';
 
 const VIDEO_MAP: Record<string, string> = {
@@ -37,14 +37,13 @@ const VIDEO_MAP: Record<string, string> = {
   '5SImwiVgWWA': 'MBM017-CLIP-002',
 };
 
-const BREAKDOWN_DIMENSIONS = [
-  'insightTrafficSourceType',
-  'deviceType',
-  'country',
-  'ageGroup',
-  'gender',
-  'playbackLocationType',
-  'subscribedStatus',
+const BREAKDOWN_CONFIGS: BreakdownConfig[] = [
+  { name: 'insightTrafficSourceType',   apiDimensions: 'day,insightTrafficSourceType',  aggregate: false },
+  { name: 'deviceType',                 apiDimensions: 'day,deviceType',                aggregate: false },
+  { name: 'subscribedStatus',           apiDimensions: 'day,subscribedStatus',          aggregate: false },
+  { name: 'country',                    apiDimensions: 'country',                       aggregate: true  },
+  { name: 'ageGroupGender',             apiDimensions: 'ageGroup,gender',               aggregate: true  },
+  { name: 'insightPlaybackLocationType', apiDimensions: 'insightPlaybackLocationType',  aggregate: true  },
 ];
 
 export async function runBreakdownSync(accessToken: string): Promise<number> {
@@ -58,18 +57,18 @@ export async function runBreakdownSync(accessToken: string): Promise<number> {
   for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
     const clipCode = clipDetailsCode.split('-CLIP-')[0];
 
-    for (const dimension of BREAKDOWN_DIMENSIONS) {
+    for (const config of BREAKDOWN_CONFIGS) {
       apiCalls++;
       let rows;
       try {
-        rows = await fetchBreakdownForVideo(videoId, dimension, startDate, endDate, accessToken);
+        rows = await fetchBreakdownForVideo(videoId, config, startDate, endDate, accessToken);
       } catch (err) {
-        console.warn(`breakdown-sync: skipping ${videoId}/${dimension}:`, err);
+        console.warn(`breakdown-sync: skipping ${videoId}/${config.name}:`, err);
         continue;
       }
 
       if (rows.length > 0) {
-        console.log(`breakdown-sync: ${clipDetailsCode}/${dimension}: ${rows.length} rows`);
+        console.log(`breakdown-sync: ${clipDetailsCode}/${config.name}: ${rows.length} rows`);
       }
 
       for (const row of rows) {
@@ -79,7 +78,7 @@ export async function runBreakdownSync(accessToken: string): Promise<number> {
           content_id: videoId,
           platform: 'youtube',
           stat_date: row.date,
-          dimension_type: dimension,
+          dimension_type: config.name,
           dimension_value: row.dimensionValue,
           views: row.views,
           watch_time_minutes: row.watchTimeMinutes,

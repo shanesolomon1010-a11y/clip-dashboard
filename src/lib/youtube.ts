@@ -168,6 +168,12 @@ export async function fetchVideoMetadata(
   return map;
 }
 
+export interface BreakdownConfig {
+  name: string;
+  apiDimensions: string;
+  aggregate: boolean;
+}
+
 export interface BreakdownRow {
   dimensionValue: string;
   date: string;
@@ -178,7 +184,7 @@ export interface BreakdownRow {
 
 export async function fetchBreakdownForVideo(
   videoId: string,
-  dimension: string,
+  config: BreakdownConfig,
   startDate: string,
   endDate: string,
   accessToken: string
@@ -187,7 +193,7 @@ export async function fetchBreakdownForVideo(
   url.searchParams.set('ids', 'channel==MINE');
   url.searchParams.set('startDate', startDate);
   url.searchParams.set('endDate', endDate);
-  url.searchParams.set('dimensions', `day,${dimension}`);
+  url.searchParams.set('dimensions', config.apiDimensions);
   url.searchParams.set('metrics', 'views,estimatedMinutesWatched,averageViewDuration');
   url.searchParams.set('filters', `video==${videoId}`);
 
@@ -197,20 +203,32 @@ export async function fetchBreakdownForVideo(
 
   const data = await res.json() as AnalyticsResponse;
   if (!res.ok) {
-    console.warn(`[breakdown] ${videoId}/${dimension}: ${data.error?.message ?? res.status} — skipping`);
+    console.warn(`[breakdown] ${videoId}/${config.name}: ${data.error?.message ?? res.status} — skipping`);
     return [];
   }
 
   const headers = (data.columnHeaders ?? []).map((h) => h.name);
   const idx = (name: string) => headers.indexOf(name);
-  const dayIdx = idx('day');
-  const dimIdx = idx(dimension);
 
-  return (data.rows ?? []).map((row) => ({
-    date: row[dayIdx] as string,
-    dimensionValue: String(row[dimIdx] ?? ''),
-    views: Number(row[idx('views')]),
-    watchTimeMinutes: Number(row[idx('estimatedMinutesWatched')]),
-    avgViewDurationSeconds: Number(row[idx('averageViewDuration')]),
-  }));
+  return (data.rows ?? []).map((row) => {
+    const date = config.aggregate ? endDate : row[idx('day')] as string;
+
+    let dimensionValue: string;
+    if (config.name === 'ageGroupGender') {
+      dimensionValue = `${String(row[idx('ageGroup')] ?? '')}:${String(row[idx('gender')] ?? '')}`;
+    } else if (config.aggregate) {
+      dimensionValue = String(row[idx(config.apiDimensions)] ?? '');
+    } else {
+      const dimName = config.apiDimensions.split(',')[1];
+      dimensionValue = String(row[idx(dimName)] ?? '');
+    }
+
+    return {
+      date,
+      dimensionValue,
+      views: Number(row[idx('views')]),
+      watchTimeMinutes: Number(row[idx('estimatedMinutesWatched')]),
+      avgViewDurationSeconds: Number(row[idx('averageViewDuration')]),
+    };
+  });
 }
