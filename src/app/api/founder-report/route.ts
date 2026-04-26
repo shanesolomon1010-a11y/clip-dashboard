@@ -118,14 +118,12 @@ async function fetchAnalyticsMetric(
   startDate: string,
   endDate: string,
   accessToken: string,
-  filter?: string,
 ): Promise<number | { scopeError: true }> {
   const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
   url.searchParams.set('ids', 'channel==MINE');
   url.searchParams.set('startDate', startDate);
   url.searchParams.set('endDate', endDate);
   url.searchParams.set('metrics', metric);
-  if (filter) url.searchParams.set('filters', filter);
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -140,6 +138,42 @@ async function fetchAnalyticsMetric(
 
   const value = data.rows?.[0]?.[0];
   return value !== undefined ? Number(value) : 0;
+}
+
+async function fetchWatchTimeByContentType(
+  startDate: string,
+  endDate: string,
+  accessToken: string,
+): Promise<{ longFormMinutes: number; shortsMinutes: number } | { scopeError: true }> {
+  const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
+  url.searchParams.set('ids', 'channel==MINE');
+  url.searchParams.set('startDate', startDate);
+  url.searchParams.set('endDate', endDate);
+  url.searchParams.set('dimensions', 'creatorContentType');
+  url.searchParams.set('metrics', 'estimatedMinutesWatched');
+
+  const res = await fetch(url.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+
+  if (res.status === 403) return { scopeError: true };
+
+  const data = await res.json() as AnalyticsReportResponse;
+  if (!res.ok) {
+    throw new Error(`YouTube Analytics API error: ${data.error?.message ?? res.status}`);
+  }
+
+  let longFormMinutes = 0;
+  let shortsMinutes = 0;
+
+  for (const row of data.rows ?? []) {
+    const contentType = String(row[0]);
+    const minutes = Number(row[1]);
+    if (contentType === 'VIDEO_ON_DEMAND') longFormMinutes = minutes;
+    else if (contentType === 'SHORTS') shortsMinutes = minutes;
+  }
+
+  return { longFormMinutes, shortsMinutes };
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -169,30 +203,21 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
     }
 
-    const longFormWatchResult = await fetchAnalyticsMetric(
-      'estimatedMinutesWatched', startDate, endDate, accessToken, 'creatorContentType==VIDEO_ON_DEMAND',
-    );
-    if (typeof longFormWatchResult === 'object' && longFormWatchResult.scopeError) {
+    const watchTimeResult = await fetchWatchTimeByContentType(startDate, endDate, accessToken);
+    if ('scopeError' in watchTimeResult) {
       return NextResponse.json({
         error: 'YouTube Analytics scope not authorized — channel owner needs to re-authorize OAuth with yt-analytics.readonly scope',
       });
     }
 
-    const shortsWatchResult = await fetchAnalyticsMetric(
-      'estimatedMinutesWatched', startDate, endDate, accessToken, 'creatorContentType==SHORTS',
-    );
-    if (typeof shortsWatchResult === 'object' && shortsWatchResult.scopeError) {
-      return NextResponse.json({
-        error: 'YouTube Analytics scope not authorized — channel owner needs to re-authorize OAuth with yt-analytics.readonly scope',
-      });
-    }
+    const { longFormMinutes, shortsMinutes } = watchTimeResult;
 
     return NextResponse.json({
       longFormsPublished,
       shortsPublished,
       newSubscribers: subscribersResult,
-      longFormWatchTimeHours: Math.round((longFormWatchResult as number) / 60 * 10) / 10,
-      shortsWatchTimeHours: Math.round((shortsWatchResult as number) / 60 * 10) / 10,
+      longFormWatchTimeHours: Math.round(longFormMinutes / 60 * 10) / 10,
+      shortsWatchTimeHours: Math.round(shortsMinutes / 60 * 10) / 10,
       windowDays,
       generatedAt: now.toISOString(),
     });
