@@ -143,8 +143,6 @@ async function fetchAnalyticsMetric(
 type WatchTimeSuccess = {
   longFormMinutes: number;
   shortsMinutes: number;
-  watchTimeUrl: string;
-  watchTimeRaw: AnalyticsReportResponse;
 };
 
 async function fetchWatchTimeByContentType(
@@ -159,8 +157,6 @@ async function fetchWatchTimeByContentType(
   url.searchParams.set('dimensions', 'creatorContentType');
   url.searchParams.set('metrics', 'estimatedMinutesWatched');
 
-  console.log('[founder-report] watch time URL:', url.toString());
-
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -168,8 +164,6 @@ async function fetchWatchTimeByContentType(
   if (res.status === 403) return { scopeError: true };
 
   const data = await res.json() as AnalyticsReportResponse;
-  console.log('[founder-report] watch time raw response:', JSON.stringify(data, null, 2));
-
   if (!res.ok) {
     throw new Error(`YouTube Analytics API error: ${data.error?.message ?? res.status}`);
   }
@@ -178,19 +172,18 @@ async function fetchWatchTimeByContentType(
   let shortsMinutes = 0;
 
   for (const row of data.rows ?? []) {
-    const contentType = String(row[0]);
+    const contentType = String(row[0]).toLowerCase().replace(/_/g, '');
     const minutes = Number(row[1]);
-    if (contentType === 'VIDEO_ON_DEMAND') longFormMinutes = minutes;
-    else if (contentType === 'SHORTS') shortsMinutes = minutes;
+    if (contentType === 'videoondemand') longFormMinutes = minutes;
+    else if (contentType === 'shorts') shortsMinutes = minutes;
   }
 
-  return { longFormMinutes, shortsMinutes, watchTimeUrl: url.toString(), watchTimeRaw: data };
+  return { longFormMinutes, shortsMinutes };
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const windowDays = searchParams.get('window') === '30' ? 30 : 7;
-  const debug = searchParams.get('debug') === '1';
 
   const now = new Date();
   const windowStart = new Date(now);
@@ -222,7 +215,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
     }
 
-    const { longFormMinutes, shortsMinutes, watchTimeUrl, watchTimeRaw } = watchTimeResult;
+    const { longFormMinutes, shortsMinutes } = watchTimeResult;
 
     return NextResponse.json({
       longFormsPublished,
@@ -232,7 +225,6 @@ export async function GET(request: Request): Promise<NextResponse> {
       shortsWatchTimeHours: Math.round(shortsMinutes / 60 * 10) / 10,
       windowDays,
       generatedAt: now.toISOString(),
-      ...(debug ? { _debug: { watchTimeUrl, watchTimeRaw } } : {}),
     });
   } catch (err) {
     console.error('[founder-report]', err);
