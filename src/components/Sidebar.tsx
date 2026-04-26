@@ -1,30 +1,29 @@
 'use client';
 
-import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer, IconTranscriber, IconCalendar, IconLibrary, IconSocialCopy } from './Icons';
+import { IconDashboard, IconContent, IconAnalytics, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer, IconTranscriber, IconCalendar, IconLibrary, IconFounderReport } from './Icons';
 
-export type NavSection = 'dashboard' | 'content' | 'schedule' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'transcriber' | 'editor' | 'settings' | 'library' | 'social-copy';
+export type NavSection = 'dashboard' | 'content' | 'schedule' | 'analytics' | 'platforms' | 'comparison' | 'captions' | 'insights' | 'scriptAnalyzer' | 'transcriber' | 'editor' | 'settings' | 'library' | 'social-copy' | 'founder-report';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?: string }[] = [
-  { id: 'dashboard',   label: 'Dashboard',   icon: <IconDashboard  className="w-4 h-4" /> },
-  { id: 'content',     label: 'Content',          icon: <IconContent   className="w-4 h-4" /> },
-  { id: 'schedule',    label: 'Posting Schedule',  icon: <IconCalendar  className="w-4 h-4" /> },
-  { id: 'analytics',   label: 'Analytics',         icon: <IconAnalytics className="w-4 h-4" /> },
-  { id: 'platforms',   label: 'Platforms',   icon: <IconPlatforms  className="w-4 h-4" /> },
-  { id: 'comparison',  label: 'Comparison',  icon: <IconComparison className="w-4 h-4" /> },
-  { id: 'captions',    label: 'Captions',    icon: <IconSparkles   className="w-4 h-4" />, badge: 'AI' },
-  { id: 'insights',       label: 'Insights',        icon: <IconSparkles        className="w-4 h-4" />, badge: 'AI' },
-  // { id: 'social-copy',    label: 'Social Copy',     icon: <IconSocialCopy      className="w-4 h-4" />, badge: 'AI' }, // hidden — re-add when ready
-  { id: 'transcriber',    label: 'Transcriber',     icon: <IconTranscriber     className="w-4 h-4" />, badge: 'AI' },
-  { id: 'scriptAnalyzer', label: 'Script Analyzer', icon: <IconScriptAnalyzer  className="w-4 h-4" />, badge: 'AI' },
-  { id: 'editor',         label: 'Editor',          icon: <IconScissors        className="w-4 h-4" />, badge: 'AI' },
-  { id: 'library',     label: 'Library',          icon: <IconLibrary   className="w-4 h-4" /> },
-  { id: 'settings',    label: 'Settings',    icon: <IconSettings   className="w-4 h-4" /> },
+  { id: 'dashboard',      label: 'Dashboard',        icon: <IconDashboard      className="w-4 h-4" /> },
+  { id: 'content',        label: 'Content',          icon: <IconContent        className="w-4 h-4" /> },
+  { id: 'schedule',       label: 'Posting Schedule', icon: <IconCalendar       className="w-4 h-4" /> },
+  { id: 'analytics',      label: 'Analytics',        icon: <IconAnalytics      className="w-4 h-4" /> },
+  { id: 'founder-report', label: 'Founder Report',   icon: <IconFounderReport  className="w-4 h-4" /> },
+  { id: 'platforms',      label: 'Platforms',        icon: <IconPlatforms      className="w-4 h-4" /> },
+  { id: 'comparison',     label: 'Comparison',       icon: <IconComparison     className="w-4 h-4" /> },
+  { id: 'captions',       label: 'Captions',         icon: <IconSparkles       className="w-4 h-4" />, badge: 'AI' },
+  { id: 'insights',       label: 'Insights',         icon: <IconSparkles       className="w-4 h-4" />, badge: 'AI' },
+  { id: 'transcriber',    label: 'Transcriber',      icon: <IconTranscriber    className="w-4 h-4" />, badge: 'AI' },
+  { id: 'scriptAnalyzer', label: 'Script Analyzer',  icon: <IconScriptAnalyzer className="w-4 h-4" />, badge: 'AI' },
+  { id: 'editor',         label: 'Editor',           icon: <IconScissors       className="w-4 h-4" />, badge: 'AI' },
+  { id: 'library',        label: 'Library',          icon: <IconLibrary        className="w-4 h-4" /> },
+  { id: 'settings',       label: 'Settings',         icon: <IconSettings       className="w-4 h-4" /> },
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', /* 'content', // hidden — re-add when ready */ 'schedule', 'analytics', /* 'platforms', // hidden — re-add when ready */ /* 'comparison', // hidden — re-add when ready */ 'insights', /* 'social-copy', // hidden — re-add when ready */ 'library', 'settings'] },
-  // hidden — re-add when ready
-  // { label: 'Tools', items: ['captions', 'insights', 'transcriber', 'scriptAnalyzer', 'editor'] },
+  { label: 'Analytics', items: ['dashboard', 'analytics', 'founder-report'] },
+  { label: 'Workspace', items: ['schedule', 'insights', 'library', 'settings'] },
 ];
 
 interface Props {

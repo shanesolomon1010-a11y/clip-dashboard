@@ -256,3 +256,12 @@ export function IconSocialCopy({ className }: { className?: string }) {
     </svg>
   );
 }
+
+export function IconFounderReport({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="2" width="12" height="12" rx="2" />
+      <path d="M5 10l2-3 2 2 2-4" />
+    </svg>
+  );
+}
