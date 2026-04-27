@@ -85,16 +85,16 @@ async function fetchRecentVideoIds(
 async function classifyVideos(
   videoIds: string[],
   accessToken: string,
-): Promise<{ longForms: number; shorts: number }> {
-  if (videoIds.length === 0) return { longForms: 0, shorts: 0 };
+): Promise<{ longForms: number; shorts: number; longFormVideoIds: string[]; shortsVideoIds: string[] }> {
+  if (videoIds.length === 0) return { longForms: 0, shorts: 0, longFormVideoIds: [], shortsVideoIds: [] };
 
   const chunks: string[][] = [];
   for (let i = 0; i < videoIds.length; i += 50) {
     chunks.push(videoIds.slice(i, i + 50));
   }
 
-  let longForms = 0;
-  let shorts = 0;
+  const longFormVideoIds: string[] = [];
+  const shortsVideoIds: string[] = [];
 
   for (const chunk of chunks) {
     const url = new URL('https://www.googleapis.com/youtube/v3/videos');
@@ -107,12 +107,17 @@ async function classifyVideos(
     for (const item of data.items ?? []) {
       if (item.status?.privacyStatus !== 'public') continue;
       const sec = parseDurationSeconds(item.contentDetails.duration);
-      if (sec <= 180) shorts++;
-      else longForms++;
+      if (sec <= 180) shortsVideoIds.push(item.id);
+      else longFormVideoIds.push(item.id);
     }
   }
 
-  return { longForms, shorts };
+  return {
+    longForms: longFormVideoIds.length,
+    shorts: shortsVideoIds.length,
+    longFormVideoIds,
+    shortsVideoIds,
+  };
 }
 
 async function fetchNetSubscribers(
@@ -143,25 +148,20 @@ async function fetchNetSubscribers(
   return gained - lost;
 }
 
-type WatchTimeSuccess = {
-  longFormMinutes: number;
-  shortsMinutes: number;
-  longFormViews: number;
-  shortsViews: number;
-  rawResponse: AnalyticsReportResponse;
-};
-
-async function fetchWatchTimeByContentType(
+async function fetchMetricsByVideoIds(
+  videoIds: string[],
   startDate: string,
   endDate: string,
   accessToken: string,
-): Promise<WatchTimeSuccess | { scopeError: true }> {
+): Promise<{ minutes: number; views: number } | { scopeError: true }> {
+  if (videoIds.length === 0) return { minutes: 0, views: 0 };
+
   const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
   url.searchParams.set('ids', 'channel==MINE');
   url.searchParams.set('startDate', startDate);
   url.searchParams.set('endDate', endDate);
-  url.searchParams.set('dimensions', 'creatorContentType');
   url.searchParams.set('metrics', 'estimatedMinutesWatched,views');
+  url.searchParams.set('filters', `video==${videoIds.join(',')}`);
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -174,25 +174,11 @@ async function fetchWatchTimeByContentType(
     throw new Error(`YouTube Analytics API error: ${data.error?.message ?? res.status}`);
   }
 
-  let longFormMinutes = 0;
-  let shortsMinutes = 0;
-  let longFormViews = 0;
-  let shortsViews = 0;
-
-  for (const row of data.rows ?? []) {
-    const contentType = String(row[0]).toLowerCase().replace(/_/g, '');
-    const minutes = Number(row[1]);
-    const views = Number(row[2]);
-    if (contentType === 'videoondemand') {
-      longFormMinutes = minutes;
-      longFormViews = views;
-    } else if (contentType === 'shorts') {
-      shortsMinutes = minutes;
-      shortsViews = views;
-    }
-  }
-
-  return { longFormMinutes, shortsMinutes, longFormViews, shortsViews, rawResponse: data };
+  const row = data.rows?.[0];
+  return {
+    minutes: row ? Number(row[0]) : 0,
+    views: row ? Number(row[1]) : 0,
+  };
 }
 
 type MetricSnapshot = {
@@ -210,12 +196,15 @@ const CROSS_CHECK_METRICS: (keyof MetricSnapshot)[] = [
   'longFormWatchTimeHours', 'shortsWatchTimeHours', 'longFormViews', 'shortsViews',
 ];
 
-function validateReport(metrics: MetricSnapshot, watchTimeRaw: AnalyticsReportResponse): string[] {
+function validateReport(
+  metrics: MetricSnapshot,
+  longFormVideoIds: string[],
+  shortsVideoIds: string[],
+): string[] {
   const warnings: string[] = [];
 
-  const { rows } = watchTimeRaw;
-  if (!rows || !Array.isArray(rows) || rows.some((r) => r.length < 3)) {
-    warnings.push('Watch time response shape unexpected');
+  if (longFormVideoIds.length !== metrics.longFormsPublished || shortsVideoIds.length !== metrics.shortsPublished) {
+    warnings.push('Video ID array length mismatch with published count — internal consistency error');
   }
 
   if (metrics.longFormsPublished > 0 && metrics.longFormWatchTimeHours === 0 && metrics.longFormViews === 0) {
@@ -245,7 +234,12 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     const uploadsPlaylistId = await getUploadsPlaylistId(accessToken);
     const videoIds = await fetchRecentVideoIds(uploadsPlaylistId, windowStart, accessToken);
-    const { longForms: longFormsPublished, shorts: shortsPublished } = await classifyVideos(videoIds, accessToken);
+    const {
+      longForms: longFormsPublished,
+      shorts: shortsPublished,
+      longFormVideoIds,
+      shortsVideoIds,
+    } = await classifyVideos(videoIds, accessToken);
 
     const subscribersResult = await fetchNetSubscribers(startDate, endDate, accessToken);
     if (typeof subscribersResult === 'object' && subscribersResult.scopeError) {
@@ -254,16 +248,22 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
     }
 
-    const watchTimeResult = await fetchWatchTimeByContentType(startDate, endDate, accessToken);
-    if ('scopeError' in watchTimeResult) {
+    const longFormMetrics = await fetchMetricsByVideoIds(longFormVideoIds, startDate, endDate, accessToken);
+    if ('scopeError' in longFormMetrics) {
       return NextResponse.json({
         error: 'YouTube Analytics scope not authorized — channel owner needs to re-authorize OAuth with yt-analytics.readonly scope',
       });
     }
 
-    const { longFormMinutes, shortsMinutes, longFormViews, shortsViews, rawResponse } = watchTimeResult;
-    const longFormWatchTimeHours = Math.round(longFormMinutes / 60 * 10) / 10;
-    const shortsWatchTimeHours = Math.round(shortsMinutes / 60 * 10) / 10;
+    const shortsMetrics = await fetchMetricsByVideoIds(shortsVideoIds, startDate, endDate, accessToken);
+    if ('scopeError' in shortsMetrics) {
+      return NextResponse.json({
+        error: 'YouTube Analytics scope not authorized — channel owner needs to re-authorize OAuth with yt-analytics.readonly scope',
+      });
+    }
+
+    const longFormWatchTimeHours = Math.round(longFormMetrics.minutes / 60 * 10) / 10;
+    const shortsWatchTimeHours = Math.round(shortsMetrics.minutes / 60 * 10) / 10;
 
     const currentMetrics: MetricSnapshot = {
       longFormsPublished,
@@ -271,11 +271,11 @@ export async function GET(request: Request): Promise<NextResponse> {
       newSubscribers: subscribersResult as number,
       longFormWatchTimeHours,
       shortsWatchTimeHours,
-      longFormViews,
-      shortsViews,
+      longFormViews: longFormMetrics.views,
+      shortsViews: shortsMetrics.views,
     };
 
-    const warnings = validateReport(currentMetrics, rawResponse);
+    const warnings = validateReport(currentMetrics, longFormVideoIds, shortsVideoIds);
 
     if (debug) {
       const windowStart30 = new Date(now);
@@ -283,22 +283,27 @@ export async function GET(request: Request): Promise<NextResponse> {
       const startDate30 = toYMD(windowStart30);
 
       const videoIds30 = await fetchRecentVideoIds(uploadsPlaylistId, windowStart30, accessToken);
-      const { longForms: lf30, shorts: s30 } = await classifyVideos(videoIds30, accessToken);
+      const {
+        longForms: lf30,
+        shorts: s30,
+        longFormVideoIds: lfIds30,
+        shortsVideoIds: sIds30,
+      } = await classifyVideos(videoIds30, accessToken);
 
       const subs30Result = await fetchNetSubscribers(startDate30, endDate, accessToken);
       const subs30 = typeof subs30Result === 'number' ? subs30Result : 0;
 
-      const wt30Result = await fetchWatchTimeByContentType(startDate30, endDate, accessToken);
-      const wt30 = 'scopeError' in wt30Result ? null : wt30Result;
+      const lfMetrics30 = await fetchMetricsByVideoIds(lfIds30, startDate30, endDate, accessToken);
+      const sMetrics30 = await fetchMetricsByVideoIds(sIds30, startDate30, endDate, accessToken);
 
       const metrics30: MetricSnapshot = {
         longFormsPublished: lf30,
         shortsPublished: s30,
         newSubscribers: subs30,
-        longFormWatchTimeHours: wt30 ? Math.round(wt30.longFormMinutes / 60 * 10) / 10 : 0,
-        shortsWatchTimeHours: wt30 ? Math.round(wt30.shortsMinutes / 60 * 10) / 10 : 0,
-        longFormViews: wt30 ? wt30.longFormViews : 0,
-        shortsViews: wt30 ? wt30.shortsViews : 0,
+        longFormWatchTimeHours: 'scopeError' in lfMetrics30 ? 0 : Math.round(lfMetrics30.minutes / 60 * 10) / 10,
+        shortsWatchTimeHours: 'scopeError' in sMetrics30 ? 0 : Math.round(sMetrics30.minutes / 60 * 10) / 10,
+        longFormViews: 'scopeError' in lfMetrics30 ? 0 : lfMetrics30.views,
+        shortsViews: 'scopeError' in sMetrics30 ? 0 : sMetrics30.views,
       };
 
       for (const metric of CROSS_CHECK_METRICS) {
@@ -314,8 +319,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       longFormsPublished,
       shortsPublished,
       newSubscribers: subscribersResult,
-      longFormViews,
-      shortsViews,
+      longFormViews: currentMetrics.longFormViews,
+      shortsViews: currentMetrics.shortsViews,
       longFormWatchTimeHours,
       shortsWatchTimeHours,
       windowDays,
