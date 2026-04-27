@@ -24,6 +24,10 @@ interface AnalyticsReportResponse {
   error?: { message: string; code?: number };
 }
 
+// Videos published before this date are legacy gaming-era content excluded from
+// views/watch time aggregation. Published counts and subscribers are unaffected.
+const MBM_ERA_START = new Date('2025-01-01T00:00:00Z');
+
 function toYMD(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
@@ -173,12 +177,13 @@ async function fetchViewsByVideoDimension(
   return { rows: data.rows ?? [] };
 }
 
-// Builds a videoId → durationSeconds map for classification.
+type VideoMeta = { durationSeconds: number; publishedAt: Date };
+
 async function fetchDurationMap(
   videoIds: string[],
   accessToken: string,
-): Promise<Map<string, number>> {
-  const map = new Map<string, number>();
+): Promise<Map<string, VideoMeta>> {
+  const map = new Map<string, VideoMeta>();
   if (videoIds.length === 0) return map;
 
   const chunks: string[][] = [];
@@ -189,13 +194,18 @@ async function fetchDurationMap(
   for (const chunk of chunks) {
     const url = new URL('https://www.googleapis.com/youtube/v3/videos');
     url.searchParams.set('id', chunk.join(','));
-    url.searchParams.set('part', 'contentDetails');
+    url.searchParams.set('part', 'contentDetails,snippet');
     const res = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    const data = await res.json() as { items?: { id: string; contentDetails: { duration: string } }[] };
+    const data = await res.json() as {
+      items?: { id: string; contentDetails: { duration: string }; snippet: { publishedAt: string } }[];
+    };
     for (const item of data.items ?? []) {
-      map.set(item.id, parseDurationSeconds(item.contentDetails.duration));
+      map.set(item.id, {
+        durationSeconds: parseDurationSeconds(item.contentDetails.duration),
+        publishedAt: new Date(item.snippet.publishedAt),
+      });
     }
   }
 
@@ -204,32 +214,39 @@ async function fetchDurationMap(
 
 function classifyAnalyticsRows(
   rows: (string | number)[][],
-  durationMap: Map<string, number>,
+  durationMap: Map<string, VideoMeta>,
 ): {
   longFormViews: number;
   shortsViews: number;
   longFormMinutes: number;
   shortsMinutes: number;
   unclassifiableVideos: number;
+  legacyVideosFiltered: number;
 } {
   let longFormViews = 0;
   let shortsViews = 0;
   let longFormMinutes = 0;
   let shortsMinutes = 0;
   let unclassifiableVideos = 0;
+  let legacyVideosFiltered = 0;
 
   for (const row of rows) {
     const videoId = String(row[0]);
     const views = Number(row[1]);
     const minutes = Number(row[2]);
-    const durationSec = durationMap.get(videoId);
+    const entry = durationMap.get(videoId);
 
-    if (durationSec === undefined) {
+    if (entry === undefined) {
       unclassifiableVideos++;
       continue;
     }
 
-    if (durationSec <= 180) {
+    if (entry.publishedAt < MBM_ERA_START) {
+      legacyVideosFiltered++;
+      continue;
+    }
+
+    if (entry.durationSeconds <= 180) {
       shortsViews += views;
       shortsMinutes += minutes;
     } else {
@@ -238,7 +255,7 @@ function classifyAnalyticsRows(
     }
   }
 
-  return { longFormViews, shortsViews, longFormMinutes, shortsMinutes, unclassifiableVideos };
+  return { longFormViews, shortsViews, longFormMinutes, shortsMinutes, unclassifiableVideos, legacyVideosFiltered };
 }
 
 type MetricSnapshot = {
@@ -320,7 +337,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const analyticsVideoIds = Array.from(new Set(analyticsRows.map((r) => String(r[0]))));
     const durationMap = await fetchDurationMap(analyticsVideoIds, accessToken);
 
-    const { longFormViews, shortsViews, longFormMinutes, shortsMinutes, unclassifiableVideos } =
+    const { longFormViews, shortsViews, longFormMinutes, shortsMinutes, unclassifiableVideos, legacyVideosFiltered } =
       classifyAnalyticsRows(analyticsRows, durationMap);
 
     const longFormWatchTimeHours = Math.round(longFormMinutes / 60 * 10) / 10;
@@ -387,7 +404,12 @@ export async function GET(request: Request): Promise<NextResponse> {
     };
 
     if (debug) {
-      payload._validation = { warnings, checkedAt: now.toISOString() };
+      payload._validation = {
+        warnings,
+        checkedAt: now.toISOString(),
+        legacyVideosFiltered,
+        mbmEraStart: MBM_ERA_START.toISOString(),
+      };
     } else if (warnings.length > 0) {
       payload._validation = { warnings };
     }
