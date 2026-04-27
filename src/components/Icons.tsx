@@ -257,6 +257,16 @@ export function IconSocialCopy({ className }: { className?: string }) {
   );
 }
 
+export function IconWarning({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7.07 2.5L1.5 12.5h13L8.93 2.5a1.07 1.07 0 0 0-1.86 0z" />
+      <path d="M8 6.5v3" />
+      <circle cx="8" cy="11.5" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 export function IconFounderReport({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

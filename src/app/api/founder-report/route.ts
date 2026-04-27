@@ -143,6 +143,9 @@ async function fetchAnalyticsMetric(
 type WatchTimeSuccess = {
   longFormMinutes: number;
   shortsMinutes: number;
+  longFormViews: number;
+  shortsViews: number;
+  rawResponse: AnalyticsReportResponse;
 };
 
 async function fetchWatchTimeByContentType(
@@ -155,7 +158,7 @@ async function fetchWatchTimeByContentType(
   url.searchParams.set('startDate', startDate);
   url.searchParams.set('endDate', endDate);
   url.searchParams.set('dimensions', 'creatorContentType');
-  url.searchParams.set('metrics', 'estimatedMinutesWatched');
+  url.searchParams.set('metrics', 'estimatedMinutesWatched,views');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -170,20 +173,62 @@ async function fetchWatchTimeByContentType(
 
   let longFormMinutes = 0;
   let shortsMinutes = 0;
+  let longFormViews = 0;
+  let shortsViews = 0;
 
   for (const row of data.rows ?? []) {
     const contentType = String(row[0]).toLowerCase().replace(/_/g, '');
     const minutes = Number(row[1]);
-    if (contentType === 'videoondemand') longFormMinutes = minutes;
-    else if (contentType === 'shorts') shortsMinutes = minutes;
+    const views = Number(row[2]);
+    if (contentType === 'videoondemand') {
+      longFormMinutes = minutes;
+      longFormViews = views;
+    } else if (contentType === 'shorts') {
+      shortsMinutes = minutes;
+      shortsViews = views;
+    }
   }
 
-  return { longFormMinutes, shortsMinutes };
+  return { longFormMinutes, shortsMinutes, longFormViews, shortsViews, rawResponse: data };
+}
+
+type MetricSnapshot = {
+  longFormsPublished: number;
+  shortsPublished: number;
+  newSubscribers: number;
+  longFormWatchTimeHours: number;
+  shortsWatchTimeHours: number;
+  longFormViews: number;
+  shortsViews: number;
+};
+
+const CROSS_CHECK_METRICS: (keyof MetricSnapshot)[] = [
+  'longFormsPublished', 'shortsPublished', 'newSubscribers',
+  'longFormWatchTimeHours', 'shortsWatchTimeHours', 'longFormViews', 'shortsViews',
+];
+
+function validateReport(metrics: MetricSnapshot, watchTimeRaw: AnalyticsReportResponse): string[] {
+  const warnings: string[] = [];
+
+  const { rows } = watchTimeRaw;
+  if (!rows || !Array.isArray(rows) || rows.some((r) => r.length < 3)) {
+    warnings.push('Watch time response shape unexpected');
+  }
+
+  if (metrics.longFormsPublished > 0 && metrics.longFormWatchTimeHours === 0 && metrics.longFormViews === 0) {
+    warnings.push('Long forms published but zero engagement — possible parser failure');
+  }
+  if (metrics.shortsPublished > 0 && metrics.shortsWatchTimeHours === 0 && metrics.shortsViews === 0) {
+    warnings.push('Shorts published but zero engagement — possible parser failure');
+  }
+
+  return warnings;
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
   const { searchParams } = new URL(request.url);
   const windowDays = searchParams.get('window') === '30' ? 30 : 7;
+  const debug = searchParams.get('debug') === '1';
 
   const now = new Date();
   const windowStart = new Date(now);
@@ -215,17 +260,74 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
     }
 
-    const { longFormMinutes, shortsMinutes } = watchTimeResult;
+    const { longFormMinutes, shortsMinutes, longFormViews, shortsViews, rawResponse } = watchTimeResult;
+    const longFormWatchTimeHours = Math.round(longFormMinutes / 60 * 10) / 10;
+    const shortsWatchTimeHours = Math.round(shortsMinutes / 60 * 10) / 10;
 
-    return NextResponse.json({
+    const currentMetrics: MetricSnapshot = {
+      longFormsPublished,
+      shortsPublished,
+      newSubscribers: subscribersResult as number,
+      longFormWatchTimeHours,
+      shortsWatchTimeHours,
+      longFormViews,
+      shortsViews,
+    };
+
+    const warnings = validateReport(currentMetrics, rawResponse);
+
+    if (debug) {
+      const windowStart30 = new Date(now);
+      windowStart30.setDate(windowStart30.getDate() - 30);
+      const startDate30 = toYMD(windowStart30);
+
+      const videoIds30 = await fetchRecentVideoIds(uploadsPlaylistId, windowStart30, accessToken);
+      const { longForms: lf30, shorts: s30 } = await classifyVideos(videoIds30, accessToken);
+
+      const subs30Result = await fetchAnalyticsMetric('subscribersGained', startDate30, endDate, accessToken);
+      const subs30 = typeof subs30Result === 'number' ? subs30Result : 0;
+
+      const wt30Result = await fetchWatchTimeByContentType(startDate30, endDate, accessToken);
+      const wt30 = 'scopeError' in wt30Result ? null : wt30Result;
+
+      const metrics30: MetricSnapshot = {
+        longFormsPublished: lf30,
+        shortsPublished: s30,
+        newSubscribers: subs30,
+        longFormWatchTimeHours: wt30 ? Math.round(wt30.longFormMinutes / 60 * 10) / 10 : 0,
+        shortsWatchTimeHours: wt30 ? Math.round(wt30.shortsMinutes / 60 * 10) / 10 : 0,
+        longFormViews: wt30 ? wt30.longFormViews : 0,
+        shortsViews: wt30 ? wt30.shortsViews : 0,
+      };
+
+      for (const metric of CROSS_CHECK_METRICS) {
+        const val7 = currentMetrics[metric];
+        const val30 = metrics30[metric];
+        if (val30 < val7) {
+          warnings.push(`${metric}: 30-day value (${val30}) less than 7-day value (${val7}) — date math may be wrong`);
+        }
+      }
+    }
+
+    const payload: Record<string, unknown> = {
       longFormsPublished,
       shortsPublished,
       newSubscribers: subscribersResult,
-      longFormWatchTimeHours: Math.round(longFormMinutes / 60 * 10) / 10,
-      shortsWatchTimeHours: Math.round(shortsMinutes / 60 * 10) / 10,
+      longFormViews,
+      shortsViews,
+      longFormWatchTimeHours,
+      shortsWatchTimeHours,
       windowDays,
       generatedAt: now.toISOString(),
-    });
+    };
+
+    if (debug) {
+      payload._validation = { warnings, checkedAt: now.toISOString() };
+    } else if (warnings.length > 0) {
+      payload._validation = { warnings };
+    }
+
+    return NextResponse.json(payload);
   } catch (err) {
     console.error('[founder-report]', err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

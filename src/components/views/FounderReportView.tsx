@@ -1,15 +1,19 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { IconWarning } from '@/components/Icons';
 
 interface FounderReportData {
   longFormsPublished: number;
   shortsPublished: number;
   newSubscribers: number;
+  longFormViews: number;
+  shortsViews: number;
   longFormWatchTimeHours: number;
   shortsWatchTimeHours: number;
   windowDays: number;
   generatedAt: string;
+  _validation?: { warnings: string[] };
 }
 
 interface FounderReportResponse extends Partial<FounderReportData> {
@@ -49,6 +53,7 @@ function MetricCard({ value, label, suffix = '' }: MetricCardProps) {
 export default function FounderReportView() {
   const [selectedWindow, setSelectedWindow] = useState<7 | 30>(7);
   const [data, setData] = useState<FounderReportData | null>(null);
+  const [warnings, setWarnings] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -57,6 +62,7 @@ export default function FounderReportView() {
     setLoading(true);
     setError(null);
     setData(null);
+    setWarnings([]);
 
     fetch(`/api/founder-report?window=${selectedWindow}`)
       .then((r) => r.json() as Promise<FounderReportResponse>)
@@ -65,6 +71,7 @@ export default function FounderReportView() {
           setError(json.error);
         } else {
           setData(json as FounderReportData);
+          setWarnings(json._validation?.warnings ?? []);
           setLastUpdated(new Date());
         }
       })
@@ -112,9 +119,26 @@ export default function FounderReportView() {
       )}
 
       {/* Metric grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Validation warnings banner — spans all columns */}
+        {warnings.length > 0 && (
+          <div className="col-span-full px-4 py-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <div className="flex items-center gap-2 mb-2">
+              <IconWarning className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span className="text-[12px] font-semibold text-amber-400">Data validation warnings:</span>
+            </div>
+            <ul className="space-y-1 pl-5">
+              {warnings.map((w, i) => (
+                <li key={i} className="text-[12px] text-amber-400/80 list-disc">{w}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         {loading ? (
           <>
+            <SkeletonCard />
+            <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
@@ -123,11 +147,13 @@ export default function FounderReportView() {
           </>
         ) : data ? (
           <>
-            <MetricCard value={data.longFormsPublished}      label="YouTube Long Forms Published" />
-            <MetricCard value={data.shortsPublished}         label="YouTube Shorts Published" />
-            <MetricCard value={data.newSubscribers}          label="New Subscribers" />
-            <MetricCard value={data.longFormWatchTimeHours}  label="Long-form Watch Time" suffix=" hrs" />
-            <MetricCard value={data.shortsWatchTimeHours}    label="Shorts Watch Time" suffix=" hrs" />
+            <MetricCard value={data.longFormsPublished}     label="YouTube Long Forms Published" />
+            <MetricCard value={data.shortsPublished}        label="YouTube Shorts Published" />
+            <MetricCard value={data.newSubscribers}         label="New Subscribers" />
+            <MetricCard value={data.longFormViews}          label="Long-form Views" />
+            <MetricCard value={data.shortsViews}            label="Shorts Views" />
+            <MetricCard value={data.longFormWatchTimeHours} label="Long-form Watch Time" suffix=" hrs" />
+            <MetricCard value={data.shortsWatchTimeHours}   label="Shorts Watch Time" suffix=" hrs" />
           </>
         ) : null}
       </div>
