@@ -15,6 +15,7 @@ interface VideosListResponse {
   items?: {
     id: string;
     contentDetails: { duration: string };
+    status: { privacyStatus: string };
   }[];
 }
 
@@ -98,14 +99,15 @@ async function classifyVideos(
   for (const chunk of chunks) {
     const url = new URL('https://www.googleapis.com/youtube/v3/videos');
     url.searchParams.set('id', chunk.join(','));
-    url.searchParams.set('part', 'contentDetails');
+    url.searchParams.set('part', 'contentDetails,status');
     const res = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const data = await res.json() as VideosListResponse;
     for (const item of data.items ?? []) {
+      if (item.status?.privacyStatus !== 'public') continue;
       const sec = parseDurationSeconds(item.contentDetails.duration);
-      if (sec <= 60) shorts++;
+      if (sec <= 180) shorts++;
       else longForms++;
     }
   }
@@ -113,8 +115,7 @@ async function classifyVideos(
   return { longForms, shorts };
 }
 
-async function fetchAnalyticsMetric(
-  metric: string,
+async function fetchNetSubscribers(
   startDate: string,
   endDate: string,
   accessToken: string,
@@ -123,7 +124,7 @@ async function fetchAnalyticsMetric(
   url.searchParams.set('ids', 'channel==MINE');
   url.searchParams.set('startDate', startDate);
   url.searchParams.set('endDate', endDate);
-  url.searchParams.set('metrics', metric);
+  url.searchParams.set('metrics', 'subscribersGained,subscribersLost');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -136,8 +137,10 @@ async function fetchAnalyticsMetric(
     throw new Error(`YouTube Analytics API error: ${data.error?.message ?? res.status}`);
   }
 
-  const value = data.rows?.[0]?.[0];
-  return value !== undefined ? Number(value) : 0;
+  const row = data.rows?.[0];
+  const gained = row ? Number(row[0]) : 0;
+  const lost = row ? Number(row[1]) : 0;
+  return gained - lost;
 }
 
 type WatchTimeSuccess = {
@@ -244,9 +247,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const videoIds = await fetchRecentVideoIds(uploadsPlaylistId, windowStart, accessToken);
     const { longForms: longFormsPublished, shorts: shortsPublished } = await classifyVideos(videoIds, accessToken);
 
-    const subscribersResult = await fetchAnalyticsMetric(
-      'subscribersGained', startDate, endDate, accessToken,
-    );
+    const subscribersResult = await fetchNetSubscribers(startDate, endDate, accessToken);
     if (typeof subscribersResult === 'object' && subscribersResult.scopeError) {
       return NextResponse.json({
         error: 'YouTube Analytics scope not authorized — channel owner needs to re-authorize OAuth with yt-analytics.readonly scope',
@@ -284,7 +285,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       const videoIds30 = await fetchRecentVideoIds(uploadsPlaylistId, windowStart30, accessToken);
       const { longForms: lf30, shorts: s30 } = await classifyVideos(videoIds30, accessToken);
 
-      const subs30Result = await fetchAnalyticsMetric('subscribersGained', startDate30, endDate, accessToken);
+      const subs30Result = await fetchNetSubscribers(startDate30, endDate, accessToken);
       const subs30 = typeof subs30Result === 'number' ? subs30Result : 0;
 
       const wt30Result = await fetchWatchTimeByContentType(startDate30, endDate, accessToken);
