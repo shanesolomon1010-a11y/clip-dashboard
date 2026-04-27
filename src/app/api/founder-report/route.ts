@@ -82,19 +82,20 @@ async function fetchRecentVideoIds(
   return videoIds;
 }
 
+// Published counts only — filters to public videos published in the window.
 async function classifyVideos(
   videoIds: string[],
   accessToken: string,
-): Promise<{ longForms: number; shorts: number; longFormVideoIds: string[]; shortsVideoIds: string[] }> {
-  if (videoIds.length === 0) return { longForms: 0, shorts: 0, longFormVideoIds: [], shortsVideoIds: [] };
+): Promise<{ longForms: number; shorts: number }> {
+  if (videoIds.length === 0) return { longForms: 0, shorts: 0 };
 
   const chunks: string[][] = [];
   for (let i = 0; i < videoIds.length; i += 50) {
     chunks.push(videoIds.slice(i, i + 50));
   }
 
-  const longFormVideoIds: string[] = [];
-  const shortsVideoIds: string[] = [];
+  let longForms = 0;
+  let shorts = 0;
 
   for (const chunk of chunks) {
     const url = new URL('https://www.googleapis.com/youtube/v3/videos');
@@ -107,17 +108,12 @@ async function classifyVideos(
     for (const item of data.items ?? []) {
       if (item.status?.privacyStatus !== 'public') continue;
       const sec = parseDurationSeconds(item.contentDetails.duration);
-      if (sec <= 180) shortsVideoIds.push(item.id);
-      else longFormVideoIds.push(item.id);
+      if (sec <= 180) shorts++;
+      else longForms++;
     }
   }
 
-  return {
-    longForms: longFormVideoIds.length,
-    shorts: shortsVideoIds.length,
-    longFormVideoIds,
-    shortsVideoIds,
-  };
+  return { longForms, shorts };
 }
 
 async function fetchNetSubscribers(
@@ -148,20 +144,20 @@ async function fetchNetSubscribers(
   return gained - lost;
 }
 
-async function fetchMetricsByVideoIds(
-  videoIds: string[],
+// Returns one row per video that had activity: [videoId, views, minutesWatched]
+async function fetchViewsByVideoDimension(
   startDate: string,
   endDate: string,
   accessToken: string,
-): Promise<{ minutes: number; views: number } | { scopeError: true }> {
-  if (videoIds.length === 0) return { minutes: 0, views: 0 };
-
+): Promise<{ rows: (string | number)[][] } | { scopeError: true }> {
   const url = new URL('https://youtubeanalytics.googleapis.com/v2/reports');
   url.searchParams.set('ids', 'channel==MINE');
   url.searchParams.set('startDate', startDate);
   url.searchParams.set('endDate', endDate);
-  url.searchParams.set('metrics', 'estimatedMinutesWatched,views');
-  url.searchParams.set('filters', `video==${videoIds.join(',')}`);
+  url.searchParams.set('dimensions', 'video');
+  url.searchParams.set('metrics', 'views,estimatedMinutesWatched');
+  url.searchParams.set('maxResults', '200');
+  url.searchParams.set('sort', '-views');
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${accessToken}` },
@@ -174,11 +170,75 @@ async function fetchMetricsByVideoIds(
     throw new Error(`YouTube Analytics API error: ${data.error?.message ?? res.status}`);
   }
 
-  const row = data.rows?.[0];
-  return {
-    minutes: row ? Number(row[0]) : 0,
-    views: row ? Number(row[1]) : 0,
-  };
+  return { rows: data.rows ?? [] };
+}
+
+// Builds a videoId → durationSeconds map for classification.
+async function fetchDurationMap(
+  videoIds: string[],
+  accessToken: string,
+): Promise<Map<string, number>> {
+  const map = new Map<string, number>();
+  if (videoIds.length === 0) return map;
+
+  const chunks: string[][] = [];
+  for (let i = 0; i < videoIds.length; i += 50) {
+    chunks.push(videoIds.slice(i, i + 50));
+  }
+
+  for (const chunk of chunks) {
+    const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+    url.searchParams.set('id', chunk.join(','));
+    url.searchParams.set('part', 'contentDetails');
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await res.json() as { items?: { id: string; contentDetails: { duration: string } }[] };
+    for (const item of data.items ?? []) {
+      map.set(item.id, parseDurationSeconds(item.contentDetails.duration));
+    }
+  }
+
+  return map;
+}
+
+function classifyAnalyticsRows(
+  rows: (string | number)[][],
+  durationMap: Map<string, number>,
+): {
+  longFormViews: number;
+  shortsViews: number;
+  longFormMinutes: number;
+  shortsMinutes: number;
+  unclassifiableVideos: number;
+} {
+  let longFormViews = 0;
+  let shortsViews = 0;
+  let longFormMinutes = 0;
+  let shortsMinutes = 0;
+  let unclassifiableVideos = 0;
+
+  for (const row of rows) {
+    const videoId = String(row[0]);
+    const views = Number(row[1]);
+    const minutes = Number(row[2]);
+    const durationSec = durationMap.get(videoId);
+
+    if (durationSec === undefined) {
+      unclassifiableVideos++;
+      continue;
+    }
+
+    if (durationSec <= 180) {
+      shortsViews += views;
+      shortsMinutes += minutes;
+    } else {
+      longFormViews += views;
+      longFormMinutes += minutes;
+    }
+  }
+
+  return { longFormViews, shortsViews, longFormMinutes, shortsMinutes, unclassifiableVideos };
 }
 
 type MetricSnapshot = {
@@ -198,13 +258,13 @@ const CROSS_CHECK_METRICS: (keyof MetricSnapshot)[] = [
 
 function validateReport(
   metrics: MetricSnapshot,
-  longFormVideoIds: string[],
-  shortsVideoIds: string[],
+  analyticsRows: (string | number)[][],
+  unclassifiableVideos: number,
 ): string[] {
   const warnings: string[] = [];
 
-  if (longFormVideoIds.length !== metrics.longFormsPublished || shortsVideoIds.length !== metrics.shortsPublished) {
-    warnings.push('Video ID array length mismatch with published count — internal consistency error');
+  if (analyticsRows.some((r) => r.length < 3)) {
+    warnings.push('Watch time response shape unexpected');
   }
 
   if (metrics.longFormsPublished > 0 && metrics.longFormWatchTimeHours === 0 && metrics.longFormViews === 0) {
@@ -212,6 +272,12 @@ function validateReport(
   }
   if (metrics.shortsPublished > 0 && metrics.shortsWatchTimeHours === 0 && metrics.shortsViews === 0) {
     warnings.push('Shorts published but zero engagement — possible parser failure');
+  }
+
+  if (unclassifiableVideos > 0) {
+    warnings.push(
+      `${unclassifiableVideos} video${unclassifiableVideos === 1 ? '' : 's'} with views could not be classified by duration — likely deleted or private. View counts may be slightly underreported.`,
+    );
   }
 
   return warnings;
@@ -234,12 +300,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
     const uploadsPlaylistId = await getUploadsPlaylistId(accessToken);
     const videoIds = await fetchRecentVideoIds(uploadsPlaylistId, windowStart, accessToken);
-    const {
-      longForms: longFormsPublished,
-      shorts: shortsPublished,
-      longFormVideoIds,
-      shortsVideoIds,
-    } = await classifyVideos(videoIds, accessToken);
+    const { longForms: longFormsPublished, shorts: shortsPublished } = await classifyVideos(videoIds, accessToken);
 
     const subscribersResult = await fetchNetSubscribers(startDate, endDate, accessToken);
     if (typeof subscribersResult === 'object' && subscribersResult.scopeError) {
@@ -248,22 +309,22 @@ export async function GET(request: Request): Promise<NextResponse> {
       });
     }
 
-    const longFormMetrics = await fetchMetricsByVideoIds(longFormVideoIds, startDate, endDate, accessToken);
-    if ('scopeError' in longFormMetrics) {
+    const analyticsResult = await fetchViewsByVideoDimension(startDate, endDate, accessToken);
+    if ('scopeError' in analyticsResult) {
       return NextResponse.json({
         error: 'YouTube Analytics scope not authorized — channel owner needs to re-authorize OAuth with yt-analytics.readonly scope',
       });
     }
+    const { rows: analyticsRows } = analyticsResult;
 
-    const shortsMetrics = await fetchMetricsByVideoIds(shortsVideoIds, startDate, endDate, accessToken);
-    if ('scopeError' in shortsMetrics) {
-      return NextResponse.json({
-        error: 'YouTube Analytics scope not authorized — channel owner needs to re-authorize OAuth with yt-analytics.readonly scope',
-      });
-    }
+    const analyticsVideoIds = Array.from(new Set(analyticsRows.map((r) => String(r[0]))));
+    const durationMap = await fetchDurationMap(analyticsVideoIds, accessToken);
 
-    const longFormWatchTimeHours = Math.round(longFormMetrics.minutes / 60 * 10) / 10;
-    const shortsWatchTimeHours = Math.round(shortsMetrics.minutes / 60 * 10) / 10;
+    const { longFormViews, shortsViews, longFormMinutes, shortsMinutes, unclassifiableVideos } =
+      classifyAnalyticsRows(analyticsRows, durationMap);
+
+    const longFormWatchTimeHours = Math.round(longFormMinutes / 60 * 10) / 10;
+    const shortsWatchTimeHours = Math.round(shortsMinutes / 60 * 10) / 10;
 
     const currentMetrics: MetricSnapshot = {
       longFormsPublished,
@@ -271,11 +332,11 @@ export async function GET(request: Request): Promise<NextResponse> {
       newSubscribers: subscribersResult as number,
       longFormWatchTimeHours,
       shortsWatchTimeHours,
-      longFormViews: longFormMetrics.views,
-      shortsViews: shortsMetrics.views,
+      longFormViews,
+      shortsViews,
     };
 
-    const warnings = validateReport(currentMetrics, longFormVideoIds, shortsVideoIds);
+    const warnings = validateReport(currentMetrics, analyticsRows, unclassifiableVideos);
 
     if (debug) {
       const windowStart30 = new Date(now);
@@ -283,27 +344,25 @@ export async function GET(request: Request): Promise<NextResponse> {
       const startDate30 = toYMD(windowStart30);
 
       const videoIds30 = await fetchRecentVideoIds(uploadsPlaylistId, windowStart30, accessToken);
-      const {
-        longForms: lf30,
-        shorts: s30,
-        longFormVideoIds: lfIds30,
-        shortsVideoIds: sIds30,
-      } = await classifyVideos(videoIds30, accessToken);
+      const { longForms: lf30, shorts: s30 } = await classifyVideos(videoIds30, accessToken);
 
       const subs30Result = await fetchNetSubscribers(startDate30, endDate, accessToken);
       const subs30 = typeof subs30Result === 'number' ? subs30Result : 0;
 
-      const lfMetrics30 = await fetchMetricsByVideoIds(lfIds30, startDate30, endDate, accessToken);
-      const sMetrics30 = await fetchMetricsByVideoIds(sIds30, startDate30, endDate, accessToken);
+      const analytics30Result = await fetchViewsByVideoDimension(startDate30, endDate, accessToken);
+      const rows30 = 'scopeError' in analytics30Result ? [] : analytics30Result.rows;
+      const analyticsVideoIds30 = Array.from(new Set(rows30.map((r) => String(r[0]))));
+      const durationMap30 = await fetchDurationMap(analyticsVideoIds30, accessToken);
+      const classified30 = classifyAnalyticsRows(rows30, durationMap30);
 
       const metrics30: MetricSnapshot = {
         longFormsPublished: lf30,
         shortsPublished: s30,
         newSubscribers: subs30,
-        longFormWatchTimeHours: 'scopeError' in lfMetrics30 ? 0 : Math.round(lfMetrics30.minutes / 60 * 10) / 10,
-        shortsWatchTimeHours: 'scopeError' in sMetrics30 ? 0 : Math.round(sMetrics30.minutes / 60 * 10) / 10,
-        longFormViews: 'scopeError' in lfMetrics30 ? 0 : lfMetrics30.views,
-        shortsViews: 'scopeError' in sMetrics30 ? 0 : sMetrics30.views,
+        longFormWatchTimeHours: Math.round(classified30.longFormMinutes / 60 * 10) / 10,
+        shortsWatchTimeHours: Math.round(classified30.shortsMinutes / 60 * 10) / 10,
+        longFormViews: classified30.longFormViews,
+        shortsViews: classified30.shortsViews,
       };
 
       for (const metric of CROSS_CHECK_METRICS) {
@@ -319,8 +378,8 @@ export async function GET(request: Request): Promise<NextResponse> {
       longFormsPublished,
       shortsPublished,
       newSubscribers: subscribersResult,
-      longFormViews: currentMetrics.longFormViews,
-      shortsViews: currentMetrics.shortsViews,
+      longFormViews,
+      shortsViews,
       longFormWatchTimeHours,
       shortsWatchTimeHours,
       windowDays,
