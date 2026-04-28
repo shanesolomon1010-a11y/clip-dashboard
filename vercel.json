@@ -5,6 +5,10 @@
       "schedule": "0 14 * * *"
     },
     {
+      "path": "/api/cron/youtube-sync-longform",
+      "schedule": "30 14 * * *"
+    },
+    {
       "path": "/api/insights/weekly-report",
       "schedule": "0 14 * * 1"
     }
@@ -13,7 +17,13 @@
     "src/app/api/cron/youtube-sync/route.ts": {
       "maxDuration": 60
     },
+    "src/app/api/cron/youtube-sync-longform/route.ts": {
+      "maxDuration": 60
+    },
     "src/app/api/youtube-sync/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/api/youtube-sync-longform/route.ts": {
       "maxDuration": 60
     }
   }
