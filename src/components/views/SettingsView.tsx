@@ -138,6 +138,33 @@ export default function SettingsView({ onClearData }: Props) {
     }
   }
 
+  // YouTube long-form sync state
+  const [ytLongFormSyncing, setYtLongFormSyncing] = useState(false);
+  const [ytLongFormResult, setYtLongFormResult] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+
+  async function handleYouTubeLongFormSync() {
+    setYtLongFormSyncing(true);
+    setYtLongFormResult(null);
+    try {
+      const res = await fetch('/api/youtube-sync-longform', {
+        method: 'POST',
+        headers: { 'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '' },
+      });
+      const data = await res.json() as {
+        discovered?: number; synced?: number; errors?: number; error?: string;
+      };
+      if (data.error) throw new Error(data.error);
+      setYtLongFormResult({
+        type: 'success',
+        message: `Discovered ${data.discovered ?? 0} videos, synced ${data.synced ?? 0} daily rows, ${data.errors ?? 0} errors`,
+      });
+    } catch (err) {
+      setYtLongFormResult({ type: 'error', message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      setYtLongFormSyncing(false);
+    }
+  }
+
   // Bulk Import state
   const [bulkImporting, setBulkImporting]   = useState(false);
   const [bulkResult, setBulkResult]         = useState<{ inserted: number; updated: number; clips: { clip_details_code: string; headline: string }[] } | null>(null);
@@ -421,10 +448,25 @@ export default function SettingsView({ onClearData }: Props) {
                     {ytSyncing ? 'Syncing…' : 'Sync Now'}
                   </button>
                 )}
+                {ytConnected && (
+                  <button
+                    type="button"
+                    onClick={handleYouTubeLongFormSync}
+                    disabled={ytLongFormSyncing}
+                    className="px-4 py-2 text-xs font-semibold text-[var(--text-2)] bg-[rgba(247,231,206,0.04)] border border-[rgba(247,231,206,0.08)] rounded-xl hover:bg-[rgba(247,231,206,0.07)] transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {ytLongFormSyncing ? 'Syncing long-form…' : 'Sync Long-form Now'}
+                  </button>
+                )}
               </div>
               {ytSyncResult && (
                 <p className={`text-xs ${ytSyncResult.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
                   {ytSyncResult.message}
+                </p>
+              )}
+              {ytLongFormResult && (
+                <p className={`text-xs ${ytLongFormResult.type === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                  {ytLongFormResult.message}
                 </p>
               )}
               <p className="text-[11px] text-[var(--text-3)]">
