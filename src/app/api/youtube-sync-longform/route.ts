@@ -15,8 +15,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     const summary = await syncLongFormVideos();
     return NextResponse.json(summary);
   } catch (err) {
-    console.error('youtube-sync-longform error:', err);
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    const e = err as { message?: string; code?: string; details?: string; hint?: string; stack?: string };
+    console.error('youtube-sync-longform error:', {
+      message: e.message,
+      code: e.code,
+      details: e.details,
+      hint: e.hint,
+      stack: e.stack,
+    });
+    return NextResponse.json({ error: e.message ?? String(err) }, { status: 500 });
   }
 }
 
@@ -27,6 +34,12 @@ export async function GET(): Promise<NextResponse> {
     .order('published_at', { ascending: false });
 
   if (error) {
+    console.error('youtube-sync-longform GET Supabase error:', {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
   return NextResponse.json({ videos: data ?? [] });

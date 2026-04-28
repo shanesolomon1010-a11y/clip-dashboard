@@ -59,6 +59,22 @@ export interface LongFormSyncSummary {
   errorDetails: SyncErrorDetail[];
 }
 
+interface SupabaseLikeError {
+  message: string;
+  code?: string;
+  details?: string;
+  hint?: string;
+}
+
+function logSupabaseError(label: string, error: SupabaseLikeError): void {
+  console.error(`[longform-sync] ${label} Supabase error:`, {
+    message: error.message,
+    code: error.code,
+    details: error.details,
+    hint: error.hint,
+  });
+}
+
 function parseDurationSeconds(iso: string): number {
   const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
   if (!m) return 0;
@@ -168,14 +184,20 @@ async function upsertLongFormVideos(videos: LongFormVideo[]): Promise<void> {
   const { error } = await supabase
     .from('long_form_videos')
     .upsert(videos, { onConflict: 'video_id', ignoreDuplicates: false });
-  if (error) throw error;
+  if (error) {
+    logSupabaseError('upsertLongFormVideos', error);
+    throw error;
+  }
 }
 
 async function fetchLongFormVideosFromDb(): Promise<LongFormVideo[]> {
   const { data, error } = await supabase
     .from('long_form_videos')
     .select('video_id, title, duration_seconds, published_at, privacy_status, thumbnail_url');
-  if (error) throw error;
+  if (error) {
+    logSupabaseError('fetchLongFormVideosFromDb', error);
+    throw error;
+  }
   return (data ?? []) as LongFormVideo[];
 }
 
@@ -282,7 +304,10 @@ async function upsertLongFormPosts(rows: PostUpsertRow[]): Promise<void> {
         onConflict: 'content_id,platform,stat_date',
         ignoreDuplicates: false,
       });
-    if (error) throw error;
+    if (error) {
+      logSupabaseError('upsertLongFormPosts', error);
+      throw error;
+    }
   }
 }
 
@@ -292,7 +317,10 @@ async function markVideosSynced(videoIds: string[], timestamp: string): Promise<
     .from('long_form_videos')
     .update({ last_synced_at: timestamp })
     .in('video_id', videoIds);
-  if (error) throw error;
+  if (error) {
+    logSupabaseError('markVideosSynced', error);
+    throw error;
+  }
 }
 
 export async function syncLongFormVideos(): Promise<LongFormSyncSummary> {
@@ -360,13 +388,7 @@ export async function syncLongFormVideos(): Promise<LongFormSyncSummary> {
   }
 
   // STEP 3 — upsert into posts
-  try {
-    await upsertLongFormPosts(allRows);
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    console.error('[longform-sync] upsertLongFormPosts failed:', message);
-    throw err;
-  }
+  await upsertLongFormPosts(allRows);
 
   // STEP 4 — mark each successfully fetched video as synced
   await markVideosSynced(successfullySyncedIds, nowIso);
