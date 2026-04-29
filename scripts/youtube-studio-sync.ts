@@ -581,7 +581,7 @@ async function exportVideoCSV(
   try {
     [download] = await Promise.all([
       page.waitForEvent('download', { timeout: 60000 }),
-      page.getByText('Comma-separated values (.csv)').click(),
+      page.getByRole('menuitem', { name: /Comma-separated values/i }).click(),
     ]);
   } catch (err) {
     log(`[${videoId}] ERROR: Download failed — ${err}`);
@@ -722,7 +722,7 @@ async function main(): Promise<void> {
     try {
       [download] = await Promise.all([
         page.waitForEvent('download', { timeout: 60000 }),
-        page.getByText('Comma-separated values (.csv)').click(),
+        page.getByRole('menuitem', { name: /Comma-separated values/i }).click(),
       ]);
     } catch (err) {
       log(`ERROR: Download failed — ${err}`);
