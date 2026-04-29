@@ -1,3 +1,34 @@
+// =============================================================================
+// DEPRECATED — retired 2026-04-28
+//
+// This Playwright-driven YouTube Studio scraper has been retired. The Vercel
+// cron at /api/cron/youtube-sync (which calls runYouTubeSync via the YouTube
+// Analytics API) is now the source of truth for daily YouTube metrics and
+// covers everything the Founder Report needs.
+//
+// Why it broke: YouTube Studio changed the DOM/dispatch behavior of the
+// Advanced-mode CSV export menu around 2026-04-24. Specifically, the
+// channel-export step's click on "Comma-separated values (.csv)" no longer
+// produces a Playwright-detectable `download` event (see the
+// page.waitForEvent('download', ...) call near line 692). Logs in
+// logs/youtube-studio-sync.log show timeouts on Apr 25–28 and a screenshot
+// at logs/channel-export-error.png shows the menu opened but the download
+// never fired.
+//
+// What was lost: fields this scraper uniquely populated are no longer being
+// written — Hypes, hype_points, stayed_to_watch_pct, unique_viewers, and
+// the viewer cohorts (new_viewers, returning_viewers, casual_viewers,
+// regular_viewers, post_subscribers). Anything depending on those is now
+// reading stale values.
+//
+// To re-enable: fix the CSV export selector / download dispatch in the
+// channel-export step around line 692 (and the matching per-video step
+// around line 552), confirm a manual run produces a CSV, then remove this
+// notice. The launchd plist (scripts/com.clipstudio.youtubesync.plist) is
+// being unloaded outside this codebase — re-load it after fixing the
+// selector.
+// =============================================================================
+
 import { chromium } from 'playwright-core';
 import type { BrowserContext } from 'playwright-core';
 import AdmZip from 'adm-zip';

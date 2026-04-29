@@ -330,7 +330,18 @@ export async function syncLongFormVideos(): Promise<LongFormSyncSummary> {
   const playlistId = await getUploadsPlaylistId(accessToken);
   const allVideoIds = await fetchAllUploadVideoIds(playlistId, accessToken);
   const longFormVideos = await fetchVideoDetails(allVideoIds, accessToken);
-  await upsertLongFormVideos(longFormVideos);
+
+  // YouTube uploads playlists can return the same video_id more than once
+  // (playlist edits / duplicate entries). Postgres rejects multi-row upserts
+  // that share a conflict key (error 21000), so collapse duplicates here —
+  // last write wins.
+  const dedup = new Map<string, LongFormVideo>();
+  for (const v of longFormVideos) {
+    dedup.set(v.video_id, v);
+  }
+  const uniqueVideos = Array.from(dedup.values());
+
+  await upsertLongFormVideos(uniqueVideos);
 
   // STEP 2 — read full catalog from DB and fetch metrics for each
   const catalog = await fetchLongFormVideosFromDb();
@@ -394,7 +405,7 @@ export async function syncLongFormVideos(): Promise<LongFormSyncSummary> {
   await markVideosSynced(successfullySyncedIds, nowIso);
 
   return {
-    discovered: longFormVideos.length,
+    discovered: uniqueVideos.length,
     synced: allRows.length,
     errors: errorDetails.length,
     errorDetails,
