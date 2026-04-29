@@ -1,33 +1,22 @@
-// =============================================================================
-// DEPRECATED — retired 2026-04-28
-//
-// This Playwright-driven YouTube Studio scraper has been retired. The Vercel
-// cron at /api/cron/youtube-sync (which calls runYouTubeSync via the YouTube
-// Analytics API) is now the source of truth for daily YouTube metrics and
-// covers everything the Founder Report needs.
-//
-// Why it broke: YouTube Studio changed the DOM/dispatch behavior of the
-// Advanced-mode CSV export menu around 2026-04-24. Specifically, the
-// channel-export step's click on "Comma-separated values (.csv)" no longer
-// produces a Playwright-detectable `download` event (see the
-// page.waitForEvent('download', ...) call near line 692). Logs in
-// logs/youtube-studio-sync.log show timeouts on Apr 25–28 and a screenshot
-// at logs/channel-export-error.png shows the menu opened but the download
-// never fired.
-//
-// What was lost: fields this scraper uniquely populated are no longer being
-// written — Hypes, hype_points, stayed_to_watch_pct, unique_viewers, and
-// the viewer cohorts (new_viewers, returning_viewers, casual_viewers,
-// regular_viewers, post_subscribers). Anything depending on those is now
-// reading stale values.
-//
-// To re-enable: fix the CSV export selector / download dispatch in the
-// channel-export step around line 692 (and the matching per-video step
-// around line 552), confirm a manual run produces a CSV, then remove this
-// notice. The launchd plist (scripts/com.clipstudio.youtubesync.plist) is
-// being unloaded outside this codebase — re-load it after fixing the
-// selector.
-// =============================================================================
+/**
+ * YouTube Studio Watchdog Scraper
+ *
+ * STATUS: Active as of 2026-04-29.
+ * Repurposed from a posts-writer to a watchdog scraper.
+ *
+ * PURPOSE:
+ * Pulls daily metrics from YouTube Studio CSV exports and writes to the
+ * studio_snapshots table. The Vercel cron at /api/cron/youtube-sync remains
+ * the source of truth for the posts table. studio_snapshots exists as a
+ * verification source so the Diagnostics tab in Settings can detect drift
+ * between API data and Studio data.
+ *
+ * SCHEDULE: Daily 6 AM PT via LaunchAgent at
+ * ~/Library/LaunchAgents/com.clipstudio.youtubesync.plist
+ *
+ * DO NOT make this script write to posts again. Posts is owned by the
+ * Vercel cron.
+ */
 
 import { chromium } from 'playwright-core';
 import type { BrowserContext } from 'playwright-core';
@@ -343,6 +332,66 @@ export function mergeAggregatesIntoLatestRow(
       if (val != null) latestRow[col] = val;
     }
   }
+}
+
+// Shape of a row in the studio_snapshots table. Scraper rows are built with
+// extra fields shaped for posts (content_id, content_type, clip_code, dislikes,
+// duration_seconds, post_subscribers); the mapper below filters those out.
+export interface StudioSnapshotRow {
+  clip_details_code: string;
+  platform: string;
+  stat_date: string;
+  views: number | null;
+  watch_time_hours: number | null;
+  impressions: number | null;
+  impression_ctr: number | null;
+  avg_view_duration_seconds: number | null;
+  avg_view_percentage: number | null;
+  subscribers_gained: number | null;
+  subscribers_lost: number | null;
+  likes: number | null;
+  comments: number | null;
+  shares: number | null;
+  stayed_to_watch_pct: number | null;
+  unique_viewers: number | null;
+  new_viewers: number | null;
+  casual_viewers: number | null;
+  regular_viewers: number | null;
+  returning_viewers: number | null;
+  hypes: number | null;
+  hype_points: number | null;
+}
+
+function pickNum(row: Record<string, unknown>, key: string): number | null {
+  const v = row[key];
+  return typeof v === 'number' ? v : null;
+}
+
+export function toStudioSnapshot(row: Record<string, unknown>): StudioSnapshotRow {
+  return {
+    clip_details_code: row.clip_details_code as string,
+    platform: row.platform as string,
+    stat_date: row.stat_date as string,
+    views: pickNum(row, 'views'),
+    watch_time_hours: pickNum(row, 'watch_time_hours'),
+    impressions: pickNum(row, 'impressions'),
+    impression_ctr: pickNum(row, 'impression_ctr'),
+    avg_view_duration_seconds: pickNum(row, 'avg_view_duration_seconds'),
+    avg_view_percentage: pickNum(row, 'avg_view_percentage'),
+    subscribers_gained: pickNum(row, 'subscribers_gained'),
+    subscribers_lost: pickNum(row, 'subscribers_lost'),
+    likes: pickNum(row, 'likes'),
+    comments: pickNum(row, 'comments'),
+    shares: pickNum(row, 'shares'),
+    stayed_to_watch_pct: pickNum(row, 'stayed_to_watch_pct'),
+    unique_viewers: pickNum(row, 'unique_viewers'),
+    new_viewers: pickNum(row, 'new_viewers'),
+    casual_viewers: pickNum(row, 'casual_viewers'),
+    regular_viewers: pickNum(row, 'regular_viewers'),
+    returning_viewers: pickNum(row, 'returning_viewers'),
+    hypes: pickNum(row, 'hypes'),
+    hype_points: pickNum(row, 'hype_points'),
+  };
 }
 
 function splitCSVLine(line: string): string[] {
@@ -780,21 +829,19 @@ async function main(): Promise<void> {
     }
 
     if (deduped.length > 0) {
-      log('Upserting to Supabase...');
-      // Strip null/undefined values from every row so the ON CONFLICT DO UPDATE SET clause
-      // only touches columns we actually have data for. Columns absent from the row object
-      // are not included in the SET clause, preserving existing non-null DB values.
-      const toUpsert = deduped.map(row =>
-        Object.fromEntries(Object.entries(row).filter(([, v]) => v !== null && v !== undefined))
-      );
-      const { error } = await supabase.from('posts').upsert(toUpsert, {
+      log('Upserting to studio_snapshots...');
+      // Map every row through toStudioSnapshot so we only send columns that exist
+      // in studio_snapshots (the scraper builds rows shaped for posts, with extras
+      // like content_id / content_type / clip_code that aren't on this table).
+      const toUpsert = deduped.map(toStudioSnapshot);
+      const { error } = await supabase.from('studio_snapshots').upsert(toUpsert, {
         onConflict: 'clip_details_code,platform,stat_date',
         ignoreDuplicates: false,
       });
       if (error) {
         log(`ERROR: Upsert failed — ${JSON.stringify(error)}`);
       } else {
-        log(`SUCCESS: Upserted ${deduped.length} rows`);
+        log(`SUCCESS: Upserted ${deduped.length} rows to studio_snapshots`);
       }
     } else {
       log('No rows collected — nothing to upsert');
