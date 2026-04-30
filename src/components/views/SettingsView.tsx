@@ -7,6 +7,7 @@ import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDeta
 import type { ClipDetail } from '@/lib/db';
 import DataEditorTab from '@/components/DataEditorTab';
 import YouTubeMergerTab from '@/components/YouTubeMergerTab';
+import DiagnosticsView from '@/components/views/DiagnosticsView';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -61,16 +62,18 @@ function nullIfEmpty(s: string): string | null {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const VALID_STABS = new Set(['clips', 'data-editor', 'youtube-merger', 'connections', 'bulk-import']);
+const VALID_STABS = new Set(['clips', 'data-editor', 'youtube-merger', 'connections', 'bulk-import', 'diagnostics']);
+
+type SettingsTab = 'clips' | 'data-editor' | 'youtube-merger' | 'connections' | 'bulk-import' | 'diagnostics';
 
 export default function SettingsView({ onClearData }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialStab = (() => {
     const s = searchParams.get('stab');
-    return (s && VALID_STABS.has(s) ? s : 'clips') as 'clips' | 'data-editor' | 'youtube-merger' | 'connections' | 'bulk-import';
+    return (s && VALID_STABS.has(s) ? s : 'clips') as SettingsTab;
   })();
-  const [activeTab, setActiveTab] = useState<'clips' | 'data-editor' | 'youtube-merger' | 'connections' | 'bulk-import'>(initialStab);
+  const [activeTab, setActiveTab] = useState<SettingsTab>(initialStab);
 
   useEffect(() => {
     const params = new URLSearchParams(searchParams.toString());
@@ -388,6 +391,7 @@ export default function SettingsView({ onClearData }: Props) {
             { key: 'youtube-merger', label: 'YouTube Merger' },
             { key: 'connections', label: 'Connections' },
             { key: 'bulk-import', label: 'Bulk Import' },
+            { key: 'diagnostics', label: 'Diagnostics' },
           ] as { key: typeof activeTab; label: string }[]).map(({ key, label }) => (
             <button
               key={key}
@@ -406,6 +410,7 @@ export default function SettingsView({ onClearData }: Props) {
 
       {activeTab === 'data-editor' && <DataEditorTab />}
       {activeTab === 'youtube-merger' && <YouTubeMergerTab />}
+      {activeTab === 'diagnostics' && <DiagnosticsView />}
 
       {activeTab === 'connections' && (
         <div className="max-w-2xl space-y-5">
