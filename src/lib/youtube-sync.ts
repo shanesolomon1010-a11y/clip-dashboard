@@ -56,72 +56,50 @@ const BREAKDOWN_CONFIGS: BreakdownConfig[] = [
   { name: 'insightPlaybackLocationType', apiDimensions: 'insightPlaybackLocationType',  aggregate: true  },
 ];
 
-// Parallelize per-video YouTube Analytics calls across this many videos at a time.
-// Sequential at 38 videos was tipping past Vercel's 60s function ceiling; chunked
-// parallel collapses the analytics phase from ~30-60s into ~3-6s.
-const VIDEOS_PER_CHUNK = 10;
-
 export async function runBreakdownSync(accessToken: string): Promise<number> {
   const endDate = new Date().toISOString().split('T')[0];
   const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  const now = new Date().toISOString();
-  const videoEntries = Object.entries(VIDEO_MAP);
   const allRows: BreakdownUpsertRow[] = [];
   let apiCalls = 0;
+  const now = new Date().toISOString();
 
-  for (let i = 0; i < videoEntries.length; i += VIDEOS_PER_CHUNK) {
-    const chunk = videoEntries.slice(i, i + VIDEOS_PER_CHUNK);
-    const chunkResults = await Promise.all(
-      chunk.map(async ([videoId, clipDetailsCode]): Promise<BreakdownUpsertRow[]> => {
-        const clipCode = clipDetailsCode.split('-CLIP-')[0];
-        const perVideoRows: BreakdownUpsertRow[] = [];
+  for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
+    const clipCode = clipDetailsCode.split('-CLIP-')[0];
 
-        const configResults = await Promise.all(
-          BREAKDOWN_CONFIGS.map(async (config) => {
-            apiCalls++;
-            try {
-              return await fetchBreakdownForVideo(videoId, config, startDate, endDate, accessToken);
-            } catch (err) {
-              console.warn(`breakdown-sync: skipping ${videoId}/${config.name}:`, err);
-              return [];
-            }
-          }),
-        );
+    for (const config of BREAKDOWN_CONFIGS) {
+      apiCalls++;
+      let rows;
+      try {
+        rows = await fetchBreakdownForVideo(videoId, config, startDate, endDate, accessToken);
+      } catch (err) {
+        console.warn(`breakdown-sync: skipping ${videoId}/${config.name}:`, err);
+        continue;
+      }
 
-        for (let c = 0; c < BREAKDOWN_CONFIGS.length; c++) {
-          const config = BREAKDOWN_CONFIGS[c];
-          const rows = configResults[c];
+      if (rows.length > 0) {
+        console.log(`breakdown-sync: ${clipDetailsCode}/${config.name}: ${rows.length} rows`);
+      }
+      if (config.name === 'ageGroupGender' && rows.length > 0) {
+        console.log(`[demographics] threshold crossed: ${rows.length} rows for ${videoId}`);
+      }
 
-          if (rows.length > 0) {
-            console.log(`breakdown-sync: ${clipDetailsCode}/${config.name}: ${rows.length} rows`);
-          }
-          if (config.name === 'ageGroupGender' && rows.length > 0) {
-            console.log(`[demographics] threshold crossed: ${rows.length} rows for ${videoId}`);
-          }
-
-          for (const row of rows) {
-            perVideoRows.push({
-              clip_details_code: clipDetailsCode,
-              clip_code: clipCode,
-              content_id: videoId,
-              platform: 'youtube',
-              stat_date: row.date,
-              dimension_type: config.name,
-              dimension_value: row.dimensionValue,
-              views: row.views,
-              watch_time_minutes: row.watchTimeMinutes,
-              avg_view_duration_seconds: row.avgViewDurationSeconds,
-              updated_at: now,
-            });
-          }
-        }
-
-        return perVideoRows;
-      }),
-    );
-
-    for (const rows of chunkResults) allRows.push(...rows);
+      for (const row of rows) {
+        allRows.push({
+          clip_details_code: clipDetailsCode,
+          clip_code: clipCode,
+          content_id: videoId,
+          platform: 'youtube',
+          stat_date: row.date,
+          dimension_type: config.name,
+          dimension_value: row.dimensionValue,
+          views: row.views,
+          watch_time_minutes: row.watchTimeMinutes,
+          avg_view_duration_seconds: row.avgViewDurationSeconds,
+          updated_at: now,
+        });
+      }
+    }
   }
 
   console.log(`breakdown-sync: ${apiCalls} API calls, ${allRows.length} rows collected`);
@@ -159,58 +137,52 @@ export async function runYouTubeSync(): Promise<{ rowsProcessed: number; breakdo
   }
 
   const allPosts: UnifiedPost[] = [];
-  const videoEntries = Object.entries(VIDEO_MAP);
 
-  for (let i = 0; i < videoEntries.length; i += VIDEOS_PER_CHUNK) {
-    const chunk = videoEntries.slice(i, i + VIDEOS_PER_CHUNK);
-    const chunkResults = await Promise.all(
-      chunk.map(async ([videoId, clipDetailsCode]): Promise<UnifiedPost[]> => {
-        const metadata = metadataMap.get(videoId);
-        if (!metadata) {
-          console.warn(`youtube-sync: no metadata for ${videoId} (${clipDetailsCode}), skipping`);
-          return [];
-        }
-        const clipCode = clipDetailsCode.split('-CLIP-')[0];
+  for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
+    const metadata = metadataMap.get(videoId);
+    if (!metadata) {
+      console.warn(`youtube-sync: no metadata for ${videoId} (${clipDetailsCode}), skipping`);
+      continue;
+    }
+    const clipCode = clipDetailsCode.split('-CLIP-')[0];
 
-        let rows;
-        try {
-          rows = await fetchAnalyticsForVideo(videoId, startDate, endDate, accessToken);
-        } catch (err) {
-          console.error(`youtube-sync: skipping ${videoId}:`, err);
-          return [];
-        }
+    let rows;
+    try {
+      rows = await fetchAnalyticsForVideo(videoId, startDate, endDate, accessToken);
+    } catch (err) {
+      console.error(`youtube-sync: skipping ${videoId}:`, err);
+      continue;
+    }
 
-        return rows.map<UnifiedPost>((row) => ({
-          id: `${videoId}_${row.date}`,
-          clip_code: clipCode,
-          clip_details_code: clipDetailsCode,
-          content_id: videoId,
-          platform: 'youtube',
-          content_type: 'short',
-          date: metadata.publishedAt.slice(0, 10),
-          stat_date: row.date,
-          title: metadata.title,
-          url: metadata.url,
-          thumbnail_url: metadata.thumbnailUrl ?? undefined,
-          duration_seconds: metadata.durationSeconds ?? undefined,
-          views: row.views,
-          likes: row.likes,
-          dislikes: row.dislikes,
-          comments: row.comments,
-          shares: row.shares,
-          saves: 0,
-          engagementRate: 0,
-          watch_time_minutes: row.estimatedMinutesWatched,
-          watch_time_hours: row.estimatedMinutesWatched / 60,
-          avg_view_duration_seconds: row.averageViewDuration,
-          avg_view_percentage: row.averageViewPercentage,
-          subscribers_gained: row.subscribersGained,
-          subscribers_lost: row.subscribersLost,
-        }));
-      }),
-    );
-
-    for (const rows of chunkResults) allPosts.push(...rows);
+    for (const row of rows) {
+      allPosts.push({
+        id: `${videoId}_${row.date}`,
+        clip_code: clipCode,
+        clip_details_code: clipDetailsCode,
+        content_id: videoId,
+        platform: 'youtube',
+        content_type: 'short',
+        date: metadata.publishedAt.slice(0, 10),
+        stat_date: row.date,
+        title: metadata.title,
+        url: metadata.url,
+        thumbnail_url: metadata.thumbnailUrl ?? undefined,
+        duration_seconds: metadata.durationSeconds ?? undefined,
+        views: row.views,
+        likes: row.likes,
+        dislikes: row.dislikes,
+        comments: row.comments,
+        shares: row.shares,
+        saves: 0,
+        engagementRate: 0,
+        watch_time_minutes: row.estimatedMinutesWatched,
+        watch_time_hours: row.estimatedMinutesWatched / 60,
+        avg_view_duration_seconds: row.averageViewDuration,
+        avg_view_percentage: row.averageViewPercentage,
+        subscribers_gained: row.subscribersGained,
+        subscribers_lost: row.subscribersLost,
+      });
+    }
   }
 
   if (allPosts.length > 0) {
