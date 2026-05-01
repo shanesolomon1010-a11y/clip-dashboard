@@ -43,3 +43,6 @@ logs/*.log
 logs/launchd-*.log
 
 .chrome-automation-profile/
+.env.local
+supabase/.temp/
+logs/
