@@ -73,18 +73,8 @@ Each nav section is a self-contained view component that receives `posts: Unifie
 |---|---|
 | `DashboardView` | Summary cards, 7d/30d comparison, top content list, right rail with platform breakdown + tips |
 | `ContentView` | Recent post cards, full table, CSV upload zone |
-| `AnalyticsView` | Date range + platform filter controls, stat strip, charts, engagement table |
 | `PlatformsView` | Per-platform breakdown cards with best post + export hint |
-| `AIInsightsView` | API key management, Anthropic API call, 4-card insights display, follow-up chat |
 | `SettingsView` | Static UI only, no data mutations |
-
-### AI Insights (`src/components/views/AIInsightsView.tsx`)
-
-- API key is stored in `localStorage` under key `clip_studio_anthropic_key`
-- Calls `https://api.anthropic.com/v1/messages` directly via `fetch` (no SDK) with model `claude-sonnet-4-20250514`
-- Requires header `anthropic-dangerous-direct-browser-access: true` for browser-to-API calls
-- The initial analysis requests JSON back with keys `{whatsWorking, whatToImprove, nextClips, bestTimes}`; follow-up messages are plain text chat
-- `apiMessages` holds the full conversation history (including the initial data-dump user message) passed to every API call; `chatLog` holds only the display-facing follow-ups
 
 ### Charts (`src/components/ViewsLineChart.tsx`, `PlatformBarChart.tsx`)
 

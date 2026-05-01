@@ -7,9 +7,7 @@ import { getLatestPostsPerClip, upsertPosts } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
 import DashboardView from '@/components/views/DashboardView';
 import ContentView from '@/components/views/ContentView';
-import AnalyticsView from '@/components/views/AnalyticsView';
 import PlatformsView from '@/components/views/PlatformsView';
-import InsightsView from '@/components/views/InsightsView';
 import EditorView from '@/components/views/EditorView';
 import SettingsView from '@/components/views/SettingsView';
 import ComparisonView from '@/components/views/ComparisonView';
@@ -17,7 +15,6 @@ import CaptionView from '@/components/views/CaptionView';
 import ScriptAnalyzerView from '@/components/views/ScriptAnalyzerView';
 import TranscriberView from '@/components/views/TranscriberView';
 import PostingScheduleView from '@/components/views/PostingScheduleView';
-import LibraryView from '@/components/views/LibraryView';
 import SocialCopyView from '@/components/views/SocialCopyView';
 import FounderReportView from '@/components/views/FounderReportView';
 import { VideoModalProvider } from '@/context/VideoModalContext';
@@ -25,8 +22,8 @@ import { FilterProvider } from '@/context/FilterContext';
 
 
 const VALID_NAV_SECTIONS = new Set<NavSection>([
-  'dashboard', 'content', 'schedule', 'analytics', 'platforms',
-  'comparison', 'captions', 'scriptAnalyzer', 'transcriber', 'insights', 'editor', 'settings', 'library', 'social-copy', 'founder-report',
+  'dashboard', 'content', 'schedule', 'platforms',
+  'comparison', 'captions', 'scriptAnalyzer', 'transcriber', 'editor', 'settings', 'social-copy', 'founder-report',
 ]);
 
 function AppInner() {
@@ -59,10 +56,6 @@ function AppInner() {
 
   const handleClearData = () => {
     setPosts([]);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('clip_studio_ai_insights_v1');
-      localStorage.removeItem('clip_studio_anthropic_key');
-    }
   };
 
   const handleUpload = async (newPosts: UnifiedPost[]) => {
@@ -109,17 +102,14 @@ function AppInner() {
             {activeNav === 'dashboard'  && <DashboardView posts={posts} />}
             {activeNav === 'content'    && <ContentView posts={posts} onUpload={handleUpload} onPostUpdate={handlePostUpdate} />}
             {activeNav === 'schedule'   && <PostingScheduleView />}
-            {activeNav === 'analytics'  && <AnalyticsView posts={posts} />}
             {activeNav === 'platforms'  && <PlatformsView posts={posts} />}
             {activeNav === 'comparison' && <ComparisonView posts={posts} />}
             {activeNav === 'captions'        && <CaptionView />}
             {activeNav === 'scriptAnalyzer' && <ScriptAnalyzerView />}
             {activeNav === 'transcriber'    && <TranscriberView />}
-            {activeNav === 'insights'     && <InsightsView />}
             {activeNav === 'founder-report' && <FounderReportView />}
             {activeNav === 'social-copy' && <SocialCopyView />}
             {activeNav === 'editor'      && <EditorView />}
-            {activeNav === 'library'    && <LibraryView />}
             {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}
           </main>
         </div>

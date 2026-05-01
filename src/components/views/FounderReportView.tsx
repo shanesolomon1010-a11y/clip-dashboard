@@ -277,7 +277,7 @@ export default function FounderReportView() {
         </p>
       </div>
 
-      {/* Date filter bar — matches AnalyticsView pattern */}
+      {/* Date filter bar */}
       <div className="flex items-center gap-1.5 flex-wrap mb-8">
         {([
           { val: '7d',  label: '7 Days' },

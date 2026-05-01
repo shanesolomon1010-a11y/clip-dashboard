@@ -19,25 +19,6 @@ export function IconContent({ className }: { className?: string }) {
   );
 }
 
-export function IconLibrary({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
-      <path d="M14 2v5h5" />
-      <path d="M10 9H8M16 13H8M16 17H8" />
-    </svg>
-  );
-}
-
-export function IconAnalytics({ className }: { className?: string }) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M3 3v18h18" />
-      <path d="m7 16 4-5 4 3 4-6" />
-    </svg>
-  );
-}
-
 export function IconPlatforms({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}>
