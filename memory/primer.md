@@ -4,7 +4,7 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-Library, Insights, and Analytics tabs deleted from the dashboard along with all backing code. Data-layer audit identified the YouTube Merger CSV path as the root cause of the "8K one day, 2.5K the next" volatility bug; root cause and downstream Dashboard read-side bugs fixed in a second wave. Build passes.
+Library, Insights, and Analytics tabs deleted. Data layer is now fully consistent across Dashboard and Founder Report — the "8K one day, 2.5K the next" volatility that opened the session is resolved (root cause: YouTube Merger CSV path stamping lifetime totals into the daily-delta `views` column), as is a separate but related bug where Dashboard 7d showed 0 while Founder Report 7d showed 1019 for the same window (root cause: Supabase 1000-row response cap silently truncating Dashboard's read). Verified live: Dashboard 7d=1.0K matches Founder Report 7d=1019; Dashboard 30d=4.6K matches Founder Report 30d=4582. Build passes.
 
 ## Just completed (2026-05-01, data-layer fix wave)
 - **Deleted YouTubeMergerTab** (`src/components/YouTubeMergerTab.tsx`) and its Settings tab entry — the Merger flow stamped lifetime YouTube Studio totals into the daily-delta `views` column, which was the smoking gun for the views volatility identified in `docs/data-layer-audit.md` Section 3 #1.
@@ -15,6 +15,14 @@ Library, Insights, and Analytics tabs deleted from the dashboard along with all 
   - **Impression CTR** is now window-correct: SUM(impressions) and SUM(views) over `dateFilteredDailyPosts`, divided once at the end — previously read back-filled latest-day-only impressions (audit Section 3 #3).
   - **Total Posts** (right rail) now counts distinct `(clip_code, platform)` keys present in the date window, not `filteredPosts.length` — clips whose latest snapshot fell outside the window were silently disappearing (audit Section 3 #5).
 - **Removed dead exports from `src/lib/db.ts`**: `getPosts`, `fetchAllPosts`, `fetchClipStats`, plus the orphan `ClipStats` interface — zero callers in `src/`, and `fetchClipStats` was particularly dangerous (name implied totals, body returned latest-day-per-platform).
+
+## Just completed (2026-05-01, third wave — 1000-row cap fix)
+- **Investigated** Dashboard 7d showing 0 Total Views while Founder Report 7d showed 1019 (971 Shorts + 48 Long-form) for the same window. Diagnostics' `internal_consistency` was green, so Founder Report's aggregation was confirmed correct — the bug was in Dashboard's read path.
+- **Root cause**: Supabase silently caps SELECT responses at **1000 rows**. The `posts` table holds **1327** youtube rows. `getAllPostsByDate` fetched everything sorted ASC with no DB-level date filter, so the 1000-row cap clipped off the 327 newest rows server-side. Dashboard's JS-side date filter then operated on a truncated slice that ended at 2026-04-20 — so the 7d window [2026-04-25..2026-05-02] saw zero rows. The 30d window was also silently understated.
+- **Fixed in `src/lib/db.ts`** by extending `getAllPostsByDate(platform?, startDate?, endDate?)` to push the window to the DB via `.gte('stat_date', startDate)` / `.lte('stat_date', endDate)`. Signature is backwards-compatible: omitting both reverts to prior behavior.
+- **`src/components/views/DashboardView.tsx`** now passes `filterStart` / `filterEnd` and refetches when the date window changes (split into its own `useEffect` so `getLatestPostsPerClip` still runs once on mount).
+- **Behavioral convergence**: rows with NULL `stat_date` are now excluded from Dashboard totals (previously included via `p.stat_date ?? p.date` fallback). Founder Report already excluded them, so this aligns the two surfaces. Currently no NULL-stat_date rows visible in the recent data, so there's no observable regression.
+- **Verified live**: Dashboard 7d=1.0K matches Founder Report 7d=1019. Dashboard 30d=4.6K matches Founder Report 30d=4582. `internal_consistency` stayed green. Commits: `5da96e7` (fix), `187c335` (preceding wave).
 
 ## Just completed (2026-05-01, earlier — tab deletion wave)
 - **Pre-deletion visual spec** captured at `docs/analytics-spec/analytics-spec.md` and committed (`221ead1`) before any code was removed — covers all 7 charts in the Analytics tab, plus the date filter / platform toggle / metric selector controls.
