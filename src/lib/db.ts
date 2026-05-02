@@ -122,31 +122,6 @@ function mapPostRow(row: Record<string, unknown>): UnifiedPost {
   };
 }
 
-export async function getPosts(
-  platform?: 'youtube' | 'instagram',
-  startDate?: string,
-  endDate?: string
-): Promise<UnifiedPost[]> {
-  let query = supabase.from('posts').select('*').order('posted_at', { ascending: false });
-  if (platform) query = query.eq('platform', platform);
-  if (startDate) query = query.gte('posted_at', startDate);
-  if (endDate) query = query.lte('posted_at', endDate);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []).map((row) => mapPostRow(row as Record<string, unknown>));
-}
-
-export async function fetchAllPosts(): Promise<UnifiedPost[]> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('*')
-    .order('posted_at', { ascending: false });
-
-  if (error) throw error;
-
-  return (data ?? []).map((row) => mapPostRow(row as Record<string, unknown>));
-}
-
 // Returns one row per clip_code+platform using the latest stat_date.
 // Posts without a clip_code are returned as-is (each row is unique).
 export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedPost[]> {
@@ -532,7 +507,7 @@ export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | n
   let lookupCode = clipCode;
 
   if (!clipCode.includes('-CLIP-')) {
-    // Resolve clip_details_code from posts (same pattern as fetchClipStats)
+    // Resolve clip_details_code from posts
     const { data: postRow } = await supabase
       .from('posts')
       .select('clip_details_code')
@@ -689,37 +664,3 @@ export async function deleteComment(id: string): Promise<void> {
   if (error) throw error;
 }
 
-// ── Clip stats ──────────────────────────────────────────────────────────────────
-
-export interface ClipStats {
-  views: number;
-  likes: number;
-  comments: number;
-  shares: number;
-}
-
-export async function fetchClipStats(clipCode: string): Promise<ClipStats> {
-  const { data, error } = await supabase
-    .from('posts')
-    .select('platform, stat_date, views, likes, comments, shares')
-    .or(`clip_details_code.eq."${clipCode}",clip_code.eq."${clipCode}"`)
-    .order('stat_date', { ascending: false, nullsFirst: false });
-
-  if (error) throw error;
-
-  const seen = new Set<string>();
-  const stats: ClipStats = { views: 0, likes: 0, comments: 0, shares: 0 };
-
-  for (const row of (data ?? [])) {
-    const platform = row.platform as string;
-    if (!seen.has(platform)) {
-      seen.add(platform);
-      stats.views    += Number(row.views    ?? 0);
-      stats.likes    += Number(row.likes    ?? 0);
-      stats.comments += Number(row.comments ?? 0);
-      stats.shares   += Number(row.shares   ?? 0);
-    }
-  }
-
-  return stats;
-}

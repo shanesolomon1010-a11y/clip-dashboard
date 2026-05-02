@@ -6,7 +6,6 @@ import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail, updatePostsClipDetailsCode } from '@/lib/db';
 import type { ClipDetail } from '@/lib/db';
 import DataEditorTab from '@/components/DataEditorTab';
-import YouTubeMergerTab from '@/components/YouTubeMergerTab';
 import DiagnosticsView from '@/components/views/DiagnosticsView';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
@@ -62,9 +61,9 @@ function nullIfEmpty(s: string): string | null {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const VALID_STABS = new Set(['clips', 'data-editor', 'youtube-merger', 'connections', 'bulk-import', 'diagnostics']);
+const VALID_STABS = new Set(['clips', 'data-editor', 'connections', 'bulk-import', 'diagnostics']);
 
-type SettingsTab = 'clips' | 'data-editor' | 'youtube-merger' | 'connections' | 'bulk-import' | 'diagnostics';
+type SettingsTab = 'clips' | 'data-editor' | 'connections' | 'bulk-import' | 'diagnostics';
 
 export default function SettingsView({ onClearData }: Props) {
   const router = useRouter();
@@ -388,7 +387,6 @@ export default function SettingsView({ onClearData }: Props) {
           {([
             { key: 'clips', label: 'Clip Library' },
             { key: 'data-editor', label: 'Data Editor' },
-            { key: 'youtube-merger', label: 'YouTube Merger' },
             { key: 'connections', label: 'Connections' },
             { key: 'bulk-import', label: 'Bulk Import' },
             { key: 'diagnostics', label: 'Diagnostics' },
@@ -409,7 +407,6 @@ export default function SettingsView({ onClearData }: Props) {
       </div>
 
       {activeTab === 'data-editor' && <DataEditorTab />}
-      {activeTab === 'youtube-merger' && <YouTubeMergerTab />}
       {activeTab === 'diagnostics' && <DiagnosticsView />}
 
       {activeTab === 'connections' && (

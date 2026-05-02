@@ -13,7 +13,7 @@ interface Preview {
 }
 
 const EXPECTED_COLUMNS: Record<Platform, string> = {
-  youtube: 'clip_id, date, content_id, video_title, video_publish_time, duration_seconds, daily_engaged_views, total_engaged_views, total_views, watch_time_hours, average_view_duration, average_percentage_viewed, impressions, impressions_ctr, unique_viewers, likes, comments, shares, subscribers_gained, subscribers_lost, youtube_premium_views, platform',
+  youtube: 'clip_id, date, content_id, video_title, video_publish_time, duration_seconds, daily_engaged_views, total_engaged_views, watch_time_hours, average_view_duration, average_percentage_viewed, impressions, impressions_ctr, unique_viewers, likes, comments, shares, subscribers_gained, subscribers_lost, youtube_premium_views, platform',
   instagram: 'clip_code, title, content_type, posted_at, url, plays, reach, impressions, likes, comments, shares, saves, profile_visits, follows, accounts_reached, accounts_engaged, engagement_rate',
 };
 

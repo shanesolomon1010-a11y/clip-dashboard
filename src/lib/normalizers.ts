@@ -78,7 +78,7 @@ function parsePublishDate(val: string | undefined): string {
 function normalizeYouTube(rows: RawRow[]): Omit<UnifiedPost, 'id'>[] {
   return rows.map((row, i) => {
     const contentId = row['content_id'] || row['video_id'] || undefined;
-    const views = parseNum(row['views'] || row['Views'] || row['total_views']);
+    const views = parseNum(row['views'] || row['Views']);
     const likes = parseNum(row['likes'] || row['Likes']);
     const comments = parseNum(row['comments'] || row['Comments added']);
     const shares = parseNum(row['shares'] || row['Shares']);

@@ -103,14 +103,31 @@ export default function DashboardView({ posts }: Props) {
   const totalViews = useMemo(() => dateFilteredClipTotals.reduce((s, c) => s + c.total_views, 0), [dateFilteredClipTotals]);
   const totalInteractions = useMemo(() => dateFilteredDailyPosts.reduce((s, p) => s + postInteractions(p), 0), [dateFilteredDailyPosts]);
 
-  const platformTotals = useMemo(() =>
-    ALL_PLATFORMS.map((pl) => ({
-      platform: pl,
-      views: filteredPosts.filter((p) => p.platform === pl).reduce((s, p) => s + p.views, 0),
-      count: filteredPosts.filter((p) => p.platform === pl).length,
-    })).sort((a, b) => b.views - a.views),
-    [filteredPosts]
-  );
+  const totalPostsInWindow = useMemo(() => {
+    const keys = new Set<string>();
+    for (const p of dateFilteredDailyPosts) {
+      if (p.clip_code) keys.add(`${p.clip_code}::${p.platform}`);
+    }
+    return keys.size;
+  }, [dateFilteredDailyPosts]);
+
+  const platformTotals = useMemo(() => {
+    const byPlatform = new Map<Platform, { views: number; clips: Set<string> }>();
+    for (const pl of ALL_PLATFORMS) byPlatform.set(pl, { views: 0, clips: new Set() });
+    for (const p of dateFilteredDailyPosts) {
+      const entry = byPlatform.get(p.platform);
+      if (!entry) continue;
+      entry.views += p.views;
+      if (p.clip_code) entry.clips.add(p.clip_code);
+    }
+    return ALL_PLATFORMS
+      .map((pl) => ({
+        platform: pl,
+        views: byPlatform.get(pl)!.views,
+        count: byPlatform.get(pl)!.clips.size,
+      }))
+      .sort((a, b) => b.views - a.views);
+  }, [dateFilteredDailyPosts]);
 
   // Chart data: group dateFilteredDailyPosts by stat_date, one value per clip_code
   const { chartData, chartClips } = useMemo(() => {
@@ -176,14 +193,15 @@ export default function DashboardView({ posts }: Props) {
 
   const impressionCtrDisplay = useMemo(() => {
     let sumImpressions = 0, sumWeightedCtr = 0;
-    for (const p of latestClipPosts) {
+    for (const p of dateFilteredDailyPosts) {
+      if (p.platform !== 'youtube') continue;
       if (p.impressions) {
         sumImpressions += p.impressions;
         if (p.impression_ctr != null) sumWeightedCtr += p.impressions * p.impression_ctr;
       }
     }
     return sumImpressions > 0 ? `${(sumWeightedCtr / sumImpressions).toFixed(1)}%` : 'N/A';
-  }, [latestClipPosts]);
+  }, [dateFilteredDailyPosts]);
 
   const topUniqueViewers = useMemo(() => {
     const clips = latestClipPosts
@@ -401,7 +419,7 @@ export default function DashboardView({ posts }: Props) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-1">Total Posts</p>
-                <p className="text-xl font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{filteredPosts.length}</p>
+                <p className="text-xl font-bold text-[var(--text-1)] tabular-nums" style={{ fontFamily: 'var(--font-mono)' }}>{totalPostsInWindow}</p>
               </div>
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)] mb-1">Interactions</p>

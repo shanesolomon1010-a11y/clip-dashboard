@@ -1928,3 +1928,292 @@ Changed files:
 Changed files:
   - src/app/api/insights/weekly-report/route.ts
 
+
+## 2026-04-24 01:51:46 — 3836cae
+**feat(insights): add Posting Schedule Optimizer + strengthen weekly report direction rules**
+
+Changed files:
+  - memory/cloudmemory.md
+  - src/app/api/insights/schedule-optimizer/route.ts
+  - src/app/api/insights/weekly-report/route.ts
+  - src/components/views/InsightsView.tsx
+  - src/lib/insights-db.ts
+  - src/lib/schedule-analyzer.ts
+  - supabase/migrations/20260424_schedule_recommendations.sql
+
+
+## 2026-04-24 02:00:04 — 555b158
+**fix(insights): platform filter 'yt' for schedule optimizer + weekly report direction pre-compute**
+
+Changed files:
+  - src/app/api/insights/schedule-optimizer/route.ts
+  - src/app/api/insights/weekly-report/route.ts
+
+
+## 2026-04-24 02:06:34 — 9d5dda4
+**fix(insights): time bucketing, day-of-week, and new_clips_posted accuracy**
+
+Changed files:
+  - src/app/api/insights/weekly-report/route.ts
+  - src/lib/schedule-analyzer.ts
+
+
+## 2026-04-24 02:48:10 — 03a4ebd
+**feat(social-copy): add Social Copy Agent with docx export**
+
+Changed files:
+  - package-lock.json
+  - package.json
+  - src/app/api/social-copy/export-docx/route.ts
+  - src/app/api/social-copy/generate/route.ts
+  - src/app/page.tsx
+  - src/components/Icons.tsx
+  - src/components/Sidebar.tsx
+  - src/components/views/SocialCopyView.tsx
+  - src/lib/creativelaunch-framework.ts
+  - src/lib/creativelaunch-framework.txt
+  - src/lib/social-copy-db.ts
+  - supabase/migrations/20260424_social_copy_generations.sql
+
+
+## 2026-04-24 11:00:34 — 4d429b7
+**chore: hide Social Copy tab from sidebar (preserved for future use)**
+
+Changed files:
+  - src/components/Sidebar.tsx
+
+
+## 2026-04-26 11:40:29 — 68567ba
+**feat: add Founder Report tab and reorganize sidebar into Analytics/Workspace groups**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+  - src/app/page.tsx
+  - src/components/Icons.tsx
+  - src/components/Sidebar.tsx
+  - src/components/views/FounderReportView.tsx
+
+
+## 2026-04-26 11:46:55 — 8a35fa3
+**fix: use creatorContentType as dimension not filter in Founder Report API**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+
+
+## 2026-04-26 13:47:09 — a8ac673
+**debug: log raw watch time response in Founder Report API**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+
+
+## 2026-04-26 13:50:51 — 1dd0320
+**fix: case-insensitive match for creatorContentType rows in Founder Report watch time parser**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+
+
+## 2026-04-27 00:08:56 — 2d13b15
+**feat: add view metrics and internal validation to Founder Report**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+  - src/components/Icons.tsx
+  - src/components/views/FounderReportView.tsx
+
+
+## 2026-04-27 00:29:55 — f16a79f
+**fix: filter to public videos, raise Shorts threshold to 180s, switch to net subscribers**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+
+
+## 2026-04-27 00:44:54 — 35852e3
+**fix: use duration-classified video ID lists for views and watch time, eliminating creatorContentType misclassification**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+
+
+## 2026-04-27 00:59:09 — d94f36b
+**fix: query views and watch time by per-video dimension to capture back-catalog activity**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+
+
+## 2026-04-27 01:31:58 — faea8b6
+**fix: filter Founder Report views/watch time to MBM-era content (post 2025-01-01)**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+
+
+## 2026-04-27 01:40:21 — 060df1b
+**feat: hardcode Founder Report values for upcoming founder meeting (CSV-sourced)**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+
+
+## 2026-04-28 01:40:35 — 08c0068
+**feat: add long-form video sync pipeline (auto-discovery + daily metrics)**
+
+Changed files:
+  - src/app/api/youtube-sync-longform/route.ts
+  - src/components/views/SettingsView.tsx
+  - src/lib/youtube-longform-sync.ts
+  - supabase/migrations/20260427_long_form_videos.sql
+  - tasks/lessons.md
+
+
+## 2026-04-28 10:29:16 — ea9bdf6
+**debug: expose full Supabase error details in long-form sync logs**
+
+Changed files:
+  - src/app/api/youtube-sync-longform/route.ts
+  - src/lib/youtube-longform-sync.ts
+
+
+## 2026-04-28 11:09:25 — 84ed1c0
+**feat: Founder Report reads from posts + custom date range + long-form daily cron**
+
+Changed files:
+  - src/app/api/cron/youtube-sync-longform/route.ts
+  - src/app/api/founder-report/route.ts
+  - src/components/views/FounderReportView.tsx
+  - vercel.json
+
+
+## 2026-04-28 19:48:13 — 8405d5d
+**fix: dedup video_ids in long-form upsert + deprecate Studio scraper**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+  - src/lib/youtube-longform-sync.ts
+  - tasks/lessons.md
+
+
+## 2026-04-29 14:27:11 — ca0e034
+**fix: update YouTube Studio CSV export selector for new DOM**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+
+
+## 2026-04-29 14:43:49 — 48f9aa3
+**feat: repurpose Studio scraper as watchdog writing to studio_snapshots**
+
+Changed files:
+  - scripts/youtube-studio-sync.ts
+  - supabase/migrations/20260429_studio_snapshots.sql
+
+
+## 2026-04-29 19:08:28 — e73014f
+**feat: Diagnostics tab for data health, consistency, and drift detection**
+
+Changed files:
+  - src/app/api/diagnostics/route.ts
+  - src/components/views/DiagnosticsView.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/diagnostics-status.test.ts
+  - src/lib/diagnostics-status.ts
+
+
+## 2026-04-29 22:05:13 — ed34f34
+**feat: add 8 missing YouTube Shorts to VIDEO_MAP (MBM018-021)**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+
+
+## 2026-04-29 22:23:02 — 8df6dae
+**chore: codebase audit report**
+
+Changed files:
+  - audit-report.md
+
+
+## 2026-04-30 09:12:34 — b249217
+**feat: clip-finder prompt assembly (engine doc + skeleton/calibration/builder)**
+
+Changed files:
+  - docs/clip-finder-engine-v2.md
+  - src/lib/clip-finder/calibration.ts
+  - src/lib/clip-finder/prompt-builder.ts
+  - src/lib/clip-finder/skeleton-prompt.ts
+  - src/lib/clip-finder/types.ts
+
+
+## 2026-05-01 00:17:32 — 85a7128
+**chore: backfill posting schedule for Apr 22-30, 2026**
+
+Changed files:
+  - scripts/fill-posting-schedule.ts
+
+
+## 2026-05-01 00:45:37 — 554d081
+**fix: parallelize Shorts analytics fetches + raise cron maxDuration**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+  - vercel.json
+
+
+## 2026-05-01 10:01:26 — 1f78e84
+**Revert "fix: parallelize Shorts analytics fetches + raise cron maxDuration"**
+
+Changed files:
+  - src/lib/youtube-sync.ts
+  - vercel.json
+
+
+## 2026-05-01 18:37:23 — 221ead1
+**docs: analytics tab visual spec before deletion**
+
+Changed files:
+  - docs/analytics-spec/analytics-spec.md
+
+
+## 2026-05-01 18:54:04 — d45943f
+**feat: remove Library, Insights, Analytics tabs and backing code**
+
+Changed files:
+  - CLAUDE.md
+  - docs/deletion-plan.md
+  - memory/primer.md
+  - src/app/api/insights/analyze/route.ts
+  - src/app/api/insights/route.ts
+  - src/app/api/insights/schedule-optimizer/route.ts
+  - src/app/api/insights/weekly-report/route.ts
+  - src/app/api/library/scan/route.ts
+  - src/app/api/library/set-video-url/route.ts
+  - src/app/page.tsx
+  - src/components/DemographicsNotice.tsx
+  - src/components/Icons.tsx
+  - src/components/Sidebar.tsx
+  - src/components/charts/BreakdownCharts.tsx
+  - src/components/views/AIInsightsView.tsx
+  - src/components/views/AnalyticsView.tsx
+  - src/components/views/ClipGrid.tsx
+  - src/components/views/ClipReviewView.tsx
+  - src/components/views/FounderReportView.tsx
+  - src/components/views/InsightsView.tsx
+  - src/components/views/LibraryView.tsx
+  - src/lib/breakdowns-db.ts
+  - src/lib/db.ts
+  - src/lib/insights-db.ts
+  - src/lib/insights-helpers.ts
+  - src/lib/schedule-analyzer.ts
+  - vercel.json
+
+
+## 2026-05-01 18:59:12 — acde916
+**chore: gitignore env file, supabase temp cache, debug logs**
+
+Changed files:
+  - .gitignore
+
