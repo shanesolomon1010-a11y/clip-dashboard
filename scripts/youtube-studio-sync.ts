@@ -608,7 +608,30 @@ async function exportVideoCSV(
   } catch {
     log(`[${videoId}] WARNING: Advanced mode button not found — continuing`);
   }
-  await page.waitForTimeout(3000);
+
+  // Wait for the per-video report's chart/data to paint before attempting export.
+  try {
+    await page.waitForFunction(
+      () => {
+        if (document.querySelectorAll('canvas[role="img"]').length > 0) return true;
+        const svgs = Array.from(document.querySelectorAll('svg'));
+        for (const s of svgs) {
+          const r = s.getBoundingClientRect();
+          if (r.width > 0 && r.height > 0) return true;
+        }
+        const progress = document.querySelectorAll(
+          '[role="progressbar"], tp-yt-paper-progress[indeterminate], paper-progress[indeterminate], paper-spinner[active]'
+        );
+        if (progress.length === 0) return true;
+        return false;
+      },
+      { timeout: 120000 },
+    );
+  } catch {
+    log(`[${videoId}] WARNING: Report data did not render within 120s — skipping`);
+    await screenshotOnError(page, videoId);
+    return [];
+  }
 
   // Wait for export button — low-view videos may not render it; skip with a warning if so
   const exportSelector = '[aria-label="Export current view"]';
@@ -623,19 +646,28 @@ async function exportVideoCSV(
   // Click export button to open the dropdown menu
   await page.click(exportSelector);
   log(`[${videoId}] Clicked export button — waiting for dropdown menu`);
-  await page.waitForTimeout(2000);
 
   const filePath = path.join(downloadDir, `${videoId}.bin`);
-  let download: import('playwright-core').Download;
-  try {
-    [download] = await Promise.all([
+  const attemptVideoExport = async (): Promise<import('playwright-core').Download> => {
+    const [dl] = await Promise.all([
       page.waitForEvent('download', { timeout: 60000 }),
       page.getByRole('menuitem', { name: /Comma-separated values/i }).click(),
     ]);
+    return dl;
+  };
+  let download: import('playwright-core').Download;
+  try {
+    download = await attemptVideoExport();
   } catch (err) {
-    log(`[${videoId}] ERROR: Download failed — ${err}`);
-    await screenshotOnError(page, videoId);
-    return [];
+    log(`[${videoId}] First export attempt timed out — retrying once (${err})`);
+    try { await page.click(exportSelector); } catch { /* dropdown may already be open */ }
+    try {
+      download = await attemptVideoExport();
+    } catch (err2) {
+      log(`[${videoId}] ERROR: Download failed — ${err2}`);
+      await screenshotOnError(page, videoId);
+      return [];
+    }
   }
   await download.saveAs(filePath);
   log(`[${videoId}] Saved per-video export to ${filePath}`);
@@ -742,14 +774,33 @@ async function main(): Promise<void> {
     await page.goto(CHANNEL_ANALYTICS_URL, { waitUntil: 'load', timeout: 60000 });
     log(`Analytics page URL: ${page.url()}`);
 
-    // Wait for the data table to render before attempting export
+    // Wait for the report's chart/data to actually paint before attempting export.
+    // Studio's CSV export silently no-ops when clicked on an empty report — clicking
+    // through before data has rendered was the cause of the "Download failed" timeouts.
+    log('Waiting for report data to render...');
     try {
-      await page.waitForSelector('ytd-analytics-main-app-element, [data-test-id="analytics-table"], ytcp-analytics-data-table, ytcp-analytics-table', { timeout: 30000 });
-      log('Data table rendered');
+      await page.waitForFunction(
+        () => {
+          if (document.querySelectorAll('canvas[role="img"]').length > 0) return true;
+          const svgs = Array.from(document.querySelectorAll('svg'));
+          for (const s of svgs) {
+            const r = s.getBoundingClientRect();
+            if (r.width > 0 && r.height > 0) return true;
+          }
+          const progress = document.querySelectorAll(
+            '[role="progressbar"], tp-yt-paper-progress[indeterminate], paper-progress[indeterminate], paper-spinner[active]'
+          );
+          if (progress.length === 0) return true;
+          return false;
+        },
+        { timeout: 120000 },
+      );
+      log('Report data rendered');
     } catch {
-      log('WARNING: Data table selector not found — proceeding anyway');
+      log('ERROR: Studio report data did not render within 120s');
+      await screenshotOnError(page, 'channel-export');
+      throw new Error('Studio report data did not render within 120s');
     }
-    await page.waitForTimeout(3000);
 
     // Wait for export button
     const exportSelector = '[aria-label="Export current view"]';
@@ -764,19 +815,28 @@ async function main(): Promise<void> {
     // Click export button to open the dropdown menu
     await page.click(exportSelector);
     log('Clicked export button — waiting for dropdown menu');
-    await page.waitForTimeout(2000);
 
     const filePath = path.join(downloadDir, 'channel-export.bin');
-    let download: import('playwright-core').Download;
-    try {
-      [download] = await Promise.all([
+    const attemptChannelExport = async (): Promise<import('playwright-core').Download> => {
+      const [dl] = await Promise.all([
         page.waitForEvent('download', { timeout: 60000 }),
         page.getByRole('menuitem', { name: /Comma-separated values/i }).click(),
       ]);
+      return dl;
+    };
+    let download: import('playwright-core').Download;
+    try {
+      download = await attemptChannelExport();
     } catch (err) {
-      log(`ERROR: Download failed — ${err}`);
-      await screenshotOnError(page, 'channel-export');
-      return;
+      log(`First export attempt timed out — retrying once (${err})`);
+      try { await page.click(exportSelector); } catch { /* dropdown may already be open */ }
+      try {
+        download = await attemptChannelExport();
+      } catch (err2) {
+        log(`ERROR: Download failed — ${err2}`);
+        await screenshotOnError(page, 'channel-export');
+        throw new Error(`Channel export download failed after 2 attempts: ${err2}`);
+      }
     }
     await download.saveAs(filePath);
     log(`Saved channel export to ${filePath}`);

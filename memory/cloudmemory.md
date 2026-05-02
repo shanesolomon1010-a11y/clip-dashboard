@@ -2234,3 +2234,20 @@ Changed files:
   - src/lib/normalizers.ts
   - tasks/lessons.md
 
+
+## 2026-05-01 22:50:37 — 5da96e7
+**fix: push date filter to DB layer in getAllPostsByDate**
+
+Changed files:
+  - docs/superpowers/plans/2026-04-26-founder-report.md
+  - memory/cloudmemory.md
+  - src/components/views/DashboardView.tsx
+  - src/lib/db.ts
+
+
+## 2026-05-01 23:27:58 — c70bed2
+**docs: update primer with 1000-row cap fix**
+
+Changed files:
+  - memory/primer.md
+
