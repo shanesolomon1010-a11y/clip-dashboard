@@ -57,7 +57,12 @@ export default function DashboardView({ posts }: Props) {
   const { filterPreset, setFilterPreset, customRange, setCustomRange, filterStart, filterEnd, filterLabel } = useDateFilter('30d');
 
   useEffect(() => {
-    getAllPostsByDate('youtube').then(setAllDailyPosts).catch(() => setAllDailyPosts([]));
+    getAllPostsByDate('youtube', filterStart ?? undefined, filterEnd ?? undefined)
+      .then(setAllDailyPosts)
+      .catch(() => setAllDailyPosts([]));
+  }, [filterStart, filterEnd]);
+
+  useEffect(() => {
     getLatestPostsPerClip('youtube').then(setLatestClipPosts).catch(() => setLatestClipPosts([]));
   }, []);
 

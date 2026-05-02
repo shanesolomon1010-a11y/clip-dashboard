@@ -2217,3 +2217,20 @@ Changed files:
 Changed files:
   - .gitignore
 
+
+## 2026-05-01 22:30:52 — 187c335
+**fix: stale CSV column hint + primer update for data-layer fix wave**
+
+Changed files:
+  - docs/data-layer-audit.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - memory/project.md
+  - src/components/UploadZone.tsx
+  - src/components/YouTubeMergerTab.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+  - src/lib/normalizers.ts
+  - tasks/lessons.md
+

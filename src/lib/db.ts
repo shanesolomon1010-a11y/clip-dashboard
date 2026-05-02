@@ -210,14 +210,22 @@ export async function getTotalViewsPerClip(platform?: string): Promise<{
   return Array.from(map.values()).sort((a, b) => b.total_views - a.total_views);
 }
 
-// Returns all rows ordered by stat_date ASC — used by Analytics metric cards.
-export async function getAllPostsByDate(platform?: string): Promise<UnifiedPost[]> {
+// Returns rows ordered by stat_date ASC. When startDate/endDate are provided,
+// the filter is applied at the DB layer to keep the result set under Supabase's
+// default 1000-row response cap.
+export async function getAllPostsByDate(
+  platform?: string,
+  startDate?: string,
+  endDate?: string,
+): Promise<UnifiedPost[]> {
   let query = supabase
     .from('posts')
     .select('*')
     .order('stat_date', { ascending: true, nullsFirst: false });
 
   if (platform) query = query.eq('platform', platform);
+  if (startDate) query = query.gte('stat_date', startDate);
+  if (endDate) query = query.lte('stat_date', endDate);
 
   const { data, error } = await query;
   if (error) throw error;
