@@ -2276,3 +2276,10 @@ Changed files:
   - src/components/views/FounderReportView.tsx
   - src/lib/youtube-longform-sync.ts
 
+
+## 2026-05-04 15:42:51 — 692c399
+**docs: add MediaBuyer.com design system reference**
+
+Changed files:
+  - docs/design-system/mediabuyer-design.md
+
