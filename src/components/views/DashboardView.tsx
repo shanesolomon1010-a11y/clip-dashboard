@@ -1,9 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import {
-  LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
-} from 'recharts';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { IconEye } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
@@ -13,12 +10,6 @@ import { getAllPostsByDate, getLatestPostsPerClip } from '@/lib/db';
 import { DateFilterBar, useDateFilter } from '@/components/DateFilterBar';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
-
-const CLIP_COLORS = [
-  '#FF4444', '#FF8C42', '#FFD166', '#06D6A0',
-  '#118AB2', '#7B2FBE', '#F72585', '#4CC9F0',
-];
-
 
 function postInteractions(p: UnifiedPost): number {
   return p.likes + p.comments + p.shares + p.saves;
@@ -132,29 +123,6 @@ export default function DashboardView({ posts }: Props) {
         count: byPlatform.get(pl)!.clips.size,
       }))
       .sort((a, b) => b.views - a.views);
-  }, [dateFilteredDailyPosts]);
-
-  // Chart data: group dateFilteredDailyPosts by stat_date, one value per clip_code
-  const { chartData, chartClips } = useMemo(() => {
-    const clipSet: Record<string, true> = {};
-    for (const p of dateFilteredDailyPosts) {
-      if (p.clip_code && p.stat_date) clipSet[p.clip_code] = true;
-    }
-    const clips = Object.keys(clipSet);
-
-    const byDate = new Map<string, Record<string, number>>();
-    for (const p of dateFilteredDailyPosts) {
-      if (!p.clip_code || !p.stat_date) continue;
-      if (!byDate.has(p.stat_date)) byDate.set(p.stat_date, {});
-      const entry = byDate.get(p.stat_date)!;
-      entry[p.clip_code] = (entry[p.clip_code] ?? 0) + p.views;
-    }
-
-    const data = Array.from(byDate.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, vals]) => ({ date: fmtDate(date), ...vals }));
-
-    return { chartData: data, chartClips: clips };
   }, [dateFilteredDailyPosts]);
 
   // Peak day per clip_code from allDailyPosts
@@ -286,58 +254,6 @@ export default function DashboardView({ posts }: Props) {
             );
           })}
         </div>
-
-        {/* Views Over Time chart */}
-        {chartData.length > 0 && (
-          <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5">
-            <h3 className="text-[15px] font-semibold text-[var(--text-1)] mb-4">Views Over Time</h3>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                <XAxis
-                  dataKey="date"
-                  tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-                  axisLine={{ stroke: 'transparent' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  width={40}
-                  tickFormatter={formatNum}
-                  tick={{ fill: '#6b7280', fontSize: 10, fontFamily: 'var(--font-mono)' }}
-                  axisLine={{ stroke: 'transparent' }}
-                  tickLine={false}
-                />
-                <Tooltip
-                  contentStyle={{
-                    background: '#1d1d1d',
-                    border: '1px solid rgba(247,231,206,0.09)',
-                    borderRadius: 10,
-                    fontSize: 11,
-                    fontFamily: 'var(--font-mono)',
-                  }}
-                  labelStyle={{ color: '#9ca3af', marginBottom: 6 }}
-                  itemStyle={{ color: '#e5e7eb' }}
-                  formatter={(value) => formatNum(Number(value))}
-                />
-                <Legend
-                  wrapperStyle={{ fontSize: 10, fontFamily: 'var(--font-mono)', paddingTop: 12 }}
-                  formatter={(value) => <span style={{ color: '#9ca3af' }}>{value}</span>}
-                />
-                {chartClips.map((clip, i) => (
-                  <Line
-                    key={clip}
-                    type="monotone"
-                    dataKey={clip}
-                    stroke={CLIP_COLORS[i % CLIP_COLORS.length]}
-                    strokeWidth={1.5}
-                    dot={{ r: 2.5, strokeWidth: 0 }}
-                    activeDot={{ r: 4 }}
-                    connectNulls
-                  />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
 
         {/* Top content */}
         <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl overflow-hidden">
