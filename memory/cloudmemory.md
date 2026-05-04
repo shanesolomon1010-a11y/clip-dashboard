@@ -2251,3 +2251,11 @@ Changed files:
 Changed files:
   - memory/primer.md
 
+
+## 2026-05-02 18:26:08 — 2bb92e2
+**fix: data-readiness gate in YouTube Studio scraper**
+
+Changed files:
+  - memory/cloudmemory.md
+  - scripts/youtube-studio-sync.ts
+

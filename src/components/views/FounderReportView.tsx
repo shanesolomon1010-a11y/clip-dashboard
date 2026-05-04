@@ -25,6 +25,8 @@ type FilterPreset = '7d' | '30d' | 'all' | 'custom';
 
 const MBM_ERA_START = '2025-01-01';
 
+const FILTER_PRESET_STORAGE_KEY = 'founder_report_filter_preset';
+
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -42,6 +44,13 @@ function presetRange(preset: Exclude<FilterPreset, 'custom'>): { start: string; 
   const start = new Date(now);
   start.setDate(start.getDate() - days);
   return { start: toYMD(start), end };
+}
+
+function readStoredFilterPreset(): FilterPreset {
+  if (typeof window === 'undefined') return '30d';
+  const stored = window.localStorage.getItem(FILTER_PRESET_STORAGE_KEY);
+  if (stored === '7d' || stored === '30d' || stored === 'all') return stored;
+  return '30d';
 }
 
 function formatLongDate(ymd: string): string {
@@ -224,7 +233,7 @@ function MetricCard({ value, label, suffix = '' }: MetricCardProps) {
 }
 
 export default function FounderReportView() {
-  const [filterPreset, setFilterPreset] = useState<FilterPreset>('30d');
+  const [filterPreset, setFilterPreset] = useState<FilterPreset>(readStoredFilterPreset);
   const [customRange, setCustomRange] = useState<{ start: string; end: string } | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const calendarRef = useRef<HTMLDivElement>(null);
@@ -234,6 +243,13 @@ export default function FounderReportView() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (filterPreset === '7d' || filterPreset === '30d' || filterPreset === 'all') {
+      window.localStorage.setItem(FILTER_PRESET_STORAGE_KEY, filterPreset);
+    }
+  }, [filterPreset]);
 
   const activeRange = filterPreset === 'custom' && customRange
     ? customRange
