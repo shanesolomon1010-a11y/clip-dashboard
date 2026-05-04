@@ -2267,3 +2267,12 @@ Changed files:
   - memory/cloudmemory.md
   - src/components/views/FounderReportView.tsx
 
+
+## 2026-05-04 09:16:21 — acca198
+**fix: include pre-2025 long-form videos in Founder Report**
+
+Changed files:
+  - memory/cloudmemory.md
+  - src/components/views/FounderReportView.tsx
+  - src/lib/youtube-longform-sync.ts
+

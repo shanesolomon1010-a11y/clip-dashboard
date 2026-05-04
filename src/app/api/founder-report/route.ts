@@ -45,28 +45,65 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   try {
     // Daily metric rows in range — drives views, watch time, subs delta, lastDataDate.
-    const { data: statRows, error: statErr } = await supabase
-      .from('posts')
-      .select('content_type, stat_date, views, watch_time_hours, subscribers_gained, subscribers_lost')
-      .eq('platform', 'youtube')
-      .gte('stat_date', startDate)
-      .lte('stat_date', endDate);
-    if (statErr) {
-      logSupabaseError('statRows', statErr);
-      throw statErr;
+    type StatRow = {
+      content_type: string | null;
+      stat_date: string | null;
+      views: number | null;
+      watch_time_hours: number | null;
+      subscribers_gained: number | null;
+      subscribers_lost: number | null;
+    };
+    const statRows: StatRow[] = [];
+    {
+      const PAGE = 1000;
+      let from = 0;
+      for (;;) {
+        const { data, error } = await supabase
+          .from('posts')
+          .select('content_type, stat_date, views, watch_time_hours, subscribers_gained, subscribers_lost')
+          .eq('platform', 'youtube')
+          .gte('stat_date', startDate)
+          .lte('stat_date', endDate)
+          .range(from, from + PAGE - 1);
+        if (error) {
+          logSupabaseError('statRows', error);
+          throw error;
+        }
+        if (!data || data.length === 0) break;
+        statRows.push(...(data as StatRow[]));
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
     }
 
     // Posted-in-range rows — drives published counts (distinct content_id per content_type).
-    const { data: postedRows, error: postedErr } = await supabase
-      .from('posts')
-      .select('content_id, content_type, posted_at')
-      .eq('platform', 'youtube')
-      .gte('posted_at', startDate)
-      .lte('posted_at', `${endDate}T23:59:59.999Z`)
-      .not('content_id', 'is', null);
-    if (postedErr) {
-      logSupabaseError('postedRows', postedErr);
-      throw postedErr;
+    type PostedRow = {
+      content_id: string | null;
+      content_type: string | null;
+      posted_at: string | null;
+    };
+    const postedRows: PostedRow[] = [];
+    {
+      const PAGE = 1000;
+      let from = 0;
+      for (;;) {
+        const { data, error } = await supabase
+          .from('posts')
+          .select('content_id, content_type, posted_at')
+          .eq('platform', 'youtube')
+          .gte('posted_at', startDate)
+          .lte('posted_at', `${endDate}T23:59:59.999Z`)
+          .not('content_id', 'is', null)
+          .range(from, from + PAGE - 1);
+        if (error) {
+          logSupabaseError('postedRows', error);
+          throw error;
+        }
+        if (!data || data.length === 0) break;
+        postedRows.push(...(data as PostedRow[]));
+        if (data.length < PAGE) break;
+        from += PAGE;
+      }
     }
 
     let longFormViews = 0;
