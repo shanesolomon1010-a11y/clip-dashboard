@@ -23,7 +23,7 @@ interface FounderReportResponse extends Partial<FounderReportData> {
 
 type FilterPreset = '7d' | '30d' | 'all' | 'custom';
 
-const MBM_ERA_START = '2025-01-01';
+const MBM_ERA_START = '2023-01-01';
 
 const FILTER_PRESET_STORAGE_KEY = 'founder_report_filter_preset';
 

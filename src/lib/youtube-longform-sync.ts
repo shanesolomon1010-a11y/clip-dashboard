@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { getAccessToken } from './youtube';
 
-const MBM_ERA_START = new Date('2025-01-01T00:00:00Z');
+const MBM_ERA_START = new Date('2023-01-01T00:00:00Z');
 const LONGFORM_DURATION_THRESHOLD_SECONDS = 180;
 
 interface LongFormVideo {
@@ -347,7 +347,7 @@ export async function syncLongFormVideos(): Promise<LongFormSyncSummary> {
   const catalog = await fetchLongFormVideosFromDb();
 
   const now = new Date();
-  const startDate = toYMD(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000));
+  const startDate = toYMD(new Date(now.getTime() - 1500 * 24 * 60 * 60 * 1000));
   const endDate = toYMD(now);
   const nowIso = now.toISOString();
 

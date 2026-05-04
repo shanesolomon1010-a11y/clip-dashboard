@@ -2259,3 +2259,11 @@ Changed files:
   - memory/cloudmemory.md
   - scripts/youtube-studio-sync.ts
 
+
+## 2026-05-04 08:52:50 — 5704dce
+**fix: persist Founder Report filter preset across page loads**
+
+Changed files:
+  - memory/cloudmemory.md
+  - src/components/views/FounderReportView.tsx
+
