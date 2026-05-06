@@ -2357,3 +2357,18 @@ Changed files:
   - .claude/commands/plan.md
   - .claude/commands/review.md
 
+
+## 2026-05-05 22:35:12 — cdf553e
+**chore: session primer rewrite (planning-only session)**
+
+Changed files:
+  - memory/cloudmemory.md
+  - memory/primer.md
+
+
+## 2026-05-05 23:04:16 — 1b8d44e
+**chore: disable YouTube Studio scraper LaunchAgent**
+
+Changed files:
+  - memory/primer.md
+
