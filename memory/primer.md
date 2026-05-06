@@ -4,42 +4,30 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-Library, Insights, and Analytics tabs deleted. Data layer is now fully consistent across Dashboard and Founder Report — the "8K one day, 2.5K the next" volatility that opened the session is resolved (root cause: YouTube Merger CSV path stamping lifetime totals into the daily-delta `views` column), as is a separate but related bug where Dashboard 7d showed 0 while Founder Report 7d showed 1019 for the same window (root cause: Supabase 1000-row response cap silently truncating Dashboard's read). Verified live: Dashboard 7d=1.0K matches Founder Report 7d=1019; Dashboard 30d=4.6K matches Founder Report 30d=4582. Build passes.
+Branch `main` is 8 commits ahead of `origin/main` (unpushed). Working tree clean apart from `memory/` updates from this session. HEAD is `72419ce` (chore: add three slash commands to .claude/commands/). The data-layer fix wave from 2026-05-01 (Dashboard / Founder Report convergence, 1000-row cap fix, YouTube Merger CSV deletion) remains the load-bearing change — Dashboard 7d / 30d match Founder Report. No new code shipped this session.
 
-## Just completed (2026-05-01, data-layer fix wave)
-- **Deleted YouTubeMergerTab** (`src/components/YouTubeMergerTab.tsx`) and its Settings tab entry — the Merger flow stamped lifetime YouTube Studio totals into the daily-delta `views` column, which was the smoking gun for the views volatility identified in `docs/data-layer-audit.md` Section 3 #1.
-- **Removed the `total_views` fallback** in `normalizers.normalizeYouTube` (`src/lib/normalizers.ts`) — the silent `views || Views || total_views` substitution that let lifetime cumulative numbers reach the daily-delta `views` column.
-- **Removed `total_views`** from the `EXPECTED_COLUMNS.youtube` CSV column hint in `src/components/UploadZone.tsx` so the UI no longer advertises a column the normalizer ignores.
-- **Dashboard read-side fixes** (`src/components/views/DashboardView.tsx`):
-  - **Platform Breakdown** (right rail) now SUMs `dateFilteredDailyPosts` grouped by platform — previously summed `getLatestPostsPerClip` output, systematically under-reporting by ~30× for a 30d window (audit Section 3 #2).
-  - **Impression CTR** is now window-correct: SUM(impressions) and SUM(views) over `dateFilteredDailyPosts`, divided once at the end — previously read back-filled latest-day-only impressions (audit Section 3 #3).
-  - **Total Posts** (right rail) now counts distinct `(clip_code, platform)` keys present in the date window, not `filteredPosts.length` — clips whose latest snapshot fell outside the window were silently disappearing (audit Section 3 #5).
-- **Removed dead exports from `src/lib/db.ts`**: `getPosts`, `fetchAllPosts`, `fetchClipStats`, plus the orphan `ClipStats` interface — zero callers in `src/`, and `fetchClipStats` was particularly dangerous (name implied totals, body returned latest-day-per-platform).
+## Just completed (2026-05-05, planning-only session)
+- `/plan` was invoked for "add a one-line title comment to the top of CLAUDE.md". Planner agent recommended inserting `<!-- Clip Studio Dashboard — project constitution and agent instructions -->` as new line 1 above the existing `# CLAUDE.md` H1, leaving everything else byte-identical. **Plan was produced and shown to Shane; not executed.**
+- No code changes, no commits to source. This session's commit covers only `memory/` housekeeping.
 
-## Just completed (2026-05-01, third wave — 1000-row cap fix)
-- **Investigated** Dashboard 7d showing 0 Total Views while Founder Report 7d showed 1019 (971 Shorts + 48 Long-form) for the same window. Diagnostics' `internal_consistency` was green, so Founder Report's aggregation was confirmed correct — the bug was in Dashboard's read path.
-- **Root cause**: Supabase silently caps SELECT responses at **1000 rows**. The `posts` table holds **1327** youtube rows. `getAllPostsByDate` fetched everything sorted ASC with no DB-level date filter, so the 1000-row cap clipped off the 327 newest rows server-side. Dashboard's JS-side date filter then operated on a truncated slice that ended at 2026-04-20 — so the 7d window [2026-04-25..2026-05-02] saw zero rows. The 30d window was also silently understated.
-- **Fixed in `src/lib/db.ts`** by extending `getAllPostsByDate(platform?, startDate?, endDate?)` to push the window to the DB via `.gte('stat_date', startDate)` / `.lte('stat_date', endDate)`. Signature is backwards-compatible: omitting both reverts to prior behavior.
-- **`src/components/views/DashboardView.tsx`** now passes `filterStart` / `filterEnd` and refetches when the date window changes (split into its own `useEffect` so `getLatestPostsPerClip` still runs once on mount).
-- **Behavioral convergence**: rows with NULL `stat_date` are now excluded from Dashboard totals (previously included via `p.stat_date ?? p.date` fallback). Founder Report already excluded them, so this aligns the two surfaces. Currently no NULL-stat_date rows visible in the recent data, so there's no observable regression.
-- **Verified live**: Dashboard 7d=1.0K matches Founder Report 7d=1019. Dashboard 30d=4.6K matches Founder Report 30d=4582. `internal_consistency` stayed green. Commits: `5da96e7` (fix), `187c335` (preceding wave).
-
-## Just completed (2026-05-01, earlier — tab deletion wave)
-- **Pre-deletion visual spec** captured at `docs/analytics-spec/analytics-spec.md` and committed (`221ead1`) before any code was removed — covers all 7 charts in the Analytics tab, plus the date filter / platform toggle / metric selector controls.
-- **Phase 1 inventory** written to `docs/deletion-plan.md` — classified every file/route/cron tied to the three tabs as EXCLUSIVE, SHARED, or AMBIGUOUS, with explicit "where else it's used" justification.
-- **Phase 2 deletion** executed:
-  - Deleted 18 files: `AnalyticsView`, `InsightsView`, `LibraryView`, `AIInsightsView` (dead code), `ClipGrid`, `ClipReviewView`, `DemographicsNotice`, `BreakdownCharts`, `insights-db`, `insights-helpers`, `schedule-analyzer`, `breakdowns-db`, and 6 API routes under `src/app/api/insights/` and `src/app/api/library/`.
-  - Removed empty directories: `src/components/charts/`, `src/app/api/insights/` (and its 3 sub-routes), `src/app/api/library/scan/`, `src/app/api/library/set-video-url/`. `src/app/api/library/sync-urls/` survives — still called by `SettingsView`.
-  - Edited `src/app/page.tsx` (removed 3 view imports, 3 nav constants, 3 render conditions, 2 `localStorage.removeItem` calls), `src/components/Sidebar.tsx` (removed 3 entries from `NavSection` / `NAV_ITEMS` / `NAV_GROUPS` and the `IconAnalytics` / `IconLibrary` imports), `src/components/Icons.tsx` (removed `IconAnalytics` + `IconLibrary` exports), `src/lib/db.ts` (removed `fetchInsightHistory`, `saveInsight`, `clearInsightHistory` + `InsightRow` interface — orphan after `AIInsightsView` removal).
-  - Removed the `/api/insights/weekly-report` cron entry from `vercel.json`. The two `youtube-sync` crons remain.
-  - Updated `CLAUDE.md` — dropped the `AnalyticsView` row from the views table and the entire AI Insights section.
+## Recent commits (prior sessions, unpushed)
+- `72419ce` chore: add three slash commands to .claude/commands/
+- `6e4698f` docs: add .claude/agents/README.md
+- `ad08ceb` chore: add .claude/settings.json
+- `a3c08e5` chore: add four agents to .claude/agents/ (coder / planner / reviewer / security-reviewer)
+- `f20caf1` chore: establish CLAUDE.md as project constitution
+- `c6ce368` refactor: remove Views Over Time chart from DashboardView
+- `5da96e7` fix: push date window to DB in `getAllPostsByDate` (1000-row cap fix)
+- `187c335` data-layer fix wave (Dashboard read-side corrections)
 
 ## In progress
 - Nothing.
 
 ## Blocked / next
-- **Engine test gate**: the clip-finder feature itself (API endpoint + UI) is gated on a separate engine test. Don't add wiring until that test ships.
-- **Pre-existing**: studio_snapshots migration still not applied to Supabase (from prior session).
-- **Pre-existing**: `scripts/youtube-studio-sync.test.ts:163` asserts `VIDEO_MAP has exactly 19 entries` — actual is 30, harmless but stale.
-- **Possible follow-ups from the deletion**: the Supabase tables that fed the deleted UIs (`weekly_reports`, `schedule_recommendations`, `performance_analyses`, `breakdowns_daily`/equivalents, `insights`) are now write/read-orphans. Decide whether to drop them on the database side. Not done as part of this deletion since it touches shared infrastructure.
-- **Remaining items from `docs/data-layer-audit.md`** still open: #4 (Stats Grid Total Impressions — depends on confirming which writer touches `impressions`), #6 (Top Content fallback labeling), #7 already handled (`fetchClipStats` removed), #9 (studio_snapshots semantics), 6.7 (write-side guard in `upsertPosts`), 6.8 (rename `getLatestPostsPerClip` → `getLatestSnapshotPerClip` + JSDoc warning).
+- **Natural next action**: execute the pending CLAUDE.md title-comment plan (insert HTML comment as new line 1) if Shane greenlights it. One-line surgical edit, no build/lint needed.
+- **Push question**: 8 unpushed commits on `main`. Shane's rule is "never push unless I say push to git" — these are sitting locally until told otherwise.
+- **Engine test gate**: clip-finder API endpoint + UI still gated on the separate engine test.
+- **Pre-existing**: `studio_snapshots` migration not yet applied to Supabase.
+- **Pre-existing**: `scripts/youtube-studio-sync.test.ts:163` asserts VIDEO_MAP has 19 entries; actual is 30 (harmless but stale).
+- **Open data-layer audit items** (`docs/data-layer-audit.md`): #4 Stats Grid Total Impressions, #6 Top Content fallback labeling, #9 studio_snapshots semantics, 6.7 write-side guard in `upsertPosts`, 6.8 rename `getLatestPostsPerClip` → `getLatestSnapshotPerClip` + JSDoc warning.
+- **Possible follow-up** from the prior tab-deletion wave: orphan Supabase tables (`weekly_reports`, `schedule_recommendations`, `performance_analyses`, `breakdowns_daily`/equivalents, `insights`) are write/read-dead. Decide whether to drop on the database side.

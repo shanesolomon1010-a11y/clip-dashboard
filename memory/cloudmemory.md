@@ -2283,3 +2283,77 @@ Changed files:
 Changed files:
   - docs/design-system/mediabuyer-design.md
 
+
+## 2026-05-04 15:54:18 — 6b60b4e
+**chore: update cloudmemory log**
+
+Changed files:
+  - memory/cloudmemory.md
+
+
+## 2026-05-04 18:05:27 — c6ce368
+**refactor: remove Views Over Time chart from Dashboard**
+
+Changed files:
+  - src/components/ViewsLineChart.tsx
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-05-05 19:49:44 — f20caf1
+**chore: establish CLAUDE.md as project constitution**
+
+Changed files:
+  - CLAUDE.md
+
+
+## 2026-05-05 21:30:51 — b023bb0
+**chore: add four agents to .claude/agents/**
+
+Changed files:
+  - .claude/agents/coder.md
+  - .claude/agents/planner.md
+  - .claude/agents/reviewer.md
+  - .claude/agents/security-reviewer.md
+
+
+## 2026-05-05 21:33:56 — a3c08e5
+**chore: add four agents to .claude/agents/**
+
+Changed files:
+  - .claude/agents/coder.md
+  - .claude/agents/planner.md
+  - .claude/agents/reviewer.md
+  - .claude/agents/security-reviewer.md
+
+
+## 2026-05-05 21:54:01 — ad08ceb
+**chore: add .claude/settings.json**
+
+Changed files:
+  - .claude/settings.json
+
+
+## 2026-05-05 22:03:06 — 6e4698f
+**docs: add .claude/agents/README.md**
+
+Changed files:
+  - .claude/agents/README.md
+
+
+## 2026-05-05 22:13:44 — a4cf3c8
+**chore: add three slash commands to .claude/commands/**
+
+Changed files:
+  - .claude/commands/close.md
+  - .claude/commands/plan.md
+  - .claude/commands/review.md
+
+
+## 2026-05-05 22:22:19 — 72419ce
+**chore: add three slash commands to .claude/commands/**
+
+Changed files:
+  - .claude/commands/close.md
+  - .claude/commands/plan.md
+  - .claude/commands/review.md
+
