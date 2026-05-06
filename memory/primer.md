@@ -4,13 +4,22 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-Branch `main` is 8 commits ahead of `origin/main` (unpushed). Working tree clean apart from `memory/` updates from this session. HEAD is `72419ce` (chore: add three slash commands to .claude/commands/). The data-layer fix wave from 2026-05-01 (Dashboard / Founder Report convergence, 1000-row cap fix, YouTube Merger CSV deletion) remains the load-bearing change — Dashboard 7d / 30d match Founder Report. No new code shipped this session.
+Branch `main` is ~10 commits ahead of `origin/main` (unpushed). The data-layer fix wave from 2026-05-01 (Dashboard / Founder Report convergence, 1000-row cap fix, YouTube Merger CSV deletion) remains the load-bearing change — Dashboard 7d / 30d match Founder Report. As of 2026-05-05 the local YouTube Studio scraper LaunchAgent (`com.clipstudio.youtubesync`) is disabled; Shorts ingestion is paused and no new daily-delta Shorts rows will land in `posts` until reinstated.
+
+## Just completed (2026-05-05, LaunchAgent disable)
+- **Disabled the local YouTube Studio scraper LaunchAgent.** Shorts ingestion is paused at the source.
+  - `launchctl unload /Users/shane/Library/LaunchAgents/com.clipstudio.youtubesync.plist` — agent removed from launchd.
+  - `rm /Users/shane/Library/LaunchAgents/com.clipstudio.youtubesync.plist` — plist file deleted from `~/Library/LaunchAgents/`.
+  - Scripts preserved byte-identical at `scripts/youtube-studio-sync.ts` and `scripts/youtube-studio-sync.sh`.
+  - Logs preserved at `logs/launchd-stdout.log`, `logs/launchd-stderr.log`, `logs/youtube-studio-sync.log` (all under the gitignored `logs/`).
+  - Recorded plist contents (Label `com.clipstudio.youtubesync`, ProgramArguments `/bin/bash /Users/shane/clip-dashboard/scripts/youtube-studio-sync.sh`, StartCalendarInterval Hour=6 Minute=0, StandardOut/ErrorPath under `logs/launchd-{stdout,stderr}.log`, RunAtLoad=false, EnvironmentVariables HOME=`/Users/shane` PATH=`/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`) so re-enable can rebuild it verbatim.
 
 ## Just completed (2026-05-05, planning-only session)
 - `/plan` was invoked for "add a one-line title comment to the top of CLAUDE.md". Planner agent recommended inserting `<!-- Clip Studio Dashboard — project constitution and agent instructions -->` as new line 1 above the existing `# CLAUDE.md` H1, leaving everything else byte-identical. **Plan was produced and shown to Shane; not executed.**
-- No code changes, no commits to source. This session's commit covers only `memory/` housekeeping.
+- No source code changes during the planning-only session itself; the cherry-pick that follows touches only `memory/primer.md`.
 
 ## Recent commits (prior sessions, unpushed)
+- `cdf553e` chore: session primer rewrite (planning-only session)
 - `72419ce` chore: add three slash commands to .claude/commands/
 - `6e4698f` docs: add .claude/agents/README.md
 - `ad08ceb` chore: add .claude/settings.json
@@ -24,8 +33,11 @@ Branch `main` is 8 commits ahead of `origin/main` (unpushed). Working tree clean
 - Nothing.
 
 ## Blocked / next
-- **Natural next action**: execute the pending CLAUDE.md title-comment plan (insert HTML comment as new line 1) if Shane greenlights it. One-line surgical edit, no build/lint needed.
-- **Push question**: 8 unpushed commits on `main`. Shane's rule is "never push unless I say push to git" — these are sitting locally until told otherwise.
+- **Pending manual step**: run `sudo pmset repeat cancel` to remove the matching 5:55AM repeating wake. The agent that performed the LaunchAgent disable could not run sudo (no TTY/askpass). `pmset -g sched` showed the wake was the only repeating event and only the scraper used it, so a flat `cancel` is correct here.
+- **Diagnostics drift-check will go yellow indefinitely for Shorts ingest freshness** with the LaunchAgent disabled. That is intended — not a bug — until Shane reinstates the scraper.
+- **To re-enable**: restore plist contents (recorded in the 2026-05-05 entry above) to `/Users/shane/Library/LaunchAgents/com.clipstudio.youtubesync.plist`, `launchctl load /Users/shane/Library/LaunchAgents/com.clipstudio.youtubesync.plist`, then `sudo pmset repeat wakeorpoweron MTWRFSU 05:55:00`. Confirm with `launchctl list | grep clipstudio` and `pmset -g sched`. **Note:** `pmset repeat` holds one global schedule per machine — run `pmset -g sched` first and confirm no other repeating event exists, otherwise this command will silently overwrite it. The 05:55 wake is intentionally 5 minutes before the 06:00 launchd fire (so the Mac is awake when the agent triggers), not a typo to "fix."
+- **Natural next action (CLAUDE.md title comment)**: execute the pending CLAUDE.md title-comment plan (insert HTML comment as new line 1) if Shane greenlights it. One-line surgical edit, no build/lint needed.
+- **Push question**: ~10 unpushed commits on `main`. Shane's rule is "never push unless I say push to git" — these are sitting locally until told otherwise.
 - **Engine test gate**: clip-finder API endpoint + UI still gated on the separate engine test.
 - **Pre-existing**: `studio_snapshots` migration not yet applied to Supabase.
 - **Pre-existing**: `scripts/youtube-studio-sync.test.ts:163` asserts VIDEO_MAP has 19 entries; actual is 30 (harmless but stale).
