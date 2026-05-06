@@ -1,94 +1,81 @@
 # CLAUDE.md
 
-## Session memory
+## Project context
+Clip Studio Dashboard — Next.js single-page app (one route, view-state via `activeNav`) that ingests YouTube/social analytics into a normalized `posts` table and surfaces founder-facing reports. Hosted at https://clip-dashboard-two.vercel.app.
 
-### Start of every session — read these files before touching any code:
-- `memory/project.md` — project identity, env vars, Supabase tables, key files
-- `memory/decisions.md` — architectural decisions and their rationale
-- `memory/preferences.md` — UI patterns and code style rules in use
-- `memory/primer.md` — status from the last session: what was completed, in progress, and blocked
-- `memory/cloudmemory.md` — full commit history (auto-generated); scan to understand recent changes
-- `tasks/lessons.md` — corrections from Shane; apply every rule listed here before writing any code
+## Stack & deployment
+- Next.js 14 App Router, TypeScript strict, Tailwind, Recharts.
+- Supabase (Postgres) for persistence; client uses anon key in-browser.
+- FFmpeg.wasm for client-side video processing in EditorView.
+- Anthropic API called direct from browser (`claude-sonnet-4-20250514`, requires `anthropic-dangerous-direct-browser-access: true`).
+- Vercel for deploy; two crons in `vercel.json` (`/api/cron/youtube-sync`, `/api/cron/youtube-sync-longform`).
 
-### During the session:
-After making significant changes (new feature, schema change, architectural shift, format change), update the relevant file in `memory/`.
+## Session protocol
+- **Start:** read `memory/primer.md` (last session state), `tasks/lessons.md` (every rule applies), then `memory/project.md` / `decisions.md` / `preferences.md` / `cloudmemory.md` as needed.
+- **During:** update the relevant `memory/*.md` after schema/format/architectural shifts. After any correction from Shane, append `[YYYY-MM-DD] | what went wrong | rule for next time` to `tasks/lessons.md`.
+- **End:** rewrite `memory/primer.md` with Status / Just completed / In progress / Blocked-next.
 
-After any correction from Shane, append an entry to `tasks/lessons.md`:
-```
-[YYYY-MM-DD] | what went wrong | rule for next time
-```
+## Conventions
+- Surgical edits — don't rewrite working code while fixing one thing — because cosmetic churn buries the real diff and breaks `git blame`.
+- No `any` types, ever — because ESLint `no-explicit-any` is enforced and Recharts tooltip props must be typed explicitly.
+- Remove unused imports the moment they go unused — because `no-unused-vars` will fail the build.
+- `'use client'` at the top of every component using hooks or browser APIs — because the App Router defaults to server components and silently breaks otherwise.
+- Use `PLATFORM_COLORS` / `PLATFORM_LABELS` from `src/types/index.ts` — because hardcoding hex/strings creates per-view drift.
+- All icons live inline-SVG in `src/components/Icons.tsx` — because installing an icon library bloats the bundle for shapes we already have.
+- Dates are `YYYY-MM-DD` strings, `engagementRate` is 0–100 not a decimal — because every existing read assumes that and silent format drift is the worst class of bug here.
+- `data-testid` on every interactive element — because Playwright is the only test surface and selectors break otherwise.
 
-### End of every session — rewrite `memory/primer.md` with:
-- **Status** — overall project health
-- **Just completed** — what was built or fixed this session
-- **In progress** — anything partially done or mid-PR
-- **Blocked / next** — known blockers or the logical next task
+## Don'ts
+- **Never push to git unless Shane says "push to git"** — because pushes are visible to others and a normal "commit this" doesn't authorize publication.
+- **Never run schema changes (DDL: CREATE / ALTER / DROP / migrations) via Claude Code's Supabase MCP tools** — because schema changes route through the Supabase SQL Editor manually so Shane can review them; commit migration files to `supabase/migrations/` and apply them by hand.
+- **Never run data writes (DML: INSERT / UPDATE / DELETE, including via `mcp__supabase__execute_sql`) without explicit per-call approval** — because a TRUNCATE on `posts` wiped real data and the dashboard kept showing phantom rows from cache; writes must be explicit, never assumed. Read-only `SELECT` / `EXPLAIN` / `COUNT` for diagnostics is fine without asking.
+- **Never paste secrets, API keys, or access tokens into chat** — because they get echoed back into the transcript and project memory; edit them directly into the destination file (`settings.json`, `.env`, etc.) via the editor instead. This burned us with the Supabase access token on 2026-05-04 and a leaked Google API key in a malformed `.env` filename earlier.
+- **Never run `scripts/youtube-studio-sync.ts` end-to-end as a verification step** — because its full pipeline writes to `posts` and pollutes shared state (lessons.md 2026-04-29). Test isolated steps or use a dry-run.
+- **Never write lifetime/cumulative totals into `posts.views`** — because that column is daily-delta; the YouTube Merger CSV bug stamped lifetime totals there and produced "8K one day, 2.5K the next" volatility.
+- **Never reuse Shorts' upsert conflict key for long-form** — because long-form rows share `clip_code` (e.g. MBM016 has 12 clips); use a partial unique index on `content_id WHERE content_type='long_form'` (lessons.md 2026-04-27).
+- **Never assume the Vercel cron is the data source for Shorts** — because the local Playwright scraper at `scripts/youtube-studio-sync.ts` (LaunchAgent) is the actual source; check `.plist` / `scripts/` before blaming the cron (lessons.md 2026-04-28).
+- **No em-dashes in user-facing copy (UI strings, social captions, exports)** — because em-dashes are a known AI tell and reduce trust in human-written content. Internal markdown files are unaffected.
 
----
+## Critical architecture rules
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+### `posts` is daily-delta, not cumulative
+Each row is one `(content_id|clip_details_code, platform, stat_date)` slice. `views` = views on that day, not lifetime. Any writer that has a "total_views" or "lifetime" column must compute the delta or skip the write — never substitute it for `views`.
 
-## Commands
+### Three aggregation functions, three distinct jobs (`src/lib/db.ts`)
+- `getLatestPostsPerClip(platform?)` — one row per `(clip_code, platform)` at latest `stat_date`, with back-fill for agent-only fields. Use for "current state of each clip." **Do not** use to compute windowed sums; latest-row-only systematically under-reports by ~30× over 30d.
+- `getAllPostsByDate(platform?, startDate?, endDate?)` — all daily rows in a window, **with date filter pushed to the DB layer**. Use for any 7d/30d/custom-window sum (Dashboard, Founder Report).
+- `getTotalViewsPerClip(platform?)` — lifetime sum of daily deltas grouped by `(clip_code, platform)`. Use for "lifetime per clip" leaderboards (ContentView, PlatformsView, ComparisonView).
 
-```bash
-npm run dev      # Start dev server (localhost:3000)
-npm run build    # Production build + type-check + lint (must pass before committing)
-npm run lint     # ESLint via next lint
-npx tsc --noEmit # Type-check only, no emit
-```
+### Supabase 1000-row response cap
+SELECT silently truncates at 1000 rows. Always push window filters via `.gte('stat_date', start).lte('stat_date', end)` rather than fetching everything and filtering in JS — the cap clipped 327 newest rows and silently zeroed out Dashboard 7d (commit `5da96e7`, primer.md 2026-05-01).
 
-There are no tests. The build pipeline (`npm run build`) runs ESLint and TypeScript as part of the Next.js build — treat build failures as equivalent to test failures.
+### Upsert conflict keys (different per writer)
+- Shorts → `posts`: `onConflict: 'clip_details_code,platform,stat_date'` (`upsertPosts`).
+- Long-form → `posts`: `onConflict: 'content_id,platform,stat_date'` (`upsertLongFormPosts`); long-form has NULL `clip_details_code`.
+- Breakdowns: `onConflict: 'content_id,platform,stat_date,dimension_type,dimension_value'`.
+- Long-form catalog → `long_form_videos`: `onConflict: 'video_id'`.
+- `clip_details`: `onConflict: 'clip_code'`.
+- Postgres rejects multi-row upserts that share a conflict key (error 21000); dedupe in JS first (`youtube-longform-sync.ts:336`).
 
-## Architecture
-
-This is a **Next.js 14 App Router** project (single-page app in practice). All routes live under `src/app/`, but the entire UI is rendered from one route: `src/app/page.tsx`.
-
-### State & layout shell (`src/app/page.tsx`)
-
-The root component owns all global state:
-- `posts: UnifiedPost[]` — the full dataset, initialized from `SAMPLE_POSTS`, merged on CSV upload
-- `activeNav: NavSection` — drives which view is rendered
-
-It renders a fixed layout: `<Sidebar>` + `<TopBar>` + one `<*View>` at a time. No routing occurs; navigation is purely state-driven.
-
-### Data model (`src/types/index.ts`)
-
-`UnifiedPost` is the single normalized shape all platforms converge to. `Platform` is the union type `'tiktok' | 'instagram' | 'linkedin' | 'twitter' | 'youtube'`. `PLATFORM_COLORS` and `PLATFORM_LABELS` are the canonical maps — use these everywhere instead of hardcoding strings or hex values.
+### Single-route shell
+`src/app/page.tsx` owns global state (`posts`, `activeNav`) and renders one `<*View>`. Views don't share filter state; each does its own `useMemo` filtering. New views go in `src/components/views/`, register in `Sidebar.tsx`'s `NavSection` / `NAV_ITEMS` / `NAV_GROUPS`, and a render branch in `page.tsx`.
 
 ### CSV ingestion (`src/lib/normalizers.ts`)
+`parseCSV` → `detectPlatform(headers)` (case-sensitive column signatures) → per-platform normalizer → `UnifiedPost`. Adding a platform: extend `Platform` union, `PLATFORM_COLORS`, `PLATFORM_LABELS`, `detectPlatform`, the switch, and the normalizer. IDs are `{platform}-{slug}-{index}-{timestamp}` and dedup is by `id` equality.
 
-`parseCSV(file, onComplete, onError)` is the public entry point. Internally it:
-1. Uses PapaParse with `header: true`
-2. Calls `detectPlatform(headers)` which identifies the platform from column name signatures (case-sensitive)
-3. Runs the appropriate per-platform normalizer that maps raw column names → `UnifiedPost` fields
-4. Assigns IDs and calls `onComplete`
+## Commands
+```bash
+npm run dev         # localhost:3000
+npm run build       # build + tsc + lint — must pass before commit (replaces tests)
+npm run lint        # ESLint
+npx tsc --noEmit    # type-check only
+```
+No unit tests; build pipeline is the gate. Playwright e2e screenshots in `tests/screenshots/`.
 
-When adding a new platform: add a normalizer function, extend `detectPlatform`, add to the switch, and extend the `Platform` type + `PLATFORM_COLORS`/`PLATFORM_LABELS`.
-
-### Views (`src/components/views/`)
-
-Each nav section is a self-contained view component that receives `posts: UnifiedPost[]` (and `onUpload` for Content). Views do their own filtering/aggregation with `useMemo` — they do not share filter state with each other or with the shell.
-
-| View | Key responsibility |
-|---|---|
-| `DashboardView` | Summary cards, 7d/30d comparison, top content list, right rail with platform breakdown + tips |
-| `ContentView` | Recent post cards, full table, CSV upload zone |
-| `PlatformsView` | Per-platform breakdown cards with best post + export hint |
-| `SettingsView` | Static UI only, no data mutations |
-
-### Charts (`src/components/ViewsLineChart.tsx`, `PlatformBarChart.tsx`)
-
-Built with Recharts. Both accept `posts: UnifiedPost[]` and `activePlatforms: Platform[]`. The line chart groups posts by date × platform and sums views. Custom tooltip components are typed explicitly (no `any`) to satisfy ESLint.
-
-### Icons (`src/components/Icons.tsx`)
-
-All icons are inline SVG functional components. Add new icons here rather than installing an icon library.
-
-## Key constraints
-
-- ESLint rule `@typescript-eslint/no-explicit-any` is enforced — type all Recharts tooltip props explicitly
-- ESLint rule `@typescript-eslint/no-unused-vars` is enforced — remove unused imports immediately
-- All components that use React hooks or browser APIs must have `'use client'` at the top
-- `engagementRate` is stored as a percentage (0–100), not a decimal
-- Post `date` fields are always `YYYY-MM-DD` strings; use `.slice(0, 10)` when parsing from CSVs
-- Deduplication on upload uses `id` equality — IDs are generated as `{platform}-{slug}-{index}-{timestamp}`
+## Relevant docs
+- `memory/primer.md` — start here every session.
+- `tasks/lessons.md` — every rule applies before writing code.
+- `docs/data-layer-audit.md` — open data-layer items (#4, #6, #9, 6.7, 6.8 still pending per primer).
+- `docs/clip-finder-engine-v2.md` — clip-finder system prompt source.
+- `docs/design-system/mediabuyer-design.md` — design system reference.
+- `docs/superpowers/plans/` & `docs/superpowers/specs/` — implementation plans & specs.
