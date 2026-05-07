@@ -2372,3 +2372,19 @@ Changed files:
 Changed files:
   - memory/primer.md
 
+
+## 2026-05-06 09:52:03 — c66d85c
+**chore: session shutdown — record LaunchAgent disable + workflow lesson**
+
+Changed files:
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
+
+## 2026-05-06 14:21:25 — bc63586
+**docs: add lesson re Vercel Hobby cron best-effort behavior**
+
+Changed files:
+  - tasks/lessons.md
+
