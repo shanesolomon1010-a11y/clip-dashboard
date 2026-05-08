@@ -2411,3 +2411,12 @@ Changed files:
   - memory/cloudmemory.md
   - memory/primer.md
 
+
+## 2026-05-08 09:46:51 — 935006b
+**data: register 7 missing shorts in both VIDEO_MAPs**
+
+Changed files:
+  - memory/cloudmemory.md
+  - scripts/youtube-studio-sync.ts
+  - src/lib/youtube-sync.ts
+
