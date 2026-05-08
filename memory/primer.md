@@ -4,7 +4,7 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD is `bc63586` (docs: add lesson re Vercel Hobby cron best-effort behavior). Branch `main` is 12 commits ahead of `origin/main`, all unpushed. Data layer is healthy: Dashboard 7d/30d converges with Founder Report (0% divergence — both paths now read the same `posts` rows after the 1000-row cap fix and the 2026-05-01 read-side fixes). Long-form ingestion confirmed live; the apparent 4-day gap was Vercel Hobby cron best-effort skipping + YouTube Analytics ~3-day reporting lag (not OAuth, not code). Shorts ingestion remains paused at the source (LaunchAgent disabled 2026-05-05).
+HEAD is `f619021` (chore: session shutdown — data accuracy + long-form gap diagnosis). `origin/main` is at `c693061` (one commit behind local — the bc63586 train and earlier was pushed externally during the session, likely by Shane). Data layer is healthy: Dashboard 7d/30d converges with Founder Report (0% divergence — both paths now read the same `posts` rows after the 1000-row cap fix and the 2026-05-01 read-side fixes). Long-form ingestion confirmed live; the apparent 4-day gap was Vercel Hobby cron best-effort skipping + YouTube Analytics ~3-day reporting lag (not OAuth, not code). Shorts ingestion remains paused at the source (LaunchAgent disabled 2026-05-05).
 
 ## Just completed (2026-05-06, data accuracy + long-form gap investigation)
 - **Data accuracy health check** (read-only Supabase MCP):
@@ -20,7 +20,9 @@ HEAD is `bc63586` (docs: add lesson re Vercel Hobby cron best-effort behavior). 
   - `GJ-vDDJvzzU`, `kmHxugBlq_I` — confirmed unlisted on Shane's channel (`UC-Ly0V7fa_9TaF3WXvsroZA`) via YouTube Data API. Filtered out by the cron's `privacyStatus !== 'public'` check at `src/lib/youtube-longform-sync.ts:163` — **working as designed**.
   - `Q8iJ2gBujpY` — not visible to YouTube Data API key. Could be private (most likely, given the pattern), deleted, or invalid ID. Disambiguating definitively requires OAuth, which isn't in local `.env.local` (see footnote).
 
-## Recent commits (unpushed, top down)
+## Recent commits (top down)
+- `f619021` chore: session shutdown — data accuracy + long-form gap diagnosis _(LOCAL ONLY)_
+- `c693061` chore: append commit log entries to cloudmemory _(on origin)_
 - `bc63586` docs: add lesson re Vercel Hobby cron best-effort behavior
 - `c66d85c` chore: session shutdown — record LaunchAgent disable + workflow lesson
 - `1b8d44e` chore: disable YouTube Studio scraper LaunchAgent
@@ -44,7 +46,7 @@ HEAD is `bc63586` (docs: add lesson re Vercel Hobby cron best-effort behavior). 
 - **Vercel cron reliability**: Hobby plan crons are best-effort. Options if long-form freshness matters more than Hobby can guarantee: (a) Vercel Pro, (b) external scheduler hitting the same endpoint, (c) accept occasional misses (the 1500-day lookback self-heals on next successful run).
 - **Diagnostics drift-check** will continue to read yellow indefinitely on Shorts ingest freshness while the LaunchAgent is off. Intended.
 - **Natural next action (CLAUDE.md title comment)**: still pending. One-line surgical edit, no build/lint needed.
-- **Push question**: 12 unpushed commits on `main`. Shane's rule is "never push unless I say push to git."
+- **Push question**: 1 unpushed commit on `main` (`f619021`, this session's shutdown). Shane's rule is "never push unless I say push to git." Shane appears to have pushed the older commit train externally during the session.
 - **To re-enable Shorts scraper**: restore plist contents (recorded in 2026-05-05 entry of prior primer / commit `1b8d44e`), `launchctl load`, `sudo pmset repeat wakeorpoweron MTWRFSU 05:55:00`. Note `pmset repeat` is global per machine — run `pmset -g sched` first to avoid clobbering. The 05:55 vs 06:00 lead is intentional.
 - **Engine test gate**: clip-finder API endpoint + UI still gated.
 - **Pre-existing**: `studio_snapshots` migration not yet applied to Supabase.

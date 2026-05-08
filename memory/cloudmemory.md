@@ -2395,3 +2395,11 @@ Changed files:
 Changed files:
   - memory/cloudmemory.md
 
+
+## 2026-05-07 23:40:03 — f619021
+**chore: session shutdown — data accuracy + long-form gap diagnosis**
+
+Changed files:
+  - memory/cloudmemory.md
+  - memory/primer.md
+
