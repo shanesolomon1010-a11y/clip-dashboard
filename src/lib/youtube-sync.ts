@@ -42,7 +42,14 @@ const VIDEO_MAP: Record<string, string> = {
   '8jW7vDDSWb4': 'MBM019-CLIP-002',
   'iXS-UcuSrpY': 'MBM020-CLIP-001',
   'EuC0d-68ghI': 'MBM020-CLIP-002',
+  '4e-SB9pZxGM': 'MBM020-CLIP-003',
   '1xZgYwL3e7g': 'MBM021-CLIP-002',
+  'fc3PZ8QOTc8': 'MBM024-CLIP-001',
+  'YBIKT2Wxpm0': 'MBM024-CLIP-002',
+  'uRDZUr1vzJ4': 'MBM025-CLIP-001',
+  'yZS5qB_uvTQ': 'MBM025-CLIP-003',
+  'D1y3gb1MfUI': 'MBM025-CLIP-004',
+  'q_pNnD-JLnQ': 'MBM025-CLIP-005',
 };
 
 // ageGroupGender will return 0 rows until the channel crosses YouTube's demographic

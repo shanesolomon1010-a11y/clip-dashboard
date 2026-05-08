@@ -66,6 +66,13 @@ export const VIDEO_MAP: Record<string, string> = {
   'CGQryafzaAY': 'MBM016-CLIP-014',
   'X6v-cvX2tew': 'MBM017-CLIP-001',
   '5SImwiVgWWA': 'MBM017-CLIP-002',
+  '4e-SB9pZxGM': 'MBM020-CLIP-003',
+  'fc3PZ8QOTc8': 'MBM024-CLIP-001',
+  'YBIKT2Wxpm0': 'MBM024-CLIP-002',
+  'uRDZUr1vzJ4': 'MBM025-CLIP-001',
+  'yZS5qB_uvTQ': 'MBM025-CLIP-003',
+  'D1y3gb1MfUI': 'MBM025-CLIP-004',
+  'q_pNnD-JLnQ': 'MBM025-CLIP-005',
 };
 
 export const COLUMN_MAP: Record<string, string> = {
