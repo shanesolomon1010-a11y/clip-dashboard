@@ -1,3 +1,5 @@
+import { supabase } from './supabase';
+
 interface AnalyticsRow {
   date: string;
   views: number;
@@ -24,13 +26,28 @@ interface AnalyticsResponse {
 }
 
 export async function getAccessToken(): Promise<string> {
+  const { data: auth, error: authError } = await supabase
+    .from('youtube_auth')
+    .select('refresh_token')
+    .maybeSingle();
+
+  if (authError || !auth) {
+    throw new Error('No youtube_auth row found — re-consent required at /api/auth/url');
+  }
+  const refreshToken = (auth as { refresh_token: string }).refresh_token;
+  if (!refreshToken) {
+    throw new Error('youtube_auth row missing refresh_token — re-consent required at /api/auth/url');
+  }
+
+  console.log('[getAccessToken] sourced refresh_token from youtube_auth');
+
   const res = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       client_id: process.env.YOUTUBE_CLIENT_ID!,
       client_secret: process.env.YOUTUBE_CLIENT_SECRET!,
-      refresh_token: process.env.YOUTUBE_REFRESH_TOKEN!,
+      refresh_token: refreshToken,
       grant_type: 'refresh_token',
     }),
   });
