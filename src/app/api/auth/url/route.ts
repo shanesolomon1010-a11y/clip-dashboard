@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 
 export async function GET(): Promise<NextResponse> {
   const params = new URLSearchParams({
-    client_id: process.env.GOOGLE_CLIENT_ID!,
-    redirect_uri: process.env.GOOGLE_REDIRECT_URI!,
+    client_id: process.env.YOUTUBE_CLIENT_ID!,
+    redirect_uri: process.env.YOUTUBE_REDIRECT_URI!,
     response_type: 'code',
     scope: [
       'https://www.googleapis.com/auth/yt-analytics.readonly',
