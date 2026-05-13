@@ -72,9 +72,12 @@ export function DateFilterBar({ preset, customRange, onPresetChange, onCustomRan
   );
 }
 
-export function useDateFilter(defaultPreset: FilterPreset = '30d') {
+export function useDateFilter(
+  defaultPreset: FilterPreset = '30d',
+  defaultCustomRange: CustomRange | null = null,
+) {
   const [filterPreset, setFilterPreset] = useState<FilterPreset>(defaultPreset);
-  const [customRange, setCustomRange] = useState<CustomRange | null>(null);
+  const [customRange, setCustomRange] = useState<CustomRange | null>(defaultCustomRange);
 
   const { filterStart, filterEnd } = useMemo(() => {
     if (filterPreset === 'all') return { filterStart: null, filterEnd: null };

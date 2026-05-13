@@ -1,15 +1,81 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { IconEye } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter } from '@/context/FilterContext';
 import { getAllPostsByDate, getLatestPostsPerClip } from '@/lib/db';
-import { DateFilterBar, useDateFilter } from '@/components/DateFilterBar';
+import { DateFilterBar, useDateFilter, type FilterPreset, type CustomRange } from '@/components/DateFilterBar';
+import { ContentTypeToggle, type ContentType } from '@/components/ContentTypeToggle';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
+
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+const DASHBOARD_PRESET_KEY = 'dashboard_filter_preset';
+const DASHBOARD_RANGE_KEY = 'dashboard_filter_custom_range';
+const DASHBOARD_CONTENT_KEY = 'dashboard_content_type';
+
+function isFilterPreset(v: unknown): v is FilterPreset {
+  return v === '7d' || v === '30d' || v === 'all' || v === 'custom';
+}
+
+function isContentType(v: unknown): v is ContentType {
+  return v === 'all' || v === 'long_form' || v === 'short';
+}
+
+function readInitialDashboardState(searchParams: URLSearchParams): {
+  preset: FilterPreset;
+  customRange: CustomRange | null;
+  contentType: ContentType;
+} {
+  let preset: FilterPreset = '30d';
+  let customRange: CustomRange | null = null;
+  let contentType: ContentType = 'all';
+
+  const urlRange = searchParams.get('range');
+  const urlStart = searchParams.get('start');
+  const urlEnd = searchParams.get('end');
+  const urlContentType = searchParams.get('contentType');
+
+  if (isFilterPreset(urlRange)) preset = urlRange;
+  if (isContentType(urlContentType)) contentType = urlContentType;
+  if (urlStart && urlEnd && YMD_RE.test(urlStart) && YMD_RE.test(urlEnd)) {
+    customRange = { start: urlStart, end: urlEnd };
+  }
+
+  if (typeof window !== 'undefined') {
+    if (!urlRange) {
+      const stored = window.localStorage.getItem(DASHBOARD_PRESET_KEY);
+      if (isFilterPreset(stored)) preset = stored;
+    }
+    if (!urlContentType) {
+      const stored = window.localStorage.getItem(DASHBOARD_CONTENT_KEY);
+      if (isContentType(stored)) contentType = stored;
+    }
+    if (!(urlStart && urlEnd)) {
+      const raw = window.localStorage.getItem(DASHBOARD_RANGE_KEY);
+      if (raw) {
+        try {
+          const parsed = JSON.parse(raw) as { start?: unknown; end?: unknown };
+          if (typeof parsed.start === 'string' && typeof parsed.end === 'string'
+              && YMD_RE.test(parsed.start) && YMD_RE.test(parsed.end)) {
+            customRange = { start: parsed.start, end: parsed.end };
+          }
+        } catch {
+          // fall through
+        }
+      }
+    }
+  }
+
+  if (preset === 'custom' && !customRange) preset = '30d';
+
+  return { preset, customRange, contentType };
+}
 
 function postInteractions(p: UnifiedPost): number {
   return p.likes + p.comments + p.shares + p.saves;
@@ -41,11 +107,49 @@ interface Props {
 export default function DashboardView({ posts }: Props) {
   const { open: openVideoModal } = useVideoModal();
   const { platform } = useFilter();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [initialState] = useState(() =>
+    readInitialDashboardState(new URLSearchParams(searchParams.toString())),
+  );
 
   const [allDailyPosts, setAllDailyPosts] = useState<UnifiedPost[]>([]);
   const [latestClipPosts, setLatestClipPosts] = useState<UnifiedPost[]>([]);
 
-  const { filterPreset, setFilterPreset, customRange, setCustomRange, filterStart, filterEnd, filterLabel } = useDateFilter('30d');
+  const { filterPreset, setFilterPreset, customRange, setCustomRange, filterStart, filterEnd, filterLabel } =
+    useDateFilter(initialState.preset, initialState.customRange);
+
+  const [contentType, setContentType] = useState<ContentType>(initialState.contentType);
+
+  const firstSyncRef = useRef(true);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(DASHBOARD_PRESET_KEY, filterPreset);
+      window.localStorage.setItem(DASHBOARD_CONTENT_KEY, contentType);
+      if (filterPreset === 'custom' && customRange) {
+        window.localStorage.setItem(DASHBOARD_RANGE_KEY, JSON.stringify(customRange));
+      }
+    }
+    // Skip the URL write on first render — the state was just read FROM the URL,
+    // so re-writing would only thrash the history entry.
+    if (firstSyncRef.current) {
+      firstSyncRef.current = false;
+      return;
+    }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('range', filterPreset);
+    if (filterPreset === 'custom' && customRange) {
+      params.set('start', customRange.start);
+      params.set('end', customRange.end);
+    } else {
+      params.delete('start');
+      params.delete('end');
+    }
+    if (contentType === 'all') params.delete('contentType');
+    else params.set('contentType', contentType);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [filterPreset, customRange, contentType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     getAllPostsByDate('youtube', filterStart ?? undefined, filterEnd ?? undefined)
@@ -58,23 +162,29 @@ export default function DashboardView({ posts }: Props) {
   }, []);
 
   const filteredPosts = useMemo(() => {
-    let result = platform === 'all' ? posts : posts.filter((p) => p.platform === platform);
-    if (filterStart) {
-      result = result.filter((p) => {
+    return posts.filter((p) => {
+      if (platform !== 'all' && p.platform !== platform) return false;
+      if (contentType !== 'all' && p.content_type !== contentType) return false;
+      if (filterStart) {
         const d = p.stat_date ?? p.date ?? '';
-        return d >= filterStart && (!filterEnd || d <= filterEnd);
-      });
-    }
-    return result;
-  }, [posts, platform, filterStart, filterEnd]);
+        if (d < filterStart) return false;
+        if (filterEnd && d > filterEnd) return false;
+      }
+      return true;
+    });
+  }, [posts, platform, contentType, filterStart, filterEnd]);
 
   const dateFilteredDailyPosts = useMemo(() => {
-    if (!filterStart) return allDailyPosts;
     return allDailyPosts.filter((p) => {
-      const d = p.stat_date ?? p.date ?? '';
-      return d >= filterStart && (!filterEnd || d <= filterEnd);
+      if (contentType !== 'all' && p.content_type !== contentType) return false;
+      if (filterStart) {
+        const d = p.stat_date ?? p.date ?? '';
+        if (d < filterStart) return false;
+        if (filterEnd && d > filterEnd) return false;
+      }
+      return true;
     });
-  }, [allDailyPosts, filterStart, filterEnd]);
+  }, [allDailyPosts, contentType, filterStart, filterEnd]);
 
   const dateFilteredClipTotals = useMemo(() => {
     const map = new Map<string, ClipTotal>();
@@ -125,18 +235,19 @@ export default function DashboardView({ posts }: Props) {
       .sort((a, b) => b.views - a.views);
   }, [dateFilteredDailyPosts]);
 
-  // Peak day per clip_code from allDailyPosts
+  // Peak day per clip_code from allDailyPosts (respects content-type filter)
   const peakByClip = useMemo(() => {
     const map = new Map<string, { date: string; views: number }>();
     for (const p of allDailyPosts) {
       if (!p.clip_code || !p.stat_date) continue;
+      if (contentType !== 'all' && p.content_type !== contentType) continue;
       const existing = map.get(p.clip_code);
       if (!existing || p.views > existing.views) {
         map.set(p.clip_code, { date: p.stat_date, views: p.views });
       }
     }
     return map;
-  }, [allDailyPosts]);
+  }, [allDailyPosts, contentType]);
 
 
   const statsGrid = useMemo(() => {
@@ -178,6 +289,7 @@ export default function DashboardView({ posts }: Props) {
 
   const topUniqueViewers = useMemo(() => {
     const clips = latestClipPosts
+      .filter((p) => contentType === 'all' || p.content_type === contentType)
       .filter((p) => p.unique_viewers != null)
       .sort((a, b) => (b.unique_viewers ?? 0) - (a.unique_viewers ?? 0))
       .slice(0, 3);
@@ -186,7 +298,7 @@ export default function DashboardView({ posts }: Props) {
       return !latest || d > latest ? d : latest;
     }, null);
     return { clips, snapshotDate };
-  }, [latestClipPosts]);
+  }, [latestClipPosts, contentType]);
 
   const isClipTotal = (item: ClipTotal | UnifiedPost): item is ClipTotal =>
     'total_views' in item;
@@ -196,13 +308,16 @@ export default function DashboardView({ posts }: Props) {
       {/* ── Left column ─────────────────────────────────────── */}
       <div className="flex-1 min-w-0 space-y-6">
 
-        {/* Date filter bar */}
-        <DateFilterBar
-          preset={filterPreset}
-          customRange={customRange}
-          onPresetChange={setFilterPreset}
-          onCustomRange={(start, end) => setCustomRange({ start, end })}
-        />
+        {/* Date filter bar + content-type toggle */}
+        <div className="flex items-center gap-3 flex-wrap">
+          <DateFilterBar
+            preset={filterPreset}
+            customRange={customRange}
+            onPresetChange={setFilterPreset}
+            onCustomRange={(start, end) => setCustomRange({ start, end })}
+          />
+          <ContentTypeToggle value={contentType} onChange={setContentType} />
+        </div>
 
         {/* Stat grid — 8 cards, 4 columns */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
