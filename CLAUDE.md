@@ -27,6 +27,7 @@ Clip Studio Dashboard — Next.js single-page app (one route, view-state via `ac
 
 ## Don'ts
 - **Never push to git unless Shane says "push to git"** — because pushes are visible to others and a normal "commit this" doesn't authorize publication.
+- **Even when Shane says "push to git", commit but don't invoke `git push` yourself — his global deny rule blocks it** — because the denied tool call creates a permission prompt that goes nowhere and the command has to be re-run manually anyway; surface the commit hash + push command, Shane runs it.
 - **Never run schema changes (DDL: CREATE / ALTER / DROP / migrations) via Claude Code's Supabase MCP tools** — because schema changes route through the Supabase SQL Editor manually so Shane can review them; commit migration files to `supabase/migrations/` and apply them by hand.
 - **Never run data writes (DML: INSERT / UPDATE / DELETE, including via `mcp__supabase__execute_sql`) without explicit per-call approval** — because a TRUNCATE on `posts` wiped real data and the dashboard kept showing phantom rows from cache; writes must be explicit, never assumed. Read-only `SELECT` / `EXPLAIN` / `COUNT` for diagnostics is fine without asking.
 - **Never paste secrets, API keys, or access tokens into chat** — because they get echoed back into the transcript and project memory; edit them directly into the destination file (`settings.json`, `.env`, etc.) via the editor instead. This burned us with the Supabase access token on 2026-05-04 and a leaked Google API key in a malformed `.env` filename earlier.

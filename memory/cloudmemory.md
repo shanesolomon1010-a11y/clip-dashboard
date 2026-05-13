@@ -2420,3 +2420,44 @@ Changed files:
   - scripts/youtube-studio-sync.ts
   - src/lib/youtube-sync.ts
 
+
+## 2026-05-08 09:47:18 — b4e2644
+**chore: append commit log entry to cloudmemory**
+
+Changed files:
+  - memory/cloudmemory.md
+
+
+## 2026-05-12 09:38:59 — e3d82fe
+**feat: source YouTube auth from DB + upgrade OAuth scope to force-ssl**
+
+Changed files:
+  - src/app/api/auth/route.ts
+  - src/app/api/auth/url/route.ts
+  - src/lib/youtube.ts
+
+
+## 2026-05-12 09:52:39 — 3bf3f3e
+**fix: normalize /api/auth/url env vars to YOUTUBE_* prefix**
+
+Changed files:
+  - src/app/api/auth/url/route.ts
+
+
+## 2026-05-12 18:25:02 — b82b07f
+**refactor: extract shared DateRangeCalendar, fix picker UX**
+
+Changed files:
+  - src/components/DateFilterBar.tsx
+  - src/components/DateRangeCalendar.tsx
+  - src/components/views/FounderReportView.tsx
+
+
+## 2026-05-12 19:02:15 — 664e102
+**feat: dashboard content-type toggle + URL state for filters**
+
+Changed files:
+  - src/components/ContentTypeToggle.tsx
+  - src/components/DateFilterBar.tsx
+  - src/components/views/DashboardView.tsx
+

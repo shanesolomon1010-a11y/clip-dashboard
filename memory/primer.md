@@ -4,57 +4,66 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD is `f619021` (chore: session shutdown — data accuracy + long-form gap diagnosis). `origin/main` is at `c693061` (one commit behind local — the bc63586 train and earlier was pushed externally during the session, likely by Shane). Data layer is healthy: Dashboard 7d/30d converges with Founder Report (0% divergence — both paths now read the same `posts` rows after the 1000-row cap fix and the 2026-05-01 read-side fixes). Long-form ingestion confirmed live; the apparent 4-day gap was Vercel Hobby cron best-effort skipping + YouTube Analytics ~3-day reporting lag (not OAuth, not code). Shorts ingestion remains paused at the source (LaunchAgent disabled 2026-05-05).
+HEAD is `664e102` on `main`, **in sync with origin** (Shane pushed Phase 1 + Phase 2 manually). Dashboard filter system is the only meaningful UI surface that changed this session: the date-range picker calendar is now a single shared component, has month + year dropdowns, opens at the picked range's month, closes on click-outside in both call sites, and a new content-type toggle (All | Long-form | Shorts) sits next to it on the Dashboard with filter state synced to URL + localStorage.
 
-## Just completed (2026-05-06, data accuracy + long-form gap investigation)
-- **Data accuracy health check** (read-only Supabase MCP):
-  - Dashboard vs Founder Report convergence: 7d=1163 views, 30d=6676 views — identical between paths (zero NULL `content_type` rows in either window, so the two aggregations operate on the same source rows). **GREEN.**
-  - Long-form max stat_date was 2026-05-02 (4 days stale) → flagged YELLOW.
-  - Shorts max stat_date 2026-05-03 — pre-disable, no zombie writes. **GREEN.**
-- **Long-form gap diagnosis**:
-  - Read `vercel.json`, `src/app/api/cron/youtube-sync-longform/route.ts`, `src/lib/youtube-longform-sync.ts`.
-  - Initial OAuth-revocation theory was WRONG. Manually triggered the production cron at `https://clip-dashboard-two.vercel.app/api/cron/youtube-sync-longform` with `Authorization: Bearer $CRON_SECRET` → returned 200 in 19.7s with `{discovered:15, synced:3661, errors:0}`. After the manual run: `last_synced_at` for all 15 videos = 2026-05-06 19:05 UTC; max stat_date advanced 2026-05-02 → 2026-05-04. Two new days landed (May 3 + May 4).
-  - Real cause: Vercel Hobby plan crons are documented best-effort — today's 14:30 UTC scheduled run skipped silently. Plus YouTube Analytics has an inherent ~3-day reporting lag, so the apparent "4-day gap" was mostly normal lag + 1 missed cron run.
-  - Lesson recorded in `tasks/lessons.md` 2026-05-06 (commit `bc63586`).
-- **Long-form catalog audit**: Compared 18 video IDs against `long_form_videos`. 15 present (all `last_synced_at` 2026-05-06 19:05 UTC). 3 missing:
-  - `GJ-vDDJvzzU`, `kmHxugBlq_I` — confirmed unlisted on Shane's channel (`UC-Ly0V7fa_9TaF3WXvsroZA`) via YouTube Data API. Filtered out by the cron's `privacyStatus !== 'public'` check at `src/lib/youtube-longform-sync.ts:163` — **working as designed**.
-  - `Q8iJ2gBujpY` — not visible to YouTube Data API key. Could be private (most likely, given the pattern), deleted, or invalid ID. Disambiguating definitively requires OAuth, which isn't in local `.env.local` (see footnote).
+## Just completed (2026-05-12 → 2026-05-13, picker dedup + Dashboard toggle)
+
+### Phase 1 — `b82b07f` refactor: extract shared DateRangeCalendar, fix picker UX
+- New `src/components/DateRangeCalendar.tsx` — single source of truth for the calendar popover. Same prop signature as before plus an optional `containerRef` so parents pass their wrapper div and the shared component owns the `mousedown` click-outside listener.
+- Seeds `viewYear`/`viewMonth` from `initialStart` (fallback today) so reopening jumps back to the picked range's month instead of always landing on today.
+- Adds month + year `<select>` dropdowns in the calendar header for fast multi-year navigation. Year range: `2023..currentYear+1` (≈ `MBM_ERA_START` through next year).
+- `DateFilterBar.tsx` — deleted inline calendar (~140 lines) and local `mousedown` `useEffect`; imports shared component. `useDateFilter` signature unchanged in Phase 1.
+- `FounderReportView.tsx` — deleted inline calendar copy; `calendarRef` (previously dead since no listener was attached) is now wired as `containerRef`, so click-outside works there too. Persistence extended: new `founder_report_filter_custom_range` localStorage key holds `{start,end}`; `readStoredFilterPreset` now honors `'custom'` only if a valid stored range is also present (else falls back to `'30d'`).
+
+### Phase 2 — `664e102` feat: dashboard content-type toggle + URL state for filters
+- New `src/components/ContentTypeToggle.tsx` — 3-segment pill (`All` | `Long-form` | `Shorts`), same visual styling as `DateFilterBar`. `data-testid="content-type-toggle"` on root, `data-testid="content-type-{value}"` per button.
+- `DateFilterBar.tsx` — `useDateFilter` extended with optional `defaultCustomRange` (2nd arg, defaults `null`). Backward-compatible; lets a caller hydrate both preset and custom range in one render, avoiding double-fetch on mount.
+- `DashboardView.tsx`:
+  - `readInitialDashboardState` reads URL params (`?range`, `?start`, `?end`, `?contentType`) first, then falls back to localStorage (`dashboard_filter_preset` / `dashboard_filter_custom_range` / `dashboard_content_type`), then defaults. If `preset === 'custom'` with no range, falls back to `'30d'`.
+  - URL sync `useEffect` writes state → URL (`router.replace`, `scroll: false`) on every change of `[filterPreset, customRange, contentType]`. `firstSyncRef` skips the very first write so the just-read state doesn't thrash history. localStorage always writes.
+  - Content-type filter applied to `filteredPosts`, `dateFilteredDailyPosts`, `peakByClip`, `topUniqueViewers`. Decision: `'all'` keeps everything (including undefined `content_type`) to preserve baseline totals; `'long_form'` / `'short'` use strict equality. `peakByClip` respects the toggle so peak labels match the active view.
+  - Toggle rendered next to `DateFilterBar` in a `flex items-center gap-3 flex-wrap` row.
+
+### Sidequest — standalone whisper-transcribe tool
+Not connected to clip-dashboard. Built at `~/whisper-transcribe` (separate git repo, commit `55404da`, local only). Watches `input/` for `.mp4/.mov/.mp3/.wav/.m4a`, transcribes via mlx-whisper large-v3, writes `.txt` to `output/`, moves source to `processed/`. Smoke-tested end-to-end with a `say`-generated wav — transcript verbatim accurate. One-command start via `./watch.sh` (auto-creates venv + installs deps on first run). README in the repo. Not relevant to clip-dashboard ongoing work.
 
 ## Recent commits (top down)
-- `f619021` chore: session shutdown — data accuracy + long-form gap diagnosis _(LOCAL ONLY)_
-- `c693061` chore: append commit log entries to cloudmemory _(on origin)_
-- `bc63586` docs: add lesson re Vercel Hobby cron best-effort behavior
-- `c66d85c` chore: session shutdown — record LaunchAgent disable + workflow lesson
-- `1b8d44e` chore: disable YouTube Studio scraper LaunchAgent
-- `cdf553e` chore: session primer rewrite (planning-only session)
-- `72419ce` chore: add three slash commands to .claude/commands/
-- `6e4698f` docs: add .claude/agents/README.md
-- `ad08ceb` chore: add .claude/settings.json
-- `a3c08e5` chore: add four agents to .claude/agents/
-- `f20caf1` chore: establish CLAUDE.md as project constitution
-- `c6ce368` refactor: remove Views Over Time chart from DashboardView
-- `5da96e7` fix: push date window to DB in `getAllPostsByDate` (1000-row cap fix)
-- `187c335` data-layer fix wave (Dashboard read-side corrections)
+- `664e102` feat: dashboard content-type toggle + URL state for filters _(on origin)_
+- `b82b07f` refactor: extract shared DateRangeCalendar, fix picker UX _(on origin)_
+- `3bf3f3e` fix: normalize /api/auth/url env vars to YOUTUBE_* prefix
+- `e3d82fe` feat: source YouTube auth from DB + upgrade OAuth scope to force-ssl
+- `b4e2644` chore: append commit log entry to cloudmemory
+- `935006b` data: register 7 missing shorts in both VIDEO_MAPs
+- `7e342fc` chore: correct primer push state (origin already at c693061)
+- `f619021` chore: session shutdown — data accuracy + long-form gap diagnosis
 
 ## In progress
 - Nothing.
 
 ## Blocked / next
-- **Pending manual step (sudo)**: run `sudo pmset repeat cancel` to remove the 5:55AM repeating wake left by the disabled LaunchAgent. Cosmetic — nothing fires at 06:00 anyway since the plist is gone.
-- **Q8iJ2gBujpY status unresolved**: to disambiguate (private vs deleted vs invalid), need OAuth. Either paste `YOUTUBE_CLIENT_ID/SECRET/REFRESH_TOKEN` into local `.env.local` or run from a Vercel preview shell and re-query `https://www.googleapis.com/youtube/v3/videos?id=Q8iJ2gBujpY&part=status,snippet`.
-- **Decision pending**: should the cron's `privacyStatus !== 'public'` filter (`youtube-longform-sync.ts:163`) be loosened to include `unlisted`? Currently 2 known unlisted videos are intentionally excluded. If unlisted analytics matter, change the filter; otherwise leave as-is.
-- **Vercel cron reliability**: Hobby plan crons are best-effort. Options if long-form freshness matters more than Hobby can guarantee: (a) Vercel Pro, (b) external scheduler hitting the same endpoint, (c) accept occasional misses (the 1500-day lookback self-heals on next successful run).
-- **Diagnostics drift-check** will continue to read yellow indefinitely on Shorts ingest freshness while the LaunchAgent is off. Intended.
-- **Natural next action (CLAUDE.md title comment)**: still pending. One-line surgical edit, no build/lint needed.
-- **Push question**: 1 unpushed commit on `main` (`f619021`, this session's shutdown). Shane's rule is "never push unless I say push to git." Shane appears to have pushed the older commit train externally during the session.
-- **To re-enable Shorts scraper**: restore plist contents (recorded in 2026-05-05 entry of prior primer / commit `1b8d44e`), `launchctl load`, `sudo pmset repeat wakeorpoweron MTWRFSU 05:55:00`. Note `pmset repeat` is global per machine — run `pmset -g sched` first to avoid clobbering. The 05:55 vs 06:00 lead is intentional.
-- **Engine test gate**: clip-finder API endpoint + UI still gated.
-- **Pre-existing**: `studio_snapshots` migration not yet applied to Supabase.
-- **Pre-existing**: `scripts/youtube-studio-sync.test.ts:163` asserts VIDEO_MAP=19; actual=30 (harmless, stale).
-- **Open `docs/data-layer-audit.md` items**: #4 Stats Grid Total Impressions, #6 Top Content fallback labeling, #9 studio_snapshots semantics, 6.7 write-side guard in `upsertPosts`, 6.8 rename `getLatestPostsPerClip` → `getLatestSnapshotPerClip` + JSDoc warning.
-- **Possible follow-up**: orphan Supabase tables from prior tab-deletion (`weekly_reports`, `schedule_recommendations`, `performance_analyses`, breakdowns equivalents, `insights`) — decide whether to drop server-side.
+- **Phase 2 prod verification** — Shane was going to verify on prod after the manual push. Verification checklist (from the post-build report):
+  - Toggle each content type, confirm all 8 stat cards + Top Content + Channel Summary + Platforms + Top Clips by Unique Viewers update.
+  - Sanity: `Long-form` Total Views + `Shorts` Total Views ≤ `All` Total Views for the same range.
+  - Set `7d` + `Shorts`, confirm URL becomes `?tab=dashboard&range=7d&contentType=short`. Reload → state rehydrates.
+  - Set custom range + `Long-form`, copy URL, open in new tab → same state loads.
+  - Navigate away and back → filters persist (URL + localStorage).
+  - Founder Report does NOT show the content-type toggle (unchanged).
+  - Peak labels in Top Content respect the toggle — `Shorts` shows peak short days, not lifetime peaks across both.
+- **"Two pills highlighted" claim (unresolved)** — Shane reported the Dashboard had two preset pills highlighted at once after applying a custom range, and asked me to "copy Founder Report's deselection logic over." A diff confirmed the two preset-pill blocks in `DateFilterBar.tsx` and `FounderReportView.tsx` are byte-equivalent — there is literally nothing to copy. Lesson recorded in `tasks/lessons.md` 2026-05-12. Most likely cause: stale CDN bundle on Vercel from before the Phase 1 push reached prod. If still observed after a hard refresh, ask Shane for a screenshot — likely a different element (focus ring? dropdown chevron?) being read as a second highlight.
+- **Bug A — "38K shorts views" UI vs 10,915 API (closed as not-a-code-bug)** — `FounderReportView` renders `data.shortsViews` verbatim via `.toLocaleString()`, no formatter and no label swap. DB sum agrees with API (10,915 across 1,351 rows). Shorts data in `posts` only goes back to 2026-03-15 — the 38K Mateo saw was likely from a pre-truncate snapshot or stale browser cache. Action: none in code. If Shane wants to recover historical shorts data, that's a separate data-layer task.
+- **Pagination without ordering in `/api/founder-report/route.ts`** (lines 60-76, 86-107) — Supabase pagination without `.order(...)` can return duplicate/missing rows across pages. Currently works because the result set fits in one page (~5k rows), but the pattern is fragile. Worth fixing eventually — add `.order('id')` or similar stable column before `.range(...)`. Not urgent.
+- **Possible follow-up: extend content-type filter to other views** — `ContentView`, `PlatformsView`, `ComparisonView` currently show lifetime totals across all content types. Shane explicitly scoped this round to Dashboard only, so no action — but the `ContentTypeToggle` component is reusable if/when he wants to extend.
+- **Pre-existing carryover (unchanged this session):**
+  - Manual `sudo pmset repeat cancel` still pending (cosmetic, scraper LaunchAgent is off).
+  - `Q8iJ2gBujpY` long-form video status still unresolved (need OAuth in local `.env.local` to disambiguate private vs deleted).
+  - Open `docs/data-layer-audit.md` items #4, #6, #9, 6.7, 6.8.
+  - Vercel cron reliability — Hobby plan crons are best-effort; consider Pro or external scheduler if long-form freshness becomes critical.
+  - `studio_snapshots` migration not yet applied.
+  - `scripts/youtube-studio-sync.test.ts:163` asserts VIDEO_MAP=19, actual=30 (harmless, stale).
+  - Engine test gate (clip-finder API + UI) still gated.
 
 ## Footnotes for next session
-- **Local YouTube API debugging**: `.env.local` has `YOUTUBE_API_KEY` only. The OAuth path used by the cron (`YOUTUBE_CLIENT_ID/SECRET/REFRESH_TOKEN` via `getAccessToken()` in `src/lib/youtube.ts`) lives only on Vercel. API key can resolve public + unlisted videos but NOT private ones. For full disambiguation, grab OAuth secrets from Vercel.
-- **Manual cron trigger pattern**: source `.env.local` in a subshell, curl with `Authorization: Bearer $CRON_SECRET`, never echo the secret. The route at `/api/cron/youtube-sync-longform` is GET, idempotent (upserts), safe to re-run.
-- **YouTube Analytics reporting lag**: ~3 days. Even on a successful daily cron, max stat_date will lag today by 2-3 days. Don't treat that as a bug.
+- **`useDateFilter` signature note**: now accepts an optional `defaultCustomRange: CustomRange | null` as its second argument. Existing single-arg callers are unaffected. If you ever add a third view that uses the date picker, you can hydrate both preset and range from a single source via the two-arg form.
+- **URL-state pattern reference**: `DashboardView.tsx` is the working example for `?range=&start=&end=&contentType=` syncing on a single-route SPA. Shape and validation are minimal (regex on YMD, type guards on enums). If you extend to other views, factor out `readInitialDashboardState` + the sync `useEffect` into a hook rather than duplicating.
+- **Calendar widget reuse**: `DateRangeCalendar` is a standalone component. The `containerRef` prop is optional — passing it enables click-outside relative to the parent's wrapper (which contains both the trigger and the popover). Omitting it disables click-outside entirely.
+- **Memory additions this session**: one new CLAUDE.md "Don'ts" entry about `git push` deny-rule behavior, and one new `tasks/lessons.md` entry (2026-05-12) about diffing before acting on "copy from sibling" requests.
