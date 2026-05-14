@@ -23,7 +23,7 @@ Replace the hardcoded `VIDEO_MAP` in `src/lib/youtube-sync.ts` with a DB-driven 
 
 ## Decisions resolved 2026-05-14
 
-1. **PENDING / `clip_code` uniqueness** — live DB has NO unique constraint on `clip_details.clip_code` (verified via `pg_constraint`: only `clip_details_pkey` and `clip_details_code_unique` exist; no triggers). The original `20260326_clip_details.sql:4` declared `unique` but it was dropped at some point. **No schema change needed.** Phase 1 migration only adds `content_id` + its partial unique index. PENDING rows insert directly with `clip_code='PENDING'`, `clip_details_code='PENDING-{content_id}'`.
+1. **PENDING / `clip_code` uniqueness** — live DB has NO unique constraint on `clip_details.clip_code` (verified via `pg_constraint`: only `clip_details_pkey` and `clip_details_code_unique` exist; no triggers). The original `20260326_clip_details.sql:4` declared `unique` but it was dropped at some point. **No schema change needed for `clip_code`.** Phase 1 migration only adds `content_id` + uniqueness enforcement. PENDING rows insert directly with `clip_code='PENDING'`, `clip_details_code='PENDING-{content_id}'`. (The `content_id` uniqueness was first a partial unique index, then swapped to a regular UNIQUE constraint post-deploy — see Phase 1 section.)
 2. **Channel ID source** — call `channels.list?mine=true` at the start of every discovery run. Do NOT hardcode.
 3. **`getLatestPostsPerClip` grouping** — fall back to `clip_details_code` when `clip_code === 'PENDING'`. Confirmed in Phase 4 sub-task.
 4. **Historical window for new PENDING shorts** — today-forward only. The 30-day rolling window in `runYouTubeSync` covers most cases; do NOT add per-video custom windows.
@@ -51,11 +51,20 @@ The filename regex `/^(MBM\d{3})-(CLIP-\d{3})/` referenced in Phase 3 sub-steps 
 
 ### Files
 - **Create** `supabase/migrations/20260514_clip_details_content_id.sql`
+- **Create** `supabase/migrations/20260514_clip_details_content_id_unique_constraint.sql` _(added 2026-05-14 post-deploy — see "Partial index didn't survive PostgREST" below)_
 
 ### Changes
 1. `ALTER TABLE clip_details ADD COLUMN IF NOT EXISTS content_id text` (nullable; many historical rows have no YouTube video yet).
-2. `CREATE UNIQUE INDEX IF NOT EXISTS clip_details_content_id_idx ON clip_details (content_id) WHERE content_id IS NOT NULL` — partial unique index so multiple NULLs are allowed but each populated `content_id` maps to exactly one `clip_details` row. Mirrors the same partial-unique-index pattern used in `supabase/migrations/20260427_long_form_videos.sql:22-24`.
-3. Add a short header comment explaining: this column powers the Shorts auto-discovery registry; nullable because un-uploaded clips still get rows; partial unique index because long-tail clips remain without `content_id` for a while.
+2. ~~`CREATE UNIQUE INDEX IF NOT EXISTS clip_details_content_id_idx ON clip_details (content_id) WHERE content_id IS NOT NULL` — partial unique index so multiple NULLs are allowed but each populated `content_id` maps to exactly one `clip_details` row. Mirrors the same partial-unique-index pattern used in `supabase/migrations/20260427_long_form_videos.sql:22-24`.~~ **Superseded by follow-up migration** — the partial index is dropped and replaced with a regular UNIQUE constraint. See follow-up section below.
+3. Add a short header comment explaining: this column powers the Shorts auto-discovery registry; nullable because un-uploaded clips still get rows.
+
+### Partial index didn't survive PostgREST (resolved 2026-05-14)
+
+The first cron run after Phase 3 deployed returned HTTP 200 but discovery silently failed: every `registerPendingShort` call got back PostgREST `400 BAD REQUEST`. Root cause: PostgREST cannot use a **partial unique index** as an inferred `ON CONFLICT` target via `?on_conflict=column`. supabase-js translates `.upsert({...}, { onConflict: 'content_id', ignoreDuplicates: true })` into SQL `ON CONFLICT (content_id) DO NOTHING` without a WHERE clause, and Postgres rejects: "no unique or exclusion constraint matching the ON CONFLICT specification." Discovery aborted, the outer `try/catch` in `runYouTubeSync` logged "discovery failed — continuing", and the sync ran fine against the 45 backfilled rows. Side effect: zero PENDING rows registered, despite real un-mapped channel uploads.
+
+Fix: `supabase/migrations/20260514_clip_details_content_id_unique_constraint.sql` drops the partial index and adds a regular `UNIQUE (content_id)` constraint. Postgres `NULLS DISTINCT` semantics (the default) allow multiple NULLs in a regular UNIQUE, so the long-tail behavior is preserved — many rows can still have NULL `content_id`, but each populated value must be unique. The `.upsert(..., { onConflict: 'content_id' })` form works against a regular UNIQUE constraint with no app-code changes.
+
+Lesson: when using PostgREST upserts with `ignoreDuplicates: true`, the conflict target must be a full UNIQUE constraint, not a partial unique index. (`20260427_long_form_videos.sql:22-24` happens to work because the long-form path uses `.insert(...)`, not `.upsert(...)` — the partial index is only the write-time enforcer, never an ON CONFLICT target.)
 
 ### Manual step (per CLAUDE.md)
 **Do NOT run via `mcp__supabase__apply_migration`.** Commit the file. Shane runs it in the Supabase SQL Editor and confirms applied before Phase 2 runs.
