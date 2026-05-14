@@ -5,56 +5,6 @@ import type { VideoMetadata, BreakdownConfig } from './youtube';
 import { discoverShorts } from './shorts-discovery';
 import type { UnifiedPost } from '@/types';
 
-// Exported for the Phase 2 backfill script (scripts/backfill-clip-details-content-id.ts).
-// Removed in Phase 5 once shorts-discovery + getShortsRegistry replace this map.
-export const VIDEO_MAP: Record<string, string> = {
-  '6dMQ7EyATRU': 'MBM015-CLIP-014',
-  'UPyNkTKaraU': 'MBM015-CLIP-004',
-  'ZgkpBit9UA0': 'MBM015-CLIP-009',
-  'E2Fgd_6BJIE': 'MBM015-CLIP-008',
-  '2gKSLs2-Nss': 'MBM015-CLIP-012',
-  'DUpRLsIQGmA': 'MBM015-CLIP-011',
-  'O9emVLO6n2U': 'MBM015-CLIP-013',
-  'VpxBnfeKLi8': 'MBM015-CLIP-007',
-  'SU-sXevLe64': 'MBM015-CLIP-010',
-  'f1MhMrQswjg': 'MBM015-CLIP-016',
-  'wWrk066VHqM': 'MBM015-CLIP-017',
-  'fNp7epYo6wA': 'MBM015-CLIP-018',
-  'BwN_zCjtAVc': 'MBM015-CLIP-019',
-  'a6PHBY2cq5Q': 'MBM015-CLIP-020',
-  'BjAdnIfIls4': 'MBM015-CLIP-021',
-  'XaQfjuTzdDE': 'MBM015-CLIP-022',
-  'a3bRUFpilGI': 'MBM016-CLIP-001',
-  'JJI4swcaLJQ': 'MBM016-CLIP-003',
-  'QYcNH8fKXTs': 'MBM016-CLIP-004',
-  'VH42AvIjbk0': 'MBM016-CLIP-005',
-  'tPsydEmTaOo': 'MBM016-CLIP-006',
-  'OKyFroQrWwM': 'MBM016-CLIP-007',
-  '51DR6H8GQBc': 'MBM016-CLIP-009',
-  'AqtzZNYdxTE': 'MBM016-CLIP-010',
-  'kXt894vwO1c': 'MBM016-CLIP-011',
-  'pkPSikierRM': 'MBM016-CLIP-012',
-  '-cXhRAIu_AE': 'MBM016-CLIP-013',
-  'CGQryafzaAY': 'MBM016-CLIP-014',
-  'X6v-cvX2tew': 'MBM017-CLIP-001',
-  '5SImwiVgWWA': 'MBM017-CLIP-002',
-  'h_7_Px7r3F4': 'MBM018-CLIP-001',
-  'WtNnx5gq7Bg': 'MBM018-CLIP-002',
-  'qbtCA5s5D3U': 'MBM018-CLIP-004',
-  'T2-rVxCfgXo': 'MBM019-CLIP-001',
-  '8jW7vDDSWb4': 'MBM019-CLIP-002',
-  'iXS-UcuSrpY': 'MBM020-CLIP-001',
-  'EuC0d-68ghI': 'MBM020-CLIP-002',
-  '4e-SB9pZxGM': 'MBM020-CLIP-003',
-  '1xZgYwL3e7g': 'MBM021-CLIP-002',
-  'fc3PZ8QOTc8': 'MBM024-CLIP-001',
-  'YBIKT2Wxpm0': 'MBM024-CLIP-002',
-  'uRDZUr1vzJ4': 'MBM025-CLIP-001',
-  'yZS5qB_uvTQ': 'MBM025-CLIP-003',
-  'D1y3gb1MfUI': 'MBM025-CLIP-004',
-  'q_pNnD-JLnQ': 'MBM025-CLIP-005',
-};
-
 // ageGroupGender will return 0 rows until the channel crosses YouTube's demographic
 // privacy floor — this is expected and not a bug.
 const BREAKDOWN_CONFIGS: BreakdownConfig[] = [

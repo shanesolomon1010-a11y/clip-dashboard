@@ -1,29 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAccessToken } from '@/lib/youtube';
+import { getShortsRegistry } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
-
-const VIDEO_MAP: Record<string, string> = {
-  '6dMQ7EyATRU': 'MBM015-CLIP-014',
-  'UPyNkTKaraU': 'MBM015-CLIP-004',
-  'ZgkpBit9UA0': 'MBM015-CLIP-009',
-  'E2Fgd_6BJIE': 'MBM015-CLIP-008',
-  '2gKSLs2-Nss': 'MBM015-CLIP-012',
-  'DUpRLsIQGmA': 'MBM015-CLIP-011',
-  'O9emVLO6n2U': 'MBM015-CLIP-013',
-  'VpxBnfeKLi8': 'MBM015-CLIP-007',
-  'SU-sXevLe64': 'MBM015-CLIP-010',
-  'f1MhMrQswjg': 'MBM015-CLIP-016',
-  'wWrk066VHqM': 'MBM015-CLIP-017',
-  'fNp7epYo6wA': 'MBM015-CLIP-018',
-  'BwN_zCjtAVc': 'MBM015-CLIP-019',
-  'a6PHBY2cq5Q': 'MBM015-CLIP-020',
-  'BjAdnIfIls4': 'MBM015-CLIP-021',
-  'XaQfjuTzdDE': 'MBM015-CLIP-022',
-  'a3bRUFpilGI': 'MBM016-CLIP-001',
-  'VH42AvIjbk0': 'MBM016-CLIP-005',
-  'tPsydEmTaOo': 'MBM016-CLIP-006',
-};
 
 interface YouTubeVideoItem {
   id: string;
@@ -51,29 +30,41 @@ function toUsCentral(isoString: string): string {
 }
 
 export async function GET() {
+  const registry = await getShortsRegistry();
+  const codeByContentId = new Map(
+    registry
+      .filter((r) => r.clip_code !== 'PENDING')
+      .map((r) => [r.content_id, r.clip_details_code]),
+  );
+  const videoIds = Array.from(codeByContentId.keys());
+
   const accessToken = await getAccessToken();
 
-  const videoIds = Object.keys(VIDEO_MAP);
-  // YouTube Data API allows up to 50 ids per request
-  const url = new URL('https://www.googleapis.com/youtube/v3/videos');
-  url.searchParams.set('part', 'snippet');
-  url.searchParams.set('id', videoIds.join(','));
+  const items: YouTubeVideoItem[] = [];
+  const BATCH = 50;
+  for (let i = 0; i < videoIds.length; i += BATCH) {
+    const batch = videoIds.slice(i, i + BATCH);
+    const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+    url.searchParams.set('part', 'snippet');
+    url.searchParams.set('id', batch.join(','));
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = await res.json() as YouTubeVideosResponse;
 
-  const data = await res.json() as YouTubeVideosResponse;
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: data.error?.message ?? `YouTube API error ${res.status}` },
+        { status: res.status }
+      );
+    }
 
-  if (!res.ok) {
-    return NextResponse.json(
-      { error: data.error?.message ?? `YouTube API error ${res.status}` },
-      { status: res.status }
-    );
+    items.push(...(data.items ?? []));
   }
 
-  const results = (data.items ?? []).map((item) => ({
-    clip_details_code: VIDEO_MAP[item.id],
+  const results = items.map((item) => ({
+    clip_details_code: codeByContentId.get(item.id),
     video_id: item.id,
     published_at: item.snippet.publishedAt,
     published_ct: toUsCentral(item.snippet.publishedAt),

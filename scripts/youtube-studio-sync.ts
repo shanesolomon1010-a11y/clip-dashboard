@@ -1,7 +1,7 @@
 /**
  * YouTube Studio Watchdog Scraper
  *
- * STATUS: Active as of 2026-04-29.
+ * STATUS: Inactive — LaunchAgent unloaded 2026-05-05; preserved for revival reference.
  * Repurposed from a posts-writer to a watchdog scraper.
  *
  * PURPOSE:
