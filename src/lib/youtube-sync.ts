@@ -1,10 +1,13 @@
-import { upsertPosts, upsertBreakdowns } from './db';
-import type { BreakdownUpsertRow } from './db';
+import { upsertPosts, upsertBreakdowns, getShortsRegistry } from './db';
+import type { BreakdownUpsertRow, ShortsRegistryRow } from './db';
 import { getAccessToken, fetchAnalyticsForVideo, fetchVideoMetadata, fetchBreakdownForVideo } from './youtube';
 import type { VideoMetadata, BreakdownConfig } from './youtube';
+import { discoverShorts } from './shorts-discovery';
 import type { UnifiedPost } from '@/types';
 
-const VIDEO_MAP: Record<string, string> = {
+// Exported for the Phase 2 backfill script (scripts/backfill-clip-details-content-id.ts).
+// Removed in Phase 5 once shorts-discovery + getShortsRegistry replace this map.
+export const VIDEO_MAP: Record<string, string> = {
   '6dMQ7EyATRU': 'MBM015-CLIP-014',
   'UPyNkTKaraU': 'MBM015-CLIP-004',
   'ZgkpBit9UA0': 'MBM015-CLIP-009',
@@ -63,7 +66,10 @@ const BREAKDOWN_CONFIGS: BreakdownConfig[] = [
   { name: 'insightPlaybackLocationType', apiDimensions: 'insightPlaybackLocationType',  aggregate: true  },
 ];
 
-export async function runBreakdownSync(accessToken: string): Promise<number> {
+export async function runBreakdownSync(
+  accessToken: string,
+  registry: ShortsRegistryRow[],
+): Promise<number> {
   const endDate = new Date().toISOString().split('T')[0];
   const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
@@ -71,9 +77,7 @@ export async function runBreakdownSync(accessToken: string): Promise<number> {
   let apiCalls = 0;
   const now = new Date().toISOString();
 
-  for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
-    const clipCode = clipDetailsCode.split('-CLIP-')[0];
-
+  for (const { content_id: videoId, clip_details_code: clipDetailsCode, clip_code: clipCode } of registry) {
     for (const config of BREAKDOWN_CONFIGS) {
       apiCalls++;
       let rows;
@@ -132,12 +136,25 @@ export async function runYouTubeSync(): Promise<{ rowsProcessed: number; breakdo
     throw err;
   }
 
+  try {
+    const result = await discoverShorts(accessToken);
+    console.log(`[youtube-sync] discovery: matched ${result.matched}, pending ${result.pending}, skipped ${result.skipped}`);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[youtube-sync] discovery failed: ${message} — continuing`);
+  }
+
+  const registry = await getShortsRegistry();
+  const pendingCount = registry.filter((r) => r.clip_code === 'PENDING').length;
+  const mappedCount = registry.length - pendingCount;
+  console.log(`[youtube-sync] registry has ${registry.length} entries (${mappedCount} mapped, ${pendingCount} pending)`);
+
   const endDate = new Date().toISOString().split('T')[0];
   const startDate = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   let metadataMap: Map<string, VideoMetadata>;
   try {
-    metadataMap = await fetchVideoMetadata(Object.keys(VIDEO_MAP), accessToken);
+    metadataMap = await fetchVideoMetadata(registry.map((r) => r.content_id), accessToken);
   } catch (err) {
     console.error('youtube-sync: fetchVideoMetadata failed:', err);
     throw err;
@@ -145,13 +162,12 @@ export async function runYouTubeSync(): Promise<{ rowsProcessed: number; breakdo
 
   const allPosts: UnifiedPost[] = [];
 
-  for (const [videoId, clipDetailsCode] of Object.entries(VIDEO_MAP)) {
+  for (const { content_id: videoId, clip_details_code: clipDetailsCode, clip_code: clipCode } of registry) {
     const metadata = metadataMap.get(videoId);
     if (!metadata) {
       console.warn(`youtube-sync: no metadata for ${videoId} (${clipDetailsCode}), skipping`);
       continue;
     }
-    const clipCode = clipDetailsCode.split('-CLIP-')[0];
 
     let rows;
     try {
@@ -205,7 +221,7 @@ export async function runYouTubeSync(): Promise<{ rowsProcessed: number; breakdo
 
   let breakdownsProcessed = 0;
   try {
-    breakdownsProcessed = await runBreakdownSync(accessToken);
+    breakdownsProcessed = await runBreakdownSync(accessToken, registry);
   } catch (err) {
     console.error('youtube-sync: breakdown sync failed (non-fatal):', err);
   }

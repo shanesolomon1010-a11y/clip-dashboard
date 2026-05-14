@@ -150,36 +150,44 @@ export async function fetchVideoMetadata(
   videoIds: string[],
   accessToken: string
 ): Promise<Map<string, VideoMetadata>> {
-  const url = new URL('https://www.googleapis.com/youtube/v3/videos');
-  url.searchParams.set('id', videoIds.join(','));
-  url.searchParams.set('part', 'snippet,contentDetails');
+  const map = new Map<string, VideoMetadata>();
+  if (videoIds.length === 0) return map;
 
-  const res = await fetch(url.toString(), {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  });
+  const BATCH = 50;
+  const returned = new Set<string>();
 
-  const data = await res.json() as VideoMetadataResponse;
-  if (!res.ok) {
-    throw new Error(`YouTube Data API error: ${data.error?.message ?? res.status}`);
+  for (let i = 0; i < videoIds.length; i += BATCH) {
+    const batch = videoIds.slice(i, i + BATCH);
+    const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+    url.searchParams.set('id', batch.join(','));
+    url.searchParams.set('part', 'snippet,contentDetails');
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+    const data = await res.json() as VideoMetadataResponse;
+    if (!res.ok) {
+      throw new Error(`YouTube Data API error: ${data.error?.message ?? res.status}`);
+    }
+
+    for (const item of data.items ?? []) {
+      returned.add(item.id);
+      const { thumbnails } = item.snippet;
+      map.set(item.id, {
+        videoId: item.id,
+        title: item.snippet.title,
+        publishedAt: item.snippet.publishedAt,
+        url: `https://www.youtube.com/shorts/${item.id}`,
+        thumbnailUrl: thumbnails.maxres?.url ?? thumbnails.high?.url ?? null,
+        durationSeconds: parseDurationSeconds(item.contentDetails.duration),
+      });
+    }
   }
 
-  const returned = new Set((data.items ?? []).map((item) => item.id));
   const missing = videoIds.filter((id) => !returned.has(id));
   if (missing.length > 0) {
     console.warn(`[youtube-metadata] missing ${missing.length} video(s):`, missing.join(', '));
-  }
-
-  const map = new Map<string, VideoMetadata>();
-  for (const item of data.items ?? []) {
-    const { thumbnails } = item.snippet;
-    map.set(item.id, {
-      videoId: item.id,
-      title: item.snippet.title,
-      publishedAt: item.snippet.publishedAt,
-      url: `https://www.youtube.com/shorts/${item.id}`,
-      thumbnailUrl: thumbnails.maxres?.url ?? thumbnails.high?.url ?? null,
-      durationSeconds: parseDurationSeconds(item.contentDetails.duration),
-    });
   }
 
   return map;
@@ -248,4 +256,120 @@ export async function fetchBreakdownForVideo(
       avgViewDurationSeconds: Number(row[idx('averageViewDuration')]),
     };
   });
+}
+
+// ── Discovery helpers (Phase 3a — see docs/superpowers/plans/2026-05-14-shorts-auto-discovery.md) ──
+
+export interface VideoDiscoveryDetails {
+  tags: string[];
+  publishedAt: string;
+  durationSeconds: number;
+  privacyStatus: string;
+}
+
+interface VideoDiscoveryItem {
+  id: string;
+  snippet: { publishedAt: string; tags?: string[] };
+  contentDetails: { duration: string };
+  status: { privacyStatus: string };
+}
+
+interface VideoDiscoveryResponse {
+  items?: VideoDiscoveryItem[];
+  error?: { message: string };
+}
+
+// Batches up to 50 IDs per call. Returns snippet.tags, publishedAt, parsed
+// duration, and privacyStatus for each video. fileDetails.fileName was the
+// original auto-map signal but YouTube no longer returns it for this channel
+// (probe 2026-05-14) — see plan doc for the tag-based replacement.
+export async function fetchVideoDiscoveryDetails(
+  videoIds: string[],
+  accessToken: string,
+): Promise<Map<string, VideoDiscoveryDetails>> {
+  const result = new Map<string, VideoDiscoveryDetails>();
+  if (videoIds.length === 0) return result;
+
+  const BATCH = 50;
+  for (let i = 0; i < videoIds.length; i += BATCH) {
+    const batch = videoIds.slice(i, i + BATCH);
+    const url = new URL('https://www.googleapis.com/youtube/v3/videos');
+    url.searchParams.set('id', batch.join(','));
+    url.searchParams.set('part', 'snippet,contentDetails,status');
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = (await res.json()) as VideoDiscoveryResponse;
+    if (!res.ok) {
+      throw new Error(`YouTube videos.list error: ${data.error?.message ?? res.status}`);
+    }
+
+    for (const item of data.items ?? []) {
+      result.set(item.id, {
+        tags: item.snippet.tags ?? [],
+        publishedAt: item.snippet.publishedAt,
+        durationSeconds: parseDurationSeconds(item.contentDetails.duration),
+        privacyStatus: item.status.privacyStatus,
+      });
+    }
+  }
+
+  return result;
+}
+
+interface ChannelsListResponse {
+  items?: { contentDetails: { relatedPlaylists: { uploads: string } } }[];
+  error?: { message: string };
+}
+
+interface PlaylistItemsResponse {
+  items?: { contentDetails: { videoId: string } }[];
+  nextPageToken?: string;
+  error?: { message: string };
+}
+
+// Enumerates every video on the authenticated channel via the uploads playlist.
+// 1 quota unit per page vs 100 per page for search.list. Channel ID is sourced
+// from channels.list?mine=true on each call (Decision Q2 — no hardcode).
+export async function listChannelVideoIds(accessToken: string): Promise<string[]> {
+  const channelUrl = new URL('https://www.googleapis.com/youtube/v3/channels');
+  channelUrl.searchParams.set('mine', 'true');
+  channelUrl.searchParams.set('part', 'contentDetails');
+
+  const channelRes = await fetch(channelUrl.toString(), {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  const channelData = (await channelRes.json()) as ChannelsListResponse;
+  if (!channelRes.ok) {
+    throw new Error(`YouTube channels.list error: ${channelData.error?.message ?? channelRes.status}`);
+  }
+  const uploadsPlaylistId = channelData.items?.[0]?.contentDetails.relatedPlaylists.uploads;
+  if (!uploadsPlaylistId) {
+    throw new Error('No uploads playlist found for authenticated channel');
+  }
+
+  const ids: string[] = [];
+  let pageToken: string | undefined;
+  do {
+    const url = new URL('https://www.googleapis.com/youtube/v3/playlistItems');
+    url.searchParams.set('playlistId', uploadsPlaylistId);
+    url.searchParams.set('part', 'contentDetails');
+    url.searchParams.set('maxResults', '50');
+    if (pageToken) url.searchParams.set('pageToken', pageToken);
+
+    const res = await fetch(url.toString(), {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const data = (await res.json()) as PlaylistItemsResponse;
+    if (!res.ok) {
+      throw new Error(`YouTube playlistItems.list error: ${data.error?.message ?? res.status}`);
+    }
+    for (const item of data.items ?? []) {
+      ids.push(item.contentDetails.videoId);
+    }
+    pageToken = data.nextPageToken;
+  } while (pageToken);
+
+  return ids;
 }

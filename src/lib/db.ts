@@ -145,12 +145,21 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
     'hypes', 'hype_points', 'post_subscribers',
   ];
 
-  // Group all rows by clip_code::platform (already sorted stat_date DESC)
+  // Group all rows by clip_code::platform (already sorted stat_date DESC).
+  // PENDING rows share clip_code='PENDING' so we fall back to clip_details_code
+  // for the key suffix — otherwise every PENDING short collapses into one bucket.
   const byKey = new Map<string, Record<string, unknown>[]>();
   for (const row of data ?? []) {
-    const key = row.clip_code
-      ? `${row.clip_code as string}::${row.platform as string}`
-      : row.id as string;
+    const clipCode = row.clip_code as string | null;
+    const clipDetailsCode = row.clip_details_code as string | null;
+    let key: string;
+    if (clipCode === 'PENDING' && clipDetailsCode) {
+      key = `${clipDetailsCode}::${row.platform as string}`;
+    } else if (clipCode) {
+      key = `${clipCode}::${row.platform as string}`;
+    } else {
+      key = row.id as string;
+    }
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key)!.push(row as Record<string, unknown>);
   }
@@ -183,7 +192,8 @@ export async function getTotalViewsPerClip(platform?: string): Promise<{
   let query = supabase
     .from('posts')
     .select('clip_code, clip_details_code, platform, views')
-    .not('clip_code', 'is', null);
+    .not('clip_code', 'is', null)
+    .neq('clip_code', 'PENDING');
 
   if (platform && platform !== 'all') query = query.eq('platform', platform);
 
@@ -579,6 +589,65 @@ export async function upsertClipDetail(row: ClipDetail): Promise<void> {
 
 export async function deleteClipDetail(clipCode: string): Promise<void> {
   const { error } = await supabase.from('clip_details').delete().eq('clip_code', clipCode);
+  if (error) throw error;
+}
+
+// ── Shorts registry (Phase 3a — see docs/superpowers/plans/2026-05-14-shorts-auto-discovery.md) ──
+
+export interface ShortsRegistryRow {
+  content_id: string;
+  clip_details_code: string;
+  clip_code: string;
+}
+
+// Every clip_details row with a populated content_id. Includes PENDING rows so
+// the cron still collects daily stats for un-mapped uploads.
+export async function getShortsRegistry(): Promise<ShortsRegistryRow[]> {
+  const { data, error } = await supabase
+    .from('clip_details')
+    .select('content_id, clip_details_code, clip_code')
+    .not('content_id', 'is', null);
+  if (error) throw error;
+  return (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      content_id: r.content_id as string,
+      clip_details_code: r.clip_details_code as string,
+      clip_code: r.clip_code as string,
+    };
+  });
+}
+
+// Auto-map path: sets content_id on an existing clip_details row only when
+// currently null. Returns true if a row was updated.
+export async function setClipDetailContentIdIfNull(
+  contentId: string,
+  clipDetailsCode: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('clip_details')
+    .update({ content_id: contentId })
+    .eq('clip_details_code', clipDetailsCode)
+    .is('content_id', null)
+    .select('clip_details_code');
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
+// PENDING path: inserts a placeholder clip_details row for an un-mapped channel
+// video. Idempotent via upsert on the partial unique index on content_id —
+// concurrent discovery runs become no-ops on the duplicate, not warnings.
+export async function registerPendingShort(contentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('clip_details')
+    .upsert(
+      {
+        clip_code: 'PENDING',
+        clip_details_code: `PENDING-${contentId}`,
+        content_id: contentId,
+      },
+      { onConflict: 'content_id', ignoreDuplicates: true },
+    );
   if (error) throw error;
 }
 
