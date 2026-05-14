@@ -2461,3 +2461,13 @@ Changed files:
   - src/components/DateFilterBar.tsx
   - src/components/views/DashboardView.tsx
 
+
+## 2026-05-13 08:45:26 — bd13277
+**chore: session shutdown — picker dedup + Dashboard toggle shipped**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+

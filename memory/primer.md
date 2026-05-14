@@ -4,7 +4,7 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD is `664e102` on `main`, **in sync with origin** (Shane pushed Phase 1 + Phase 2 manually). Dashboard filter system is the only meaningful UI surface that changed this session: the date-range picker calendar is now a single shared component, has month + year dropdowns, opens at the picked range's month, closes on click-outside in both call sites, and a new content-type toggle (All | Long-form | Shorts) sits next to it on the Dashboard with filter state synced to URL + localStorage.
+Local HEAD is `bd13277` (chore: previous session shutdown — picker dedup + Dashboard toggle shipped, plus CLAUDE.md / lessons.md / primer.md updates). `bd13277` is **1 commit ahead of `origin/main`** which sits at `664e102`. Phase 1 + Phase 2 code is on origin (Shane pushed manually); only the previous shutdown commit is unpushed. Dashboard filter system is the only meaningful UI surface that changed last session: the date-range picker calendar is now a single shared component, has month + year dropdowns, opens at the picked range's month, closes on click-outside in both call sites, and a new content-type toggle (All | Long-form | Shorts) sits next to it on the Dashboard with filter state synced to URL + localStorage.
 
 ## Just completed (2026-05-12 → 2026-05-13, picker dedup + Dashboard toggle)
 
@@ -28,6 +28,7 @@ HEAD is `664e102` on `main`, **in sync with origin** (Shane pushed Phase 1 + Pha
 Not connected to clip-dashboard. Built at `~/whisper-transcribe` (separate git repo, commit `55404da`, local only). Watches `input/` for `.mp4/.mov/.mp3/.wav/.m4a`, transcribes via mlx-whisper large-v3, writes `.txt` to `output/`, moves source to `processed/`. Smoke-tested end-to-end with a `say`-generated wav — transcript verbatim accurate. One-command start via `./watch.sh` (auto-creates venv + installs deps on first run). README in the repo. Not relevant to clip-dashboard ongoing work.
 
 ## Recent commits (top down)
+- `bd13277` chore: session shutdown — picker dedup + Dashboard toggle shipped _(LOCAL ONLY)_
 - `664e102` feat: dashboard content-type toggle + URL state for filters _(on origin)_
 - `b82b07f` refactor: extract shared DateRangeCalendar, fix picker UX _(on origin)_
 - `3bf3f3e` fix: normalize /api/auth/url env vars to YOUTUBE_* prefix
