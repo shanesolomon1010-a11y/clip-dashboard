@@ -145,7 +145,9 @@ export default function FounderReportView() {
     setWarnings([]);
 
     const url = `/api/founder-report?startDate=${activeRange.start}&endDate=${activeRange.end}`;
-    fetch(url)
+    fetch(url, {
+      headers: { 'x-dashboard-secret': process.env.NEXT_PUBLIC_DASHBOARD_SECRET ?? '' },
+    })
       .then((r) => r.json() as Promise<FounderReportResponse>)
       .then((json) => {
         if (json.error) {

@@ -155,7 +155,7 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
     let key: string;
     if (clipCode === 'PENDING' && clipDetailsCode) {
       key = `${clipDetailsCode}::${row.platform as string}`;
-    } else if (clipCode) {
+    } else if (clipCode && clipCode !== 'PENDING') {
       key = `${clipCode}::${row.platform as string}`;
     } else {
       key = row.id as string;

@@ -15,6 +15,14 @@ function logSupabaseError(label: string, error: { message: string; code?: string
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
+  const dashboardSecret = process.env.DASHBOARD_SECRET;
+  if (!dashboardSecret) {
+    return NextResponse.json({ error: 'DASHBOARD_SECRET not configured' }, { status: 500 });
+  }
+  if (request.headers.get('x-dashboard-secret') !== dashboardSecret) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
 
   let startDate = searchParams.get('startDate');
@@ -179,6 +187,6 @@ export async function GET(request: Request): Promise<NextResponse> {
       hint: e.hint,
       stack: e.stack,
     });
-    return NextResponse.json({ error: e.message ?? String(err) }, { status: 500 });
+    return NextResponse.json({ error: 'founder-report failed' }, { status: 500 });
   }
 }

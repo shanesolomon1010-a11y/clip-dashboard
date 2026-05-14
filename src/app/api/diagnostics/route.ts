@@ -329,7 +329,10 @@ async function buildInternalConsistency(
 
   let displayed: FounderReportShape;
   try {
-    const res = await fetch(reportUrl.toString(), { cache: 'no-store' });
+    const res = await fetch(reportUrl.toString(), {
+      cache: 'no-store',
+      headers: { 'x-dashboard-secret': process.env.DASHBOARD_SECRET ?? '' },
+    });
     displayed = (await res.json()) as FounderReportShape;
     if (!res.ok || displayed.error) {
       return { ...empty, error: displayed.error ?? `HTTP ${res.status}` };
