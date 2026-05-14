@@ -35,6 +35,7 @@ Clip Studio Dashboard — Next.js single-page app (one route, view-state via `ac
 - **Never write lifetime/cumulative totals into `posts.views`** — because that column is daily-delta; the YouTube Merger CSV bug stamped lifetime totals there and produced "8K one day, 2.5K the next" volatility.
 - **Never reuse Shorts' upsert conflict key for long-form** — because long-form rows share `clip_code` (e.g. MBM016 has 12 clips); use a partial unique index on `content_id WHERE content_type='long_form'` (lessons.md 2026-04-27).
 - **Never assume the Vercel cron is the data source for Shorts** — because the local Playwright scraper at `scripts/youtube-studio-sync.ts` (LaunchAgent) is the actual source; check `.plist` / `scripts/` before blaming the cron (lessons.md 2026-04-28).
+- **Never use `.not('col', 'like', PATTERN)` against a nullable column without an `.or('col.is.null,col.not.like.PATTERN')` clause** — because `NOT LIKE NULL` evaluates to NULL → row excluded. Long-form rows have NULL `clip_details_code` by design (3,698 of them); the naive filter would have silently zeroed founder-report long-form metrics (caught in review 2026-05-14).
 - **No em-dashes in user-facing copy (UI strings, social captions, exports)** — because em-dashes are a known AI tell and reduce trust in human-written content. Internal markdown files are unaffected.
 
 ## Critical architecture rules
@@ -55,7 +56,8 @@ SELECT silently truncates at 1000 rows. Always push window filters via `.gte('st
 - Long-form → `posts`: `onConflict: 'content_id,platform,stat_date'` (`upsertLongFormPosts`); long-form has NULL `clip_details_code`.
 - Breakdowns: `onConflict: 'content_id,platform,stat_date,dimension_type,dimension_value'`.
 - Long-form catalog → `long_form_videos`: `onConflict: 'video_id'`.
-- `clip_details`: `onConflict: 'clip_code'`.
+- `clip_details` manual edits (`upsertClipDetail`): `onConflict: 'clip_code'`.
+- `clip_details` PENDING discovery (`registerPendingShort`): `onConflict: 'content_id'` — **must be a regular UNIQUE constraint, not a partial unique index**, because PostgREST can't use partial indexes as ON CONFLICT targets via `?on_conflict=col`. First attempt used a partial unique index and silently 400'd in prod 2026-05-14 (lessons.md 2026-05-14).
 - Postgres rejects multi-row upserts that share a conflict key (error 21000); dedupe in JS first (`youtube-longform-sync.ts:336`).
 
 ### Single-route shell

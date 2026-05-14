@@ -4,67 +4,86 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-Local HEAD is `bd13277` (chore: previous session shutdown — picker dedup + Dashboard toggle shipped, plus CLAUDE.md / lessons.md / primer.md updates). `bd13277` is **1 commit ahead of `origin/main`** which sits at `664e102`. Phase 1 + Phase 2 code is on origin (Shane pushed manually); only the previous shutdown commit is unpushed. Dashboard filter system is the only meaningful UI surface that changed last session: the date-range picker calendar is now a single shared component, has month + year dropdowns, opens at the picked range's month, closes on click-outside in both call sites, and a new content-type toggle (All | Long-form | Shorts) sits next to it on the Dashboard with filter state synced to URL + localStorage.
+HEAD is `946ece4` (pushed to `origin/main`). Massive session — shipped the entire Shorts auto-discovery feature end-to-end (Phases 1–5 + a hot-fix + a follow-up bundle). 4 feature commits on `origin/main`:
+- `aa35a90` feat: DB-driven shorts registry + auto-discovery (Phase 1–4)
+- `19f528e` fix: swap clip_details.content_id partial index for UNIQUE constraint
+- `8b923b1` refactor: Phase 5 — remove VIDEO_MAP, migrate /api/video-times to registry
+- `946ece4` fix: gate /api/founder-report behind DASHBOARD_SECRET + harden PENDING grouping
 
-## Just completed (2026-05-12 → 2026-05-13, picker dedup + Dashboard toggle)
+Architecture shifted: hardcoded `VIDEO_MAP` is gone. `clip_details` is now the source of truth via `content_id` (new column, regular UNIQUE constraint). New `src/lib/shorts-discovery.ts` runs first thing on every cron tick, auto-maps via `snippet.tags` regex `/^(MBM\d{3})-(CLIP-\d{3})$/`, falls back to PENDING for un-tagged uploads. Founder Report is now gated by DASHBOARD_SECRET (same pattern as 5 other dashboard routes).
 
-### Phase 1 — `b82b07f` refactor: extract shared DateRangeCalendar, fix picker UX
-- New `src/components/DateRangeCalendar.tsx` — single source of truth for the calendar popover. Same prop signature as before plus an optional `containerRef` so parents pass their wrapper div and the shared component owns the `mousedown` click-outside listener.
-- Seeds `viewYear`/`viewMonth` from `initialStart` (fallback today) so reopening jumps back to the picked range's month instead of always landing on today.
-- Adds month + year `<select>` dropdowns in the calendar header for fast multi-year navigation. Year range: `2023..currentYear+1` (≈ `MBM_ERA_START` through next year).
-- `DateFilterBar.tsx` — deleted inline calendar (~140 lines) and local `mousedown` `useEffect`; imports shared component. `useDateFilter` signature unchanged in Phase 1.
-- `FounderReportView.tsx` — deleted inline calendar copy; `calendarRef` (previously dead since no listener was attached) is now wired as `containerRef`, so click-outside works there too. Persistence extended: new `founder_report_filter_custom_range` localStorage key holds `{start,end}`; `readStoredFilterPreset` now honors `'custom'` only if a valid stored range is also present (else falls back to `'30d'`).
+## Just completed (2026-05-14)
 
-### Phase 2 — `664e102` feat: dashboard content-type toggle + URL state for filters
-- New `src/components/ContentTypeToggle.tsx` — 3-segment pill (`All` | `Long-form` | `Shorts`), same visual styling as `DateFilterBar`. `data-testid="content-type-toggle"` on root, `data-testid="content-type-{value}"` per button.
-- `DateFilterBar.tsx` — `useDateFilter` extended with optional `defaultCustomRange` (2nd arg, defaults `null`). Backward-compatible; lets a caller hydrate both preset and custom range in one render, avoiding double-fetch on mount.
-- `DashboardView.tsx`:
-  - `readInitialDashboardState` reads URL params (`?range`, `?start`, `?end`, `?contentType`) first, then falls back to localStorage (`dashboard_filter_preset` / `dashboard_filter_custom_range` / `dashboard_content_type`), then defaults. If `preset === 'custom'` with no range, falls back to `'30d'`.
-  - URL sync `useEffect` writes state → URL (`router.replace`, `scroll: false`) on every change of `[filterPreset, customRange, contentType]`. `firstSyncRef` skips the very first write so the just-read state doesn't thrash history. localStorage always writes.
-  - Content-type filter applied to `filteredPosts`, `dateFilteredDailyPosts`, `peakByClip`, `topUniqueViewers`. Decision: `'all'` keeps everything (including undefined `content_type`) to preserve baseline totals; `'long_form'` / `'short'` use strict equality. `peakByClip` respects the toggle so peak labels match the active view.
-  - Toggle rendered next to `DateFilterBar` in a `flex items-center gap-3 flex-wrap` row.
+### Phase 0 — OAuth recovery (verification only)
+- Mateo's consent landed 2026-05-13. Cron healthy. `youtube_auth.updated_at` doesn't refresh per-tick because `getAccessToken()` exchanges the refresh token in-memory and doesn't write back — expected by design, not a bug.
 
-### Sidequest — standalone whisper-transcribe tool
-Not connected to clip-dashboard. Built at `~/whisper-transcribe` (separate git repo, commit `55404da`, local only). Watches `input/` for `.mp4/.mov/.mp3/.wav/.m4a`, transcribes via mlx-whisper large-v3, writes `.txt` to `output/`, moves source to `processed/`. Smoke-tested end-to-end with a `say`-generated wav — transcript verbatim accurate. One-command start via `./watch.sh` (auto-creates venv + installs deps on first run). README in the repo. Not relevant to clip-dashboard ongoing work.
+### Phase 1 — `aa35a90` part 1 — DB migration
+- `supabase/migrations/20260514_clip_details_content_id.sql` adds `content_id text NULLABLE` + partial unique index `WHERE content_id IS NOT NULL`. Applied via SQL Editor.
+
+### Phase 2 — `aa35a90` part 2 — backfill (now deleted)
+- `scripts/backfill-clip-details-content-id.ts` (one-shot, deleted in Phase 5). Seeded `content_id` for the 45-entry VIDEO_MAP using `getAccessToken()` + YouTube `videos.list?part=fileDetails`. Used `SUPABASE_SERVICE_ROLE_KEY` for UPDATEs. `--dry-run` + `--force` flags. Idempotent.
+- Surfaced `[no-filename]` for all 45 videos — `fileDetails.fileName` is no longer returned by YouTube Data API for this channel. Pivot to tag-based auto-map (see Phase 3b).
+- Surfaced 3 missing `clip_details` rows (MBM016-CLIP-014, MBM020-CLIP-001/002); Shane added them via SQL.
+
+### Phase 3 — `aa35a90` part 3 — discovery + cron rewrite
+- `src/lib/db.ts`: `getShortsRegistry()`, `setClipDetailContentIdIfNull()`, `registerPendingShort()`.
+- `src/lib/youtube.ts`: `fetchVideoDiscoveryDetails()` (batched 50/call, returns tags+duration+status+publishedAt), `listChannelVideoIds()` (channels.list?mine=true → paginated playlistItems.list). Also fixed pre-existing B1: `fetchVideoMetadata` now batches 50/call.
+- `src/lib/shorts-discovery.ts`: `discoverShorts()` orchestrator. Tag regex match → `setClipDetailContentIdIfNull`; else `registerPendingShort`.
+- `src/lib/youtube-sync.ts`: `discoverShorts` called first thing inside `runYouTubeSync` (wrapped in try/catch — failures don't abort sync). Registry loaded once, passed through to `runBreakdownSync`. Three `Object.entries(VIDEO_MAP)` sites replaced.
+
+### Phase 4 — `aa35a90` part 4 — PENDING-aware aggregation
+- `getLatestPostsPerClip`: PENDING rows group by `clip_details_code` (not `clip_code`), so each PENDING short stays its own bucket.
+- `getTotalViewsPerClip`: filters out `clip_code='PENDING'` entirely.
+- `getAllPostsByDate`: unchanged (PENDING is real daily data).
+- `/api/founder-report`: `.or('clip_details_code.is.null,clip_details_code.not.like.PENDING-%')` — caught BLOCKER mid-review where naive `.not()` would have zeroed 3,698 long_form rows with NULL `clip_details_code`.
+
+### Hot-fix — `19f528e` — partial-index ON CONFLICT failure
+- First prod cron after Phase 3 deploy: `registerPendingShort` 400'd silently (caught by outer try/catch). Root cause: PostgREST can't use a partial unique index (`WHERE content_id IS NOT NULL`) as an inferred ON CONFLICT target via `?on_conflict=col`. Migration `20260514_clip_details_content_id_unique_constraint.sql` drops the partial index and adds a regular `UNIQUE` constraint. `NULLS DISTINCT` default preserves the long-tail "many rows can have NULL" semantic.
+- After applying, cron run #2: 6 PENDING rows registered. Shane bulk-resolved via SQL to MBM025 (+1) and MBM026 (+5). End-to-end discovery → PENDING → SQL-resolve → daily stats verified.
+
+### Phase 5 — `8b923b1` — VIDEO_MAP cleanup
+- Pre-audit caught: `scripts/*` files each have their own local VIDEO_MAP copies, NOT imports. Only real importer was the Phase 2 backfill script (already deleted).
+- Deleted `VIDEO_MAP` const + export from `src/lib/youtube-sync.ts` (50 lines).
+- Migrated `/api/video-times/route.ts` from a stale 19-entry local copy to `getShortsRegistry()`. Filters PENDING. Batches 50/call (registry now exceeds 50 entries).
+- `scripts/youtube-studio-sync.ts` header STATUS: `"Active as of 2026-04-29"` → `"Inactive — LaunchAgent unloaded 2026-05-05; preserved for revival reference."` (one-line clarification per Shane's spec). Body untouched.
+- Net: -89 lines + 1 deletion.
+
+### Follow-ups bundle — `946ece4` — auth gate + defensive tweak
+- `/api/founder-report` now gated by `x-dashboard-secret` header (matches 5 other dashboard routes). 500 body changed from raw Supabase error to generic `"founder-report failed"` — detail in `console.error` server logs.
+- `FounderReportView.tsx` sends `NEXT_PUBLIC_DASHBOARD_SECRET` in the fetch.
+- `/api/diagnostics/route.ts` server-to-server fetch to `/api/founder-report` now forwards the secret (caught by reviewer pre-push — would have 401'd the internal consistency check).
+- `getLatestPostsPerClip` defensive guard: `else if (clipCode && clipCode !== 'PENDING')` for the future-writer scenario where a PENDING row has NULL `clip_details_code`. Each such row now falls to `row.id` instead of collapsing to synthetic `PENDING::platform`.
 
 ## Recent commits (top down)
-- `bd13277` chore: session shutdown — picker dedup + Dashboard toggle shipped _(LOCAL ONLY)_
-- `664e102` feat: dashboard content-type toggle + URL state for filters _(on origin)_
-- `b82b07f` refactor: extract shared DateRangeCalendar, fix picker UX _(on origin)_
-- `3bf3f3e` fix: normalize /api/auth/url env vars to YOUTUBE_* prefix
-- `e3d82fe` feat: source YouTube auth from DB + upgrade OAuth scope to force-ssl
-- `b4e2644` chore: append commit log entry to cloudmemory
-- `935006b` data: register 7 missing shorts in both VIDEO_MAPs
-- `7e342fc` chore: correct primer push state (origin already at c693061)
-- `f619021` chore: session shutdown — data accuracy + long-form gap diagnosis
+- `946ece4` fix: gate /api/founder-report behind DASHBOARD_SECRET + harden PENDING grouping
+- `8b923b1` refactor: Phase 5 — remove VIDEO_MAP, migrate /api/video-times to registry
+- `19f528e` fix: swap clip_details.content_id partial index for UNIQUE constraint
+- `aa35a90` feat: DB-driven shorts registry + auto-discovery (Phase 1–4)
+- `eaca78a` chore: sync primer HEAD pointer + cloudmemory log entry
+- `bd13277` chore: session shutdown — picker dedup + Dashboard toggle shipped
 
 ## In progress
-- Nothing.
+- Nothing actively in progress at session end.
 
 ## Blocked / next
-- **Phase 2 prod verification** — Shane was going to verify on prod after the manual push. Verification checklist (from the post-build report):
-  - Toggle each content type, confirm all 8 stat cards + Top Content + Channel Summary + Platforms + Top Clips by Unique Viewers update.
-  - Sanity: `Long-form` Total Views + `Shorts` Total Views ≤ `All` Total Views for the same range.
-  - Set `7d` + `Shorts`, confirm URL becomes `?tab=dashboard&range=7d&contentType=short`. Reload → state rehydrates.
-  - Set custom range + `Long-form`, copy URL, open in new tab → same state loads.
-  - Navigate away and back → filters persist (URL + localStorage).
-  - Founder Report does NOT show the content-type toggle (unchanged).
-  - Peak labels in Top Content respect the toggle — `Shorts` shows peak short days, not lifetime peaks across both.
-- **"Two pills highlighted" claim (unresolved)** — Shane reported the Dashboard had two preset pills highlighted at once after applying a custom range, and asked me to "copy Founder Report's deselection logic over." A diff confirmed the two preset-pill blocks in `DateFilterBar.tsx` and `FounderReportView.tsx` are byte-equivalent — there is literally nothing to copy. Lesson recorded in `tasks/lessons.md` 2026-05-12. Most likely cause: stale CDN bundle on Vercel from before the Phase 1 push reached prod. If still observed after a hard refresh, ask Shane for a screenshot — likely a different element (focus ring? dropdown chevron?) being read as a second highlight.
-- **Bug A — "38K shorts views" UI vs 10,915 API (closed as not-a-code-bug)** — `FounderReportView` renders `data.shortsViews` verbatim via `.toLocaleString()`, no formatter and no label swap. DB sum agrees with API (10,915 across 1,351 rows). Shorts data in `posts` only goes back to 2026-03-15 — the 38K Mateo saw was likely from a pre-truncate snapshot or stale browser cache. Action: none in code. If Shane wants to recover historical shorts data, that's a separate data-layer task.
-- **Pagination without ordering in `/api/founder-report/route.ts`** (lines 60-76, 86-107) — Supabase pagination without `.order(...)` can return duplicate/missing rows across pages. Currently works because the result set fits in one page (~5k rows), but the pattern is fragile. Worth fixing eventually — add `.order('id')` or similar stable column before `.range(...)`. Not urgent.
-- **Possible follow-up: extend content-type filter to other views** — `ContentView`, `PlatformsView`, `ComparisonView` currently show lifetime totals across all content types. Shane explicitly scoped this round to Dashboard only, so no action — but the `ContentTypeToggle` component is reusable if/when he wants to extend.
+- **Watchdog scraper decision** — `scripts/youtube-studio-sync.ts` LaunchAgent confirmed unloaded since 2026-05-05. Header now says "Inactive — preserved for revival reference." Revive (re-install LaunchAgent) or delete (`scripts/youtube-studio-sync.{ts,sh,test.ts}` + `com.clipstudio.youtubesync.plist`)? Studio-snapshots table exists; diagnostics tab depends on this scraper if it runs. **No pressure either way.**
+- **Stale `scripts/youtube-studio-sync.test.ts:163`** — asserts `VIDEO_MAP.length === 19`, actual local copy is 38. Already failing if anyone runs the test. Tied to the watchdog scraper decision above.
+- **`Q8iJ2gBujpY` long-form video** — status still unresolved (private vs deleted). Needs OAuth in local `.env.local` to disambiguate. YOUTUBE_CLIENT_ID/SECRET were added this session — re-attempt next time.
+- **Tag-based auto-map remains theoretical** — discovery handles it, but Shane doesn't currently tag uploads. Every new short → PENDING → manual SQL resolve. If Shane starts tagging (e.g. `MBM027-CLIP-001`), discovery will auto-map without any code change.
 - **Pre-existing carryover (unchanged this session):**
   - Manual `sudo pmset repeat cancel` still pending (cosmetic, scraper LaunchAgent is off).
-  - `Q8iJ2gBujpY` long-form video status still unresolved (need OAuth in local `.env.local` to disambiguate private vs deleted).
   - Open `docs/data-layer-audit.md` items #4, #6, #9, 6.7, 6.8.
   - Vercel cron reliability — Hobby plan crons are best-effort; consider Pro or external scheduler if long-form freshness becomes critical.
-  - `studio_snapshots` migration not yet applied.
-  - `scripts/youtube-studio-sync.test.ts:163` asserts VIDEO_MAP=19, actual=30 (harmless, stale).
+  - `studio_snapshots` migration not yet applied (per primer 2026-05-13).
   - Engine test gate (clip-finder API + UI) still gated.
 
 ## Footnotes for next session
-- **`useDateFilter` signature note**: now accepts an optional `defaultCustomRange: CustomRange | null` as its second argument. Existing single-arg callers are unaffected. If you ever add a third view that uses the date picker, you can hydrate both preset and range from a single source via the two-arg form.
-- **URL-state pattern reference**: `DashboardView.tsx` is the working example for `?range=&start=&end=&contentType=` syncing on a single-route SPA. Shape and validation are minimal (regex on YMD, type guards on enums). If you extend to other views, factor out `readInitialDashboardState` + the sync `useEffect` into a hook rather than duplicating.
-- **Calendar widget reuse**: `DateRangeCalendar` is a standalone component. The `containerRef` prop is optional — passing it enables click-outside relative to the parent's wrapper (which contains both the trigger and the popover). Omitting it disables click-outside entirely.
-- **Memory additions this session**: one new CLAUDE.md "Don'ts" entry about `git push` deny-rule behavior, and one new `tasks/lessons.md` entry (2026-05-12) about diffing before acting on "copy from sibling" requests.
+- **Two new schema columns / constraints worth knowing:**
+  - `clip_details.content_id text` (nullable) — YouTube videoId for uploaded Shorts. Populated by discovery or manual edit.
+  - `clip_details_content_id_unique UNIQUE (content_id)` — regular UNIQUE constraint. **Do NOT downgrade to partial index** — PostgREST can't ON CONFLICT against partial indexes (see CLAUDE.md "Upsert conflict keys" + lessons.md 2026-05-14).
+- **Auth-gated routes now include `/api/founder-report`.** Pattern: server reads `DASHBOARD_SECRET`, client reads `NEXT_PUBLIC_DASHBOARD_SECRET`, header is `x-dashboard-secret`. Server-to-server callers (`/api/diagnostics`) use unprefixed `DASHBOARD_SECRET`.
+- **`scripts/backfill-clip-details-content-id.ts` is deleted** — `getShortsRegistry()` is the equivalent now. If you ever need to re-backfill from a snapshot, write a fresh one-shot.
+- **`fetchVideoMetadata` (and `fetchVideoDiscoveryDetails`) batch 50/call.** Any future helper that calls YouTube `videos.list?id=...` must respect the 50-ID limit.
+- **6 PENDING shorts resolved via SQL this session** (MBM025 +1, MBM026 +5). Next cron tick will surface any new untagged uploads as fresh PENDING rows — Shane resolves via SQL Editor. The workflow is now permanent until tag-based auto-map is adopted.
+- **CLAUDE.md additions this session:** one new bullet in "Upsert conflict keys" (clip_details split into two lines + partial-index warning), one new "Don't" about `.not('col', 'like', X)` against nullable columns.
+- **lessons.md additions this session:** three 2026-05-14 entries (import-statement grep vs occurrence grep; auth-gate caller scan; verify reviewer concerns against specific code paths).

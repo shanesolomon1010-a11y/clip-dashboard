@@ -2471,3 +2471,53 @@ Changed files:
   - memory/primer.md
   - tasks/lessons.md
 
+
+## 2026-05-14 10:04:35 — eaca78a
+**chore: sync primer HEAD pointer + cloudmemory log entry**
+
+Changed files:
+  - memory/cloudmemory.md
+  - memory/primer.md
+
+
+## 2026-05-14 13:10:23 — aa35a90
+**feat: DB-driven shorts registry + auto-discovery (Phase 1–4)**
+
+Changed files:
+  - docs/superpowers/plans/2026-05-14-shorts-auto-discovery.md
+  - scripts/backfill-clip-details-content-id.ts
+  - src/app/api/founder-report/route.ts
+  - src/lib/db.ts
+  - src/lib/shorts-discovery.ts
+  - src/lib/youtube-sync.ts
+  - src/lib/youtube.ts
+  - supabase/migrations/20260514_clip_details_content_id.sql
+
+
+## 2026-05-14 13:24:42 — 19f528e
+**fix: swap clip_details.content_id partial index for UNIQUE constraint**
+
+Changed files:
+  - docs/superpowers/plans/2026-05-14-shorts-auto-discovery.md
+  - supabase/migrations/20260514_clip_details_content_id_unique_constraint.sql
+
+
+## 2026-05-14 14:43:36 — 8b923b1
+**refactor: Phase 5 — remove VIDEO_MAP, migrate /api/video-times to registry**
+
+Changed files:
+  - scripts/backfill-clip-details-content-id.ts
+  - scripts/youtube-studio-sync.ts
+  - src/app/api/video-times/route.ts
+  - src/lib/youtube-sync.ts
+
+
+## 2026-05-14 14:50:43 — 946ece4
+**fix: gate /api/founder-report behind DASHBOARD_SECRET + harden PENDING grouping**
+
+Changed files:
+  - src/app/api/diagnostics/route.ts
+  - src/app/api/founder-report/route.ts
+  - src/components/views/FounderReportView.tsx
+  - src/lib/db.ts
+
