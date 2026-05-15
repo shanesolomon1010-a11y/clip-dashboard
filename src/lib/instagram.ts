@@ -1,4 +1,17 @@
-import { supabase } from './supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Service-role Supabase client. instagram_auth has RLS enabled with no
+// policies (verified via pg_class.relrowsecurity + pg_policy on 2026-05-15),
+// so anon reads/writes are blocked. The cron sync route + discovery
+// orchestrator + probe script all run server-side, so module-level
+// instantiation is safe — this file is never imported by frontend code.
+// Pattern mirrors src/app/api/library/sync-urls/route.ts:15-18 and
+// scripts/youtube-studio-sync.ts:722-724. Exported so the sync orchestrator
+// can reuse it for the token refresh write-back.
+export const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+);
 
 // Instagram Graph API client. Mirrors src/lib/youtube.ts in style.
 //
@@ -31,7 +44,7 @@ export interface InstagramAuth {
 // decide whether to refresh (compare token_expiry to now) and to source the
 // ig_user_id without a hardcoded value in code.
 export async function getInstagramAuth(): Promise<InstagramAuth> {
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from('instagram_auth')
     .select('id, access_token, token_expiry, ig_user_id, updated_at')
     .maybeSingle();

@@ -1,5 +1,23 @@
+import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { supabase } from './supabase';
 import { Platform, UnifiedPost } from '@/types';
+
+// Lazy service-role client for the handful of helpers below that touch tables
+// with RLS enabled and no anon policies (instagram_comments,
+// instagram_discovery_audit — verified via pg_class.relrowsecurity 2026-05-15).
+// LAZY (not module-level) because db.ts is imported by frontend components;
+// instantiating createClient at module load would put SUPABASE_SERVICE_ROLE_KEY
+// references into the client bundle. This function is only ever called from
+// server-side cron code paths.
+let _adminClient: SupabaseClient | null = null;
+function adminClient(): SupabaseClient {
+  if (_adminClient) return _adminClient;
+  _adminClient = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  );
+  return _adminClient;
+}
 
 // ── Editor feedback ───────────────────────────────────────────────────────────
 
@@ -723,9 +741,10 @@ export interface InstagramAuditRow {
 
 // Audit log of non-REELS media skipped by the discovery flow (Q6 audit-first).
 // Idempotent via PRIMARY KEY on media_id — re-running discovery is a no-op for
-// already-audited media.
+// already-audited media. Uses service-role because instagram_discovery_audit
+// has RLS enabled with no anon policies.
 export async function logSkippedMediaToAudit(row: InstagramAuditRow): Promise<void> {
-  const { error } = await supabase
+  const { error } = await adminClient()
     .from('instagram_discovery_audit')
     .upsert(row, { onConflict: 'media_id', ignoreDuplicates: true });
   if (error) throw error;
@@ -744,12 +763,13 @@ export interface InstagramCommentDbRow {
 
 // Upserts per-comment rows into instagram_comments. Conflict key is the
 // PRIMARY KEY (comment_id); ignoreDuplicates: false so updated like_count /
-// reply_count / text edits land on later syncs.
+// reply_count / text edits land on later syncs. Uses service-role because
+// instagram_comments has RLS enabled with no anon policies.
 export async function upsertInstagramComments(rows: InstagramCommentDbRow[]): Promise<void> {
   if (rows.length === 0) return;
   const now = new Date().toISOString();
   const withTimestamps = rows.map((r) => ({ ...r, updated_at: now }));
-  const { error } = await supabase
+  const { error } = await adminClient()
     .from('instagram_comments')
     .upsert(withTimestamps, { onConflict: 'comment_id', ignoreDuplicates: false });
   if (error) throw error;

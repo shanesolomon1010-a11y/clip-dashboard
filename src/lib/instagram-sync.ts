@@ -37,6 +37,7 @@ import {
   getInstagramAuth,
   InstagramMedia,
   refreshAccessToken,
+  supabaseAdmin,
 } from './instagram';
 import { discoverInstagramMedia, InstagramDiscoveryResult } from './instagram-discovery';
 import {
@@ -125,7 +126,7 @@ async function maybeRefreshToken(): Promise<{ accessToken: string; igUserId: str
   const { token, expiresIn } = await refreshAccessToken(auth.access_token);
   const newExpiry = new Date(Date.now() + expiresIn * 1000).toISOString();
   const now = new Date().toISOString();
-  const { error } = await supabase
+  const { error } = await supabaseAdmin
     .from('instagram_auth')
     .update({ access_token: token, token_expiry: newExpiry, updated_at: now })
     .eq('id', auth.id);
