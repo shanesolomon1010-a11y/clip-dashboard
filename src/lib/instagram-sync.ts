@@ -194,7 +194,7 @@ async function syncOneMedia(
       `with lifetime views=${insights.views} reach=${insights.reach} likes=${insights.likes} ` +
       `comments=${insights.comments} shares=${insights.shares} saved=${insights.saved}`,
     );
-    const commentRows = await fetchCommentsForMedia(mediaId, accessToken);
+    const commentRows = await tolerantFetchComments(mediaId, clipDetailsCode, accessToken);
     return {
       post: bootstrapPost,
       commentRows: commentRows.rows,
@@ -215,13 +215,38 @@ async function syncOneMedia(
     saves: clampDelta('saved', clipDetailsCode, insights.saved, previous.saves),
   };
 
-  const commentRows = await fetchCommentsForMedia(mediaId, accessToken);
+  const commentRows = await tolerantFetchComments(mediaId, clipDetailsCode, accessToken);
   return {
     post,
     commentRows: commentRows.rows,
     topLevelCount: commentRows.topLevelCount,
     replyCount: commentRows.replyCount,
   };
+}
+
+// Wraps fetchCommentsForMedia so a comments-fetch failure doesn't lose the
+// posts row that was already constructed. Root cause hypothesis: bootstrap
+// burst (52 insights + 52 comments + N replies in ~13s) triggers transient
+// IG rate-limiting / per-Reel errors that throw out of fetchMediaComments
+// or fetchCommentReplies. Pre-fix, the orchestrator's outer try/catch
+// swallowed the post too; posts table missed 28 of 52 today rows
+// (2026-05-15 incident). Full error message logged so the next cron tick
+// can be grep'd to confirm whether the 28 failures are uniform (rate
+// limit, scope) or heterogeneous.
+async function tolerantFetchComments(
+  mediaId: string,
+  clipDetailsCode: string,
+  accessToken: string,
+): Promise<{ rows: InstagramCommentDbRow[]; topLevelCount: number; replyCount: number }> {
+  try {
+    return await fetchCommentsForMedia(mediaId, accessToken);
+  } catch (err) {
+    console.warn(
+      `[instagram-sync] comments fetch failed for ${mediaId} (${clipDetailsCode}): ` +
+      `${err instanceof Error ? err.message : String(err)} — post still written`,
+    );
+    return { rows: [], topLevelCount: 0, replyCount: 0 };
+  }
 }
 
 async function fetchCommentsForMedia(
