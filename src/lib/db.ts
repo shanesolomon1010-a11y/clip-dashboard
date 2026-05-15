@@ -679,13 +679,30 @@ export interface InstagramRegistryRow {
 
 // Every clip_details row with a populated instagram_content_id. Includes
 // PENDING-IG- rows so the cron still collects daily stats for un-mapped Reels.
+//
+// JS-side filtering (not .not('instagram_content_id', 'is', null) at the SQL
+// layer) — 2026-05-15 incident: the supabase-js .not(...is...null) filter
+// returned [] from the Vercel runtime even though the equivalent PostgREST
+// URL ?instagram_content_id=not.is.null returned 59 rows via raw curl with
+// the same anon key. Root cause unidentified (possibly a supabase-js client
+// quirk specific to the Vercel runtime / new column / null-filter combo);
+// not worth debugging in production hot-path code. clip_details is small
+// (~200 rows), so JS-side filtering has no perf cost.
 export async function getInstagramRegistry(): Promise<InstagramRegistryRow[]> {
   const { data, error } = await supabase
     .from('clip_details')
-    .select('instagram_content_id, clip_details_code, clip_code')
-    .not('instagram_content_id', 'is', null);
+    .select('instagram_content_id, clip_details_code, clip_code');
   if (error) throw error;
-  return (data ?? []).map((row) => {
+  const all = data ?? [];
+  const filtered = all.filter((row) => {
+    const r = row as Record<string, unknown>;
+    return r.instagram_content_id != null;
+  });
+  console.log(
+    `[db] getInstagramRegistry fetched ${all.length} rows total, ` +
+    `${filtered.length} with non-null instagram_content_id`,
+  );
+  return filtered.map((row) => {
     const r = row as Record<string, unknown>;
     return {
       instagram_content_id: r.instagram_content_id as string,
