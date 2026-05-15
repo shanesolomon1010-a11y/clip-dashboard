@@ -93,6 +93,13 @@ export async function GET(request: Request): Promise<NextResponse> {
     };
     const postedRows: PostedRow[] = [];
     {
+      // JS-side filter on content_id != null — defensive transform per
+      // 2026-05-15 incident on the IG registry (88d6a92): the supabase-js
+      // .not('col', 'is', null) filter returned [] from the Vercel runtime
+      // even though raw curl against the same PostgREST URL returned the
+      // rows. Pagination still uses the server-returned page size so
+      // termination is correct; the JS filter runs after the server has
+      // already given us the page.
       const PAGE = 1000;
       let from = 0;
       for (;;) {
@@ -102,7 +109,6 @@ export async function GET(request: Request): Promise<NextResponse> {
           .eq('platform', 'youtube')
           .gte('posted_at', startDate)
           .lte('posted_at', `${endDate}T23:59:59.999Z`)
-          .not('content_id', 'is', null)
           .or('clip_details_code.is.null,clip_details_code.not.like.PENDING-%')
           .range(from, from + PAGE - 1);
         if (error) {
@@ -110,7 +116,8 @@ export async function GET(request: Request): Promise<NextResponse> {
           throw error;
         }
         if (!data || data.length === 0) break;
-        postedRows.push(...(data as PostedRow[]));
+        const page = (data as PostedRow[]).filter((row) => row.content_id != null);
+        postedRows.push(...page);
         if (data.length < PAGE) break;
         from += PAGE;
       }

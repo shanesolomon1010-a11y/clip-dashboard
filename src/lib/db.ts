@@ -620,13 +620,29 @@ export interface ShortsRegistryRow {
 
 // Every clip_details row with a populated content_id. Includes PENDING rows so
 // the cron still collects daily stats for un-mapped uploads.
+//
+// JS-side filtering (not .not('content_id', 'is', null) at the SQL layer) —
+// defensive transform per 2026-05-15 incident on the IG analog
+// (getInstagramRegistry / 88d6a92): the supabase-js .not(...is...null) filter
+// returned [] from the Vercel runtime even though the equivalent PostgREST URL
+// returned the rows via raw curl with the same anon key. Same pattern here,
+// same fix. clip_details is small (~200 rows), so JS-side filtering has no
+// perf cost.
 export async function getShortsRegistry(): Promise<ShortsRegistryRow[]> {
   const { data, error } = await supabase
     .from('clip_details')
-    .select('content_id, clip_details_code, clip_code')
-    .not('content_id', 'is', null);
+    .select('content_id, clip_details_code, clip_code');
   if (error) throw error;
-  return (data ?? []).map((row) => {
+  const all = data ?? [];
+  const filtered = all.filter((row) => {
+    const r = row as Record<string, unknown>;
+    return r.content_id != null;
+  });
+  console.log(
+    `[db] getShortsRegistry fetched ${all.length} rows total, ` +
+    `${filtered.length} with non-null content_id`,
+  );
+  return filtered.map((row) => {
     const r = row as Record<string, unknown>;
     return {
       content_id: r.content_id as string,
