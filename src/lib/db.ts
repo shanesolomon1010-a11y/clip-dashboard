@@ -675,6 +675,7 @@ export interface InstagramRegistryRow {
   instagram_content_id: string;
   clip_details_code: string;
   clip_code: string;
+  skip_insights: boolean;
 }
 
 // Every clip_details row with a populated instagram_content_id. Includes
@@ -691,7 +692,7 @@ export interface InstagramRegistryRow {
 export async function getInstagramRegistry(): Promise<InstagramRegistryRow[]> {
   const { data, error } = await supabase
     .from('clip_details')
-    .select('instagram_content_id, clip_details_code, clip_code');
+    .select('instagram_content_id, clip_details_code, clip_code, skip_insights');
   if (error) throw error;
   const all = data ?? [];
   const filtered = all.filter((row) => {
@@ -708,6 +709,7 @@ export async function getInstagramRegistry(): Promise<InstagramRegistryRow[]> {
       instagram_content_id: r.instagram_content_id as string,
       clip_details_code: r.clip_details_code as string,
       clip_code: r.clip_code as string,
+      skip_insights: (r.skip_insights as boolean | null) ?? false,
     };
   });
 }

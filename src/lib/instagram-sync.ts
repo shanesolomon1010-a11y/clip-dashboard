@@ -318,7 +318,11 @@ export async function runInstagramSync(): Promise<InstagramSyncResult> {
 
   const pendingCount = registry.filter((r) => r.clip_code === 'PENDING').length;
   const mappedCount = registry.length - pendingCount;
-  console.log(`[instagram-sync] registry has ${registry.length} entries (${mappedCount} mapped, ${pendingCount} pending)`);
+  const skipInsightsCount = registry.filter((r) => r.skip_insights).length;
+  console.log(
+    `[instagram-sync] registry has ${registry.length} entries ` +
+    `(${mappedCount} mapped, ${pendingCount} pending, ${skipInsightsCount} skip_insights)`,
+  );
 
   const today = new Date().toISOString().slice(0, 10);
   const posts: UnifiedPost[] = [];
@@ -327,6 +331,11 @@ export async function runInstagramSync(): Promise<InstagramSyncResult> {
   let repliesIngested = 0;
 
   for (const registryRow of registry) {
+    // Silently skip Reels flagged as skip_insights — pre-Business-conversion
+    // media that permanently fail /insights. No API call, no log entry per
+    // the operational toggle's spec. Aggregate count emitted above.
+    if (registryRow.skip_insights) continue;
+
     const media = mediaById.get(registryRow.instagram_content_id);
     if (!media) {
       console.warn(

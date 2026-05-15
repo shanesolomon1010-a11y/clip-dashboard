@@ -94,6 +94,7 @@ export async function discoverInstagramMedia(
       instagram_content_id: media.id,
       clip_details_code: `PENDING-IG-${media.id}`,
       clip_code: 'PENDING',
+      skip_insights: false,
     };
     registry.push(pendingRow);
     registeredIds.add(media.id);
@@ -127,6 +128,7 @@ async function tryAutoMap(media: InstagramMedia): Promise<InstagramRegistryRow |
       instagram_content_id: media.id,
       clip_details_code: clipDetailsCode,
       clip_code: clipCode,
+      skip_insights: false,
     };
   }
   console.warn(
