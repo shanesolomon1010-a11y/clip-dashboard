@@ -46,3 +46,4 @@ logs/launchd-*.log
 .env.local
 supabase/.temp/
 logs/
+scripts/probe-output/

@@ -651,6 +651,110 @@ export async function registerPendingShort(contentId: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── Instagram registry (Phase 2 — see docs/superpowers/plans/2026-05-15-instagram-pipeline.md) ──
+
+export interface InstagramRegistryRow {
+  instagram_content_id: string;
+  clip_details_code: string;
+  clip_code: string;
+}
+
+// Every clip_details row with a populated instagram_content_id. Includes
+// PENDING-IG- rows so the cron still collects daily stats for un-mapped Reels.
+export async function getInstagramRegistry(): Promise<InstagramRegistryRow[]> {
+  const { data, error } = await supabase
+    .from('clip_details')
+    .select('instagram_content_id, clip_details_code, clip_code')
+    .not('instagram_content_id', 'is', null);
+  if (error) throw error;
+  return (data ?? []).map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      instagram_content_id: r.instagram_content_id as string,
+      clip_details_code: r.clip_details_code as string,
+      clip_code: r.clip_code as string,
+    };
+  });
+}
+
+// Auto-map path: sets instagram_content_id on an existing clip_details row
+// only when currently null. Returns true if a row was updated.
+export async function setClipDetailInstagramContentIdIfNull(
+  instagramContentId: string,
+  clipDetailsCode: string,
+): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('clip_details')
+    .update({ instagram_content_id: instagramContentId })
+    .eq('clip_details_code', clipDetailsCode)
+    .is('instagram_content_id', null)
+    .select('clip_details_code');
+  if (error) throw error;
+  return (data ?? []).length > 0;
+}
+
+// PENDING path: inserts a placeholder clip_details row for an un-mapped IG
+// media. The PENDING-IG- prefix on clip_details_code differentiates IG PENDING
+// rows from YouTube PENDING rows in the shared clip_details table — avoids
+// any collision if an IG media_id ever happened to match a YouTube video_id.
+// Idempotent via the regular UNIQUE constraint on instagram_content_id
+// (20260515_clip_details_instagram_content_id.sql).
+export async function registerInstagramPending(instagramContentId: string): Promise<void> {
+  const { error } = await supabase
+    .from('clip_details')
+    .upsert(
+      {
+        clip_code: 'PENDING',
+        clip_details_code: `PENDING-IG-${instagramContentId}`,
+        instagram_content_id: instagramContentId,
+      },
+      { onConflict: 'instagram_content_id', ignoreDuplicates: true },
+    );
+  if (error) throw error;
+}
+
+export interface InstagramAuditRow {
+  media_id: string;
+  media_type: string;
+  media_product_type: string;
+  permalink: string;
+  caption_first_line: string | null;
+}
+
+// Audit log of non-REELS media skipped by the discovery flow (Q6 audit-first).
+// Idempotent via PRIMARY KEY on media_id — re-running discovery is a no-op for
+// already-audited media.
+export async function logSkippedMediaToAudit(row: InstagramAuditRow): Promise<void> {
+  const { error } = await supabase
+    .from('instagram_discovery_audit')
+    .upsert(row, { onConflict: 'media_id', ignoreDuplicates: true });
+  if (error) throw error;
+}
+
+export interface InstagramCommentDbRow {
+  comment_id: string;
+  media_id: string;
+  text: string;
+  posted_at: string;
+  like_count: number;
+  reply_count: number;
+  username: string | null;
+  parent_comment_id: string | null;
+}
+
+// Upserts per-comment rows into instagram_comments. Conflict key is the
+// PRIMARY KEY (comment_id); ignoreDuplicates: false so updated like_count /
+// reply_count / text edits land on later syncs.
+export async function upsertInstagramComments(rows: InstagramCommentDbRow[]): Promise<void> {
+  if (rows.length === 0) return;
+  const now = new Date().toISOString();
+  const withTimestamps = rows.map((r) => ({ ...r, updated_at: now }));
+  const { error } = await supabase
+    .from('instagram_comments')
+    .upsert(withTimestamps, { onConflict: 'comment_id', ignoreDuplicates: false });
+  if (error) throw error;
+}
+
 // ── Clip versions ─────────────────────────────────────────────────────────────
 
 export interface ClipVersion {

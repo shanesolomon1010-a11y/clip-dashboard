@@ -2521,3 +2521,13 @@ Changed files:
   - src/components/views/FounderReportView.tsx
   - src/lib/db.ts
 
+
+## 2026-05-14 14:58:01 — cc1e5db
+**chore: session shutdown — shorts auto-discovery shipped end-to-end**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
