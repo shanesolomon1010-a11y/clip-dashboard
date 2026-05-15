@@ -271,14 +271,26 @@ export async function runInstagramSync(): Promise<InstagramSyncResult> {
   console.log(`[instagram-sync] fetched ${allMedia.length} media items from /me/media`);
 
   let discovered: InstagramDiscoveryResult = { matched: 0, pending: 0, skipped: 0, audited: 0 };
+  let registry: InstagramRegistryRow[] = [];
   try {
-    discovered = await discoverInstagramMedia(igUserId, accessToken, allMedia);
+    // Discovery returns the POST-MUTATION registry built incrementally so we
+    // don't pay a second DB roundtrip or risk a stale read against rows we
+    // just wrote. The registry field is stripped from the JSON response.
+    const outcome = await discoverInstagramMedia(igUserId, accessToken, allMedia);
+    const { registry: postDiscoveryRegistry, ...counters } = outcome;
+    discovered = counters;
+    registry = postDiscoveryRegistry;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[instagram-sync] discovery failed: ${message} — continuing`);
+    console.error(`[instagram-sync] discovery failed: ${message} — falling back to fresh registry read`);
+    try {
+      registry = await getInstagramRegistry();
+    } catch (innerErr) {
+      const innerMessage = innerErr instanceof Error ? innerErr.message : String(innerErr);
+      console.error(`[instagram-sync] fallback getInstagramRegistry also failed: ${innerMessage}`);
+    }
   }
 
-  const registry = await getInstagramRegistry();
   const pendingCount = registry.filter((r) => r.clip_code === 'PENDING').length;
   const mappedCount = registry.length - pendingCount;
   console.log(`[instagram-sync] registry has ${registry.length} entries (${mappedCount} mapped, ${pendingCount} pending)`);

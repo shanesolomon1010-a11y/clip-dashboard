@@ -19,6 +19,7 @@
 import { fetchMediaList, InstagramMedia } from './instagram';
 import {
   getInstagramRegistry,
+  InstagramRegistryRow,
   logSkippedMediaToAudit,
   registerInstagramPending,
   setClipDetailInstagramContentIdIfNull,
@@ -36,6 +37,15 @@ export interface InstagramDiscoveryResult {
   audited: number;
 }
 
+// Discovery's full return: the counters plus the POST-MUTATION registry.
+// Built incrementally as we auto-map / register PENDING so the orchestrator
+// can iterate without paying a second DB roundtrip and without risking a
+// stale read against rows we just wrote. The cron JSON response strips the
+// registry out (see InstagramSyncResult.discovered type).
+export interface InstagramDiscoveryOutcome extends InstagramDiscoveryResult {
+  registry: InstagramRegistryRow[];
+}
+
 function firstCaptionLine(caption: string | null): string | null {
   if (!caption) return null;
   return caption.split('\n')[0].slice(0, 500);
@@ -45,12 +55,13 @@ export async function discoverInstagramMedia(
   igUserId: string,
   accessToken: string,
   preFetchedMedia?: InstagramMedia[],
-): Promise<InstagramDiscoveryResult> {
+): Promise<InstagramDiscoveryOutcome> {
   const result: InstagramDiscoveryResult = { matched: 0, pending: 0, skipped: 0, audited: 0 };
 
   const allMedia = preFetchedMedia ?? (await fetchMediaList(igUserId, accessToken));
-  const registry = await getInstagramRegistry();
-  const registeredIds = new Set(registry.map((r) => r.instagram_content_id));
+  const initialRegistry = await getInstagramRegistry();
+  const registry: InstagramRegistryRow[] = [...initialRegistry];
+  const registeredIds = new Set(initialRegistry.map((r) => r.instagram_content_id));
 
   for (const media of allMedia) {
     if (media.media_product_type !== 'REELS') {
@@ -70,41 +81,57 @@ export async function discoverInstagramMedia(
       continue;
     }
 
-    const mapped = await tryAutoMap(media);
-    if (mapped) {
+    const matched = await tryAutoMap(media);
+    if (matched) {
+      registry.push(matched);
+      registeredIds.add(media.id);
       result.matched++;
       continue;
     }
 
     await registerInstagramPending(media.id);
+    const pendingRow: InstagramRegistryRow = {
+      instagram_content_id: media.id,
+      clip_details_code: `PENDING-IG-${media.id}`,
+      clip_code: 'PENDING',
+    };
+    registry.push(pendingRow);
+    registeredIds.add(media.id);
     console.log(`[instagram-discovery] registered PENDING-IG-${media.id}`);
     result.pending++;
   }
 
   console.log(
     `[instagram-discovery] scanned ${allMedia.length}, matched ${result.matched}, ` +
-    `pending ${result.pending}, skipped ${result.skipped}, audited ${result.audited}`,
+    `pending ${result.pending}, skipped ${result.skipped}, audited ${result.audited}, ` +
+    `registry now ${registry.length} entries`,
   );
-  return result;
+  return { ...result, registry };
 }
 
-// Returns true if the caption matched a clip code AND we successfully wrote
-// the instagram_content_id onto an existing clip_details row. A regex match
-// without a corresponding clip_details row falls back to PENDING (logged).
-async function tryAutoMap(media: InstagramMedia): Promise<boolean> {
-  if (!media.caption) return false;
+// Returns the registry row for an auto-mapped media if the caption matched a
+// clip code AND we successfully wrote the instagram_content_id onto an
+// existing clip_details row. A regex match without a corresponding
+// clip_details row falls back to PENDING (logged, caller registers).
+async function tryAutoMap(media: InstagramMedia): Promise<InstagramRegistryRow | null> {
+  if (!media.caption) return null;
   const m = media.caption.match(CAPTION_REGEX);
-  if (!m) return false;
+  if (!m) return null;
 
+  const clipCode = m[1];
   const clipDetailsCode = `${m[1]}-${m[2]}`;
   const updated = await setClipDetailInstagramContentIdIfNull(media.id, clipDetailsCode);
   if (updated) {
     console.log(`[instagram-discovery] matched ${media.id} → ${clipDetailsCode} via caption`);
-    return true;
+    return {
+      instagram_content_id: media.id,
+      clip_details_code: clipDetailsCode,
+      clip_code: clipCode,
+    };
   }
   console.warn(
     `[instagram-discovery] ${media.id} caption mentioned ${clipDetailsCode} but no matching ` +
     `clip_details row (or instagram_content_id already set) — falling back to PENDING`,
   );
-  return false;
+  return null;
 }
