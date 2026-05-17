@@ -668,6 +668,43 @@ export async function setClipDetailContentIdIfNull(
   return (data ?? []).length > 0;
 }
 
+// Re-keys posts rows previously written under PENDING-{contentId} to the newly
+// mapped clip_details_code. Must run after setClipDetailContentIdIfNull so the
+// next cron tick's upsert (keyed by clip_details_code,platform,stat_date)
+// matches an existing row instead of attempting an INSERT that would collide
+// on posts_contentid_platform_statdate_key. Returns count of rows re-keyed.
+//
+// Failure path (most likely 23505 if posts already has rows under the new code
+// for overlapping stat_dates) is swallowed: we log and return 0 so discovery
+// keeps running. The orphan PENDING rows can be cleaned up by hand.
+export async function rekeyPendingPostsToMappedCode(
+  contentId: string,
+  newClipDetailsCode: string,
+): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('posts')
+      .update({ clip_details_code: newClipDetailsCode })
+      .eq('platform', 'youtube')
+      .eq('content_id', contentId)
+      .like('clip_details_code', 'PENDING-%')
+      .select('id');
+    if (error) {
+      console.warn(
+        `[db] rekeyPendingPostsToMappedCode ${contentId} → ${newClipDetailsCode} failed: ${error.message}. Leaving orphan PENDING rows for manual cleanup.`,
+      );
+      return 0;
+    }
+    return (data ?? []).length;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `[db] rekeyPendingPostsToMappedCode ${contentId} → ${newClipDetailsCode} threw: ${message}. Leaving orphan PENDING rows.`,
+    );
+    return 0;
+  }
+}
+
 // PENDING path: inserts a placeholder clip_details row for an un-mapped channel
 // video. Idempotent via upsert on the partial unique index on content_id —
 // concurrent discovery runs become no-ops on the duplicate, not warnings.

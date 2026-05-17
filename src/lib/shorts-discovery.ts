@@ -22,6 +22,7 @@ import {
   getShortsRegistry,
   registerPendingShort,
   setClipDetailContentIdIfNull,
+  rekeyPendingPostsToMappedCode,
 } from './db';
 
 const TAG_REGEX = /^(MBM\d{3})-(CLIP-\d{3})$/;
@@ -76,6 +77,8 @@ export async function discoverShorts(accessToken: string): Promise<DiscoveryResu
         const updated = await setClipDetailContentIdIfNull(videoId, clipDetailsCode);
         if (updated) {
           console.log(`[shorts-discovery] matched ${videoId} → ${clipDetailsCode} via tag`);
+          const rekeyed = await rekeyPendingPostsToMappedCode(videoId, clipDetailsCode);
+          console.log(`[shorts-discovery] re-keyed ${rekeyed} posts row(s) from PENDING-${videoId} to ${clipDetailsCode}`);
           result.matched++;
           mapped = true;
         } else {
