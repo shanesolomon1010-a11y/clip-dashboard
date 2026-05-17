@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CONTENT_TYPES, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
-import { updatePostContentType } from '@/lib/db';
+import { updatePostContentType, type ClipTotals } from '@/lib/db';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 
@@ -20,11 +20,11 @@ const CONTENT_TYPE_COLORS: Record<string, string> = {
 interface Props {
   posts: UnifiedPost[];
   onContentTypeChange?: (postId: string, contentType: string | undefined) => void;
-  viewsTotals?: Record<string, number>;
+  clipTotals?: Record<string, ClipTotals>;
 }
 
 
-export default function TopPostsTable({ posts, onContentTypeChange, viewsTotals }: Props) {
+export default function TopPostsTable({ posts, onContentTypeChange, clipTotals }: Props) {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const { open } = useVideoModal();
@@ -43,7 +43,12 @@ export default function TopPostsTable({ posts, onContentTypeChange, viewsTotals 
     }
   };
 
-  const clipViews = (p: UnifiedPost) => viewsTotals?.[`${p.clip_code}::${p.platform}`] ?? p.views;
+  const totalsFor    = (p: UnifiedPost) => clipTotals?.[`${p.clip_code}::${p.platform}`];
+  const clipViews    = (p: UnifiedPost) => totalsFor(p)?.total_views    ?? p.views;
+  const clipLikes    = (p: UnifiedPost) => totalsFor(p)?.total_likes    ?? p.likes;
+  const clipComments = (p: UnifiedPost) => totalsFor(p)?.total_comments ?? p.comments;
+  const clipShares   = (p: UnifiedPost) => totalsFor(p)?.total_shares   ?? p.shares;
+  const clipSaves    = (p: UnifiedPost) => totalsFor(p)?.total_saves    ?? p.saves;
   const sorted = [...posts].sort((a, b) => clipViews(b) - clipViews(a)).slice(0, 10);
 
   return (
@@ -105,14 +110,14 @@ export default function TopPostsTable({ posts, onContentTypeChange, viewsTotals 
                   <span className="text-[var(--text-1)] font-semibold tabular-nums font-['JetBrains_Mono']">{formatNum(clipViews(post))}</span>
                 </td>
                 <td className="px-5 py-3.5 text-right">
-                  <span className="text-[var(--text-2)] tabular-nums font-['JetBrains_Mono']">{formatNum(post.likes)}</span>
+                  <span className="text-[var(--text-2)] tabular-nums font-['JetBrains_Mono']">{formatNum(clipLikes(post))}</span>
                 </td>
                 <td className="px-5 py-3.5 text-right">
-                  <span className="text-[var(--text-2)] tabular-nums font-['JetBrains_Mono']">{formatNum(post.comments)}</span>
+                  <span className="text-[var(--text-2)] tabular-nums font-['JetBrains_Mono']">{formatNum(clipComments(post))}</span>
                 </td>
                 <td className="px-5 py-3.5 text-right">
                   <span className="text-[var(--text-2)] font-semibold tabular-nums font-['JetBrains_Mono'] text-[13px]">
-                    {clipViews(post) === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / clipViews(post) * 100).toFixed(1)}%`}
+                    {clipViews(post) === 0 ? '—' : `${((clipLikes(post) + clipComments(post) + clipShares(post) + clipSaves(post)) / clipViews(post) * 100).toFixed(1)}%`}
                   </span>
                 </td>
                 <td className="px-5 py-3.5 relative">

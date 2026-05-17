@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getTotalViewsPerClip } from '@/lib/db';
+import { getTotalViewsPerClip, type ClipTotals } from '@/lib/db';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -18,30 +18,37 @@ interface Props { posts: UnifiedPost[] }
 
 export default function PlatformsView({ posts }: Props) {
   const { open } = useVideoModal();
-  const [viewsMap, setViewsMap] = useState<Record<string, number>>({});
+  const [totalsMap, setTotalsMap] = useState<Record<string, ClipTotals>>({});
 
   useEffect(() => {
     getTotalViewsPerClip().then((totals) => {
-      const map: Record<string, number> = {};
-      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t.total_views;
-      setViewsMap(map);
-    }).catch(() => setViewsMap({}));
+      const map: Record<string, ClipTotals> = {};
+      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t;
+      setTotalsMap(map);
+    }).catch(() => setTotalsMap({}));
   }, []);
 
-  const platformData = useMemo(() =>
-    ALL_PLATFORMS.map((pl) => {
+  const platformData = useMemo(() => {
+    const totalsFor = (p: UnifiedPost) => totalsMap[`${p.clip_code}::${p.platform}`];
+    const clipViews    = (p: UnifiedPost) => totalsFor(p)?.total_views    ?? p.views;
+    const clipLikes    = (p: UnifiedPost) => totalsFor(p)?.total_likes    ?? p.likes;
+    const clipComments = (p: UnifiedPost) => totalsFor(p)?.total_comments ?? p.comments;
+    const clipShares   = (p: UnifiedPost) => totalsFor(p)?.total_shares   ?? p.shares;
+    const clipSaves    = (p: UnifiedPost) => totalsFor(p)?.total_saves    ?? p.saves;
+    return ALL_PLATFORMS.map((pl) => {
       const pp = posts.filter((p) => p.platform === pl);
-      const clipViews = (p: UnifiedPost) => viewsMap[`${p.clip_code}::${p.platform}`] ?? p.views;
-      const views = pp.reduce((s, p) => s + clipViews(p), 0);
-      const likes = pp.reduce((s, p) => s + p.likes, 0);
-      const comments = pp.reduce((s, p) => s + p.comments, 0);
-      const shares = pp.reduce((s, p) => s + p.shares, 0);
-      const interactions = pp.reduce((s, p) => s + p.likes + p.comments + p.shares + p.saves, 0);
+      const views    = pp.reduce((s, p) => s + clipViews(p), 0);
+      const likes    = pp.reduce((s, p) => s + clipLikes(p), 0);
+      const comments = pp.reduce((s, p) => s + clipComments(p), 0);
+      const shares   = pp.reduce((s, p) => s + clipShares(p), 0);
+      const interactions = pp.reduce(
+        (s, p) => s + clipLikes(p) + clipComments(p) + clipShares(p) + clipSaves(p),
+        0,
+      );
       const best = [...pp].sort((a, b) => clipViews(b) - clipViews(a))[0] ?? null;
       return { platform: pl, count: pp.length, views, likes, comments, shares, interactions, best };
-    }),
-    [posts, viewsMap]
-  );
+    });
+  }, [posts, totalsMap]);
 
   return (
     <div className="p-6 space-y-5">
@@ -134,10 +141,19 @@ export default function PlatformsView({ posts }: Props) {
                           )}
                         </div>
                         <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.clip_code}</p>
-                        <div className="flex gap-4 text-[11px]">
-                          <span className="text-[var(--text-2)]">Views: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(viewsMap[`${best.clip_code}::${best.platform}`] ?? best.views)}</span></span>
-                          <span className="text-[var(--text-2)]">Interactions: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(best.likes + best.comments + best.shares + best.saves)}</span></span>
-                        </div>
+                        {(() => {
+                          const bestTotals = totalsMap[`${best.clip_code}::${best.platform}`];
+                          const bestViews = bestTotals?.total_views ?? best.views;
+                          const bestInter = bestTotals
+                            ? bestTotals.total_likes + bestTotals.total_comments + bestTotals.total_shares + bestTotals.total_saves
+                            : best.likes + best.comments + best.shares + best.saves;
+                          return (
+                            <div className="flex gap-4 text-[11px]">
+                              <span className="text-[var(--text-2)]">Views: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(bestViews)}</span></span>
+                              <span className="text-[var(--text-2)]">Interactions: <span className="text-[var(--text-1)] font-semibold font-['JetBrains_Mono'] tabular-nums">{formatNum(bestInter)}</span></span>
+                            </div>
+                          );
+                        })()}
                       </div>
                     )}
                   </>

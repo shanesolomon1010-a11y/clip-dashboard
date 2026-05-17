@@ -6,7 +6,7 @@ import UploadZone from '@/components/UploadZone';
 import { PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getTotalViewsPerClip } from '@/lib/db';
+import { getTotalViewsPerClip, type ClipTotals } from '@/lib/db';
 
 interface Props {
   posts: UnifiedPost[];
@@ -17,14 +17,14 @@ interface Props {
 export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
   const recent = [...posts].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 4);
   const { open } = useVideoModal();
-  const [viewsMap, setViewsMap] = useState<Record<string, number>>({});
+  const [totalsMap, setTotalsMap] = useState<Record<string, ClipTotals>>({});
 
   useEffect(() => {
     getTotalViewsPerClip().then((totals) => {
-      const map: Record<string, number> = {};
-      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t.total_views;
-      setViewsMap(map);
-    }).catch(() => setViewsMap({}));
+      const map: Record<string, ClipTotals> = {};
+      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t;
+      setTotalsMap(map);
+    }).catch(() => setTotalsMap({}));
   }, []);
 
   return (
@@ -62,7 +62,11 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
               <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-[var(--text-1)] transition-colors">{post.clip_code}</p>
               <div className="space-y-1">
                 {(() => {
-                  const v = viewsMap[`${post.clip_code}::${post.platform}`] ?? post.views;
+                  const t = totalsMap[`${post.clip_code}::${post.platform}`];
+                  const v = t?.total_views ?? post.views;
+                  const interactions = t
+                    ? t.total_likes + t.total_comments + t.total_shares + t.total_saves
+                    : post.likes + post.comments + post.shares + post.saves;
                   return (
                     <>
                       <div className="flex justify-between text-[11px]">
@@ -72,7 +76,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
                       <div className="flex justify-between text-[11px]">
                         <span className="text-[var(--text-2)]">Eng. Rate</span>
                         <span className="font-semibold tabular-nums text-[var(--text-2)] font-['JetBrains_Mono']">
-                          {v === 0 ? '—' : `${((post.likes + post.comments + post.shares + post.saves) / v * 100).toFixed(1)}%`}
+                          {v === 0 ? '—' : `${(interactions / v * 100).toFixed(1)}%`}
                         </span>
                       </div>
                     </>
@@ -90,7 +94,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
       </div>
 
       {/* Full posts table */}
-      <TopPostsTable posts={posts} onContentTypeChange={onPostUpdate} viewsTotals={viewsMap} />
+      <TopPostsTable posts={posts} onContentTypeChange={onPostUpdate} clipTotals={totalsMap} />
 
       {/* Upload zone */}
       <UploadZone onUpload={onUpload} />

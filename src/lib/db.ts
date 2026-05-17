@@ -201,15 +201,28 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
 }
 
 // Returns total views per clip_code across all daily rows.
-export async function getTotalViewsPerClip(platform?: string): Promise<{
+export interface ClipTotals {
   clip_code: string;
   clip_details_code: string | undefined;
   platform: string;
   total_views: number;
-}[]> {
+  total_likes: number;
+  total_comments: number;
+  total_shares: number;
+  total_saves: number;
+}
+
+// Lifetime sums of daily-delta metrics, grouped by (clip_code, platform).
+// Function name kept for compatibility — it now returns engagement totals
+// alongside views so callers can compute true lifetime engagement rates
+// instead of mixing latest-day-delta numerators with lifetime denominators
+// (caught 2026-05-17 audit: PlatformsView et al. were under-reporting YT
+// likes by 99.9%). PENDING-clip rows are excluded — same posture as
+// founder-report.
+export async function getTotalViewsPerClip(platform?: string): Promise<ClipTotals[]> {
   let query = supabase
     .from('posts')
-    .select('clip_code, clip_details_code, platform, views')
+    .select('clip_code, clip_details_code, platform, views, likes, comments, shares, saves')
     .not('clip_code', 'is', null)
     .neq('clip_code', 'PENDING');
 
@@ -218,19 +231,27 @@ export async function getTotalViewsPerClip(platform?: string): Promise<{
   const { data, error } = await query;
   if (error) throw error;
 
-  const map = new Map<string, { clip_code: string; clip_details_code: string | undefined; platform: string; total_views: number }>();
+  const map = new Map<string, ClipTotals>();
 
   for (const row of data ?? []) {
     const key = `${row.clip_code as string}::${row.platform as string}`;
     const existing = map.get(key);
     if (existing) {
-      existing.total_views += Number(row.views ?? 0);
+      existing.total_views    += Number(row.views    ?? 0);
+      existing.total_likes    += Number(row.likes    ?? 0);
+      existing.total_comments += Number(row.comments ?? 0);
+      existing.total_shares   += Number(row.shares   ?? 0);
+      existing.total_saves    += Number(row.saves    ?? 0);
     } else {
       map.set(key, {
         clip_code: row.clip_code as string,
         clip_details_code: row.clip_details_code as string | undefined,
         platform: row.platform as string,
-        total_views: Number(row.views ?? 0),
+        total_views:    Number(row.views    ?? 0),
+        total_likes:    Number(row.likes    ?? 0),
+        total_comments: Number(row.comments ?? 0),
+        total_shares:   Number(row.shares   ?? 0),
+        total_saves:    Number(row.saves    ?? 0),
       });
     }
   }

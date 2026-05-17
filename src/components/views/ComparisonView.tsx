@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
-import { getTotalViewsPerClip } from '@/lib/db';
+import { getTotalViewsPerClip, type ClipTotals } from '@/lib/db';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -87,25 +87,33 @@ interface Props {
 export default function ComparisonView({ posts }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>('views');
   const [sortDir, setSortDir] = useState<'desc' | 'asc'>('desc');
-  const [viewsMap, setViewsMap] = useState<Record<string, number>>({});
+  const [totalsMap, setTotalsMap] = useState<Record<string, ClipTotals>>({});
 
   useEffect(() => {
     getTotalViewsPerClip().then((totals) => {
-      const map: Record<string, number> = {};
-      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t.total_views;
-      setViewsMap(map);
-    }).catch(() => setViewsMap({}));
+      const map: Record<string, ClipTotals> = {};
+      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t;
+      setTotalsMap(map);
+    }).catch(() => setTotalsMap({}));
   }, []);
 
   const platformStats = useMemo<PlatformStats[]>(() => {
+    const totalsFor = (p: UnifiedPost) => totalsMap[`${p.clip_code}::${p.platform}`];
+    const clipViews    = (p: UnifiedPost) => totalsFor(p)?.total_views    ?? p.views;
+    const clipLikes    = (p: UnifiedPost) => totalsFor(p)?.total_likes    ?? p.likes;
+    const clipComments = (p: UnifiedPost) => totalsFor(p)?.total_comments ?? p.comments;
+    const clipShares   = (p: UnifiedPost) => totalsFor(p)?.total_shares   ?? p.shares;
+    const clipSaves    = (p: UnifiedPost) => totalsFor(p)?.total_saves    ?? p.saves;
     return ALL_PLATFORMS.map((pl) => {
       const pp = posts.filter((p) => p.platform === pl);
-      const clipViews = (p: UnifiedPost) => viewsMap[`${p.clip_code}::${p.platform}`] ?? p.views;
-      const views = pp.reduce((s, p) => s + clipViews(p), 0);
-      const likes = pp.reduce((s, p) => s + p.likes, 0);
-      const comments = pp.reduce((s, p) => s + p.comments, 0);
-      const shares = pp.reduce((s, p) => s + p.shares, 0);
-      const totalInter = pp.reduce((s, p) => s + p.likes + p.comments + p.shares + p.saves, 0);
+      const views    = pp.reduce((s, p) => s + clipViews(p), 0);
+      const likes    = pp.reduce((s, p) => s + clipLikes(p), 0);
+      const comments = pp.reduce((s, p) => s + clipComments(p), 0);
+      const shares   = pp.reduce((s, p) => s + clipShares(p), 0);
+      const totalInter = pp.reduce(
+        (s, p) => s + clipLikes(p) + clipComments(p) + clipShares(p) + clipSaves(p),
+        0,
+      );
       return {
         platform: pl,
         views,
@@ -117,7 +125,7 @@ export default function ComparisonView({ posts }: Props) {
         avgViews: pp.length > 0 ? Math.round(views / pp.length) : 0,
       };
     });
-  }, [posts, viewsMap]);
+  }, [posts, totalsMap]);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
