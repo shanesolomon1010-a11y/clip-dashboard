@@ -344,12 +344,16 @@ async function buildInternalConsistency(
   const startDate = new Date(now);
   startDate.setDate(startDate.getDate() - 30);
 
+  // Mirror founder-report's PENDING-shorts exclusion (946ece4). If this
+  // recomputation doesn't apply the same filter as the query it's verifying,
+  // the consistency check measures filter-mismatch noise instead of real drift.
   const { data: rows, error } = await supabase
     .from('posts')
     .select('content_type, views, watch_time_hours')
     .eq('platform', 'youtube')
     .gte('stat_date', toYMD(startDate))
-    .lte('stat_date', toYMD(now));
+    .lte('stat_date', toYMD(now))
+    .or('clip_details_code.is.null,clip_details_code.not.like.PENDING-%');
   if (error) {
     return { ...empty, error: error.message };
   }
