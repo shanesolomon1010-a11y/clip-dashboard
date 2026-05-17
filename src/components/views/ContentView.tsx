@@ -22,7 +22,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
   useEffect(() => {
     getTotalViewsPerClip().then((totals) => {
       const map: Record<string, ClipTotals> = {};
-      for (const t of totals) map[`${t.clip_code}::${t.platform}`] = t;
+      for (const t of totals) map[clipKey(t)] = t;
       setTotalsMap(map);
     }).catch(() => setTotalsMap({}));
   }, []);
