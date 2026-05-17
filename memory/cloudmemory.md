@@ -2531,3 +2531,72 @@ Changed files:
   - memory/primer.md
   - tasks/lessons.md
 
+
+## 2026-05-15 11:05:05 — 9f3558d
+**feat: Instagram Graph API ingestion pipeline (Phases 0-3)**
+
+Changed files:
+  - .gitignore
+  - docs/superpowers/plans/2026-05-15-instagram-pipeline.md
+  - memory/cloudmemory.md
+  - scripts/instagram-insights-probe.ts
+  - src/app/api/cron/instagram-sync/route.ts
+  - src/lib/db.ts
+  - src/lib/instagram-discovery.ts
+  - src/lib/instagram-sync.ts
+  - src/lib/instagram.ts
+  - supabase/migrations/20260515_clip_details_instagram_content_id.sql
+  - supabase/migrations/20260515_instagram_auth.sql
+  - supabase/migrations/20260515_instagram_comments.sql
+  - supabase/migrations/20260516_instagram_discovery_audit.sql
+  - vercel.json
+
+
+## 2026-05-15 11:34:36 — cf3d6fa
+**fix: route Instagram RLS-blocked writes through service-role client**
+
+Changed files:
+  - src/lib/db.ts
+  - src/lib/instagram-sync.ts
+  - src/lib/instagram.ts
+
+
+## 2026-05-15 11:48:58 — c45a3c2
+**fix: return post-mutation registry from instagram discovery**
+
+Changed files:
+  - src/lib/instagram-discovery.ts
+  - src/lib/instagram-sync.ts
+
+
+## 2026-05-15 12:21:09 — 88d6a92
+**fix: JS-side filter in getInstagramRegistry — supabase-js .not quirk**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-05-15 12:43:17 — 4964127
+**fix: decouple instagram comment fetch failures from post writes**
+
+Changed files:
+  - src/lib/instagram-sync.ts
+
+
+## 2026-05-15 12:44:51 — 2cd3c7b
+**feat: skip_insights flag for pre-Business-conversion IG Reels**
+
+Changed files:
+  - src/lib/db.ts
+  - src/lib/instagram-discovery.ts
+  - src/lib/instagram-sync.ts
+  - supabase/migrations/20260515_clip_details_skip_insights.sql
+
+
+## 2026-05-15 12:46:01 — 07bec9e
+**fix: JS-side filter sweep for parallel .not() patterns**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+  - src/lib/db.ts
+
