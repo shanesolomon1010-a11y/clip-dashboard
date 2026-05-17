@@ -219,41 +219,56 @@ export interface ClipTotals {
 // (caught 2026-05-17 audit: PlatformsView et al. were under-reporting YT
 // likes by 99.9%). PENDING-clip rows are excluded — same posture as
 // founder-report.
+//
+// Paginated to defeat the Supabase 1000-row response cap — same pattern as
+// getAllPostsByDate above and /api/founder-report. Caught 2026-05-17 Round 2
+// re-verification: the unpaginated SELECT silently returned only the first
+// 1000 daily rows of ~5,300 total, producing partial sums that looked
+// internally consistent (each clip's lookup happened to be in the capped
+// set) but undercounted aggregates by ~80%.
 export async function getTotalViewsPerClip(platform?: string): Promise<ClipTotals[]> {
-  let query = supabase
-    .from('posts')
-    .select('clip_code, clip_details_code, platform, views, likes, comments, shares, saves')
-    .not('clip_code', 'is', null)
-    .neq('clip_code', 'PENDING');
-
-  if (platform && platform !== 'all') query = query.eq('platform', platform);
-
-  const { data, error } = await query;
-  if (error) throw error;
-
+  const PAGE = 1000;
   const map = new Map<string, ClipTotals>();
+  let from = 0;
+  for (;;) {
+    let query = supabase
+      .from('posts')
+      .select('clip_code, clip_details_code, platform, views, likes, comments, shares, saves')
+      .not('clip_code', 'is', null)
+      .neq('clip_code', 'PENDING')
+      .range(from, from + PAGE - 1);
 
-  for (const row of data ?? []) {
-    const key = `${row.clip_code as string}::${row.platform as string}`;
-    const existing = map.get(key);
-    if (existing) {
-      existing.total_views    += Number(row.views    ?? 0);
-      existing.total_likes    += Number(row.likes    ?? 0);
-      existing.total_comments += Number(row.comments ?? 0);
-      existing.total_shares   += Number(row.shares   ?? 0);
-      existing.total_saves    += Number(row.saves    ?? 0);
-    } else {
-      map.set(key, {
-        clip_code: row.clip_code as string,
-        clip_details_code: row.clip_details_code as string | undefined,
-        platform: row.platform as string,
-        total_views:    Number(row.views    ?? 0),
-        total_likes:    Number(row.likes    ?? 0),
-        total_comments: Number(row.comments ?? 0),
-        total_shares:   Number(row.shares   ?? 0),
-        total_saves:    Number(row.saves    ?? 0),
-      });
+    if (platform && platform !== 'all') query = query.eq('platform', platform);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    for (const row of data) {
+      const key = `${row.clip_code as string}::${row.platform as string}`;
+      const existing = map.get(key);
+      if (existing) {
+        existing.total_views    += Number(row.views    ?? 0);
+        existing.total_likes    += Number(row.likes    ?? 0);
+        existing.total_comments += Number(row.comments ?? 0);
+        existing.total_shares   += Number(row.shares   ?? 0);
+        existing.total_saves    += Number(row.saves    ?? 0);
+      } else {
+        map.set(key, {
+          clip_code: row.clip_code as string,
+          clip_details_code: row.clip_details_code as string | undefined,
+          platform: row.platform as string,
+          total_views:    Number(row.views    ?? 0),
+          total_likes:    Number(row.likes    ?? 0),
+          total_comments: Number(row.comments ?? 0),
+          total_shares:   Number(row.shares   ?? 0),
+          total_saves:    Number(row.saves    ?? 0),
+        });
+      }
     }
+
+    if (data.length < PAGE) break;
+    from += PAGE;
   }
 
   return Array.from(map.values()).sort((a, b) => b.total_views - a.total_views);
