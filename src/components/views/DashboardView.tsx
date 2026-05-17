@@ -7,7 +7,7 @@ import { IconEye } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter, type PlatformFilter } from '@/context/FilterContext';
-import { getAllPostsByDate, getLatestPostsPerClip } from '@/lib/db';
+import { getAllPostsByDate, getLatestPostsPerClip, displayClipCode } from '@/lib/db';
 import { DateFilterBar, useDateFilter, type FilterPreset, type CustomRange } from '@/components/DateFilterBar';
 import { ContentTypeToggle, type ContentType } from '@/components/ContentTypeToggle';
 
@@ -353,7 +353,7 @@ export default function DashboardView({ posts }: Props) {
                         {topUniqueViewers.clips.map((p) => (
                           <div key={p.id} className="flex items-center justify-between gap-2">
                             <span className="text-[11px] text-[var(--text-2)] truncate" style={{ fontFamily: 'var(--font-mono)' }}>
-                              {p.clip_details_code ?? p.clip_code}
+                              {displayClipCode(p)}
                             </span>
                             <span className="text-[11px] font-semibold tabular-nums shrink-0" style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>
                               {formatNum(p.unique_viewers ?? 0)}
@@ -386,7 +386,11 @@ export default function DashboardView({ posts }: Props) {
           </div>
           <div className="divide-y divide-[rgba(247,231,206,0.03)]">
             {topPosts.map((item, i) => {
-              const clipCode = isClipTotal(item) ? item.clip_code : item.clip_code;
+              // ClipTotal branch is the primary case — buckets are episode-level
+              // (dateFilteredClipTotals keys by clip_code, an intentional design choice
+              // deferred from D4). UnifiedPost branch is the fallback when no daily
+              // rows match the window; uses per-clip granularity from displayClipCode.
+              const clipCode = isClipTotal(item) ? item.clip_code : displayClipCode(item);
               const plt = isClipTotal(item) ? (item.platform as Platform) : item.platform;
               const views = isClipTotal(item) ? item.total_views : item.views;
               const peak = clipCode ? peakByClip.get(clipCode) : undefined;

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CONTENT_TYPES, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
-import { updatePostContentType, clipKey, type ClipTotals } from '@/lib/db';
+import { updatePostContentType, clipKey, displayClipCode, type ClipTotals } from '@/lib/db';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 
@@ -96,7 +96,7 @@ export default function TopPostsTable({ posts, onContentTypeChange, clipTotals }
                 <td className="px-5 py-3.5 max-w-[220px] cursor-pointer" onClick={() => post.clip_details_code && open(post, post.clip_details_code)}>
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="text-[var(--text-1)] truncate text-[13px] group-hover:text-[var(--text-1)] transition-colors flex-1">
-                      {post.clip_code}
+                      {displayClipCode(post)}
                     </span>
                     {post.url && (
                       <svg className="w-3 h-3 shrink-0 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">

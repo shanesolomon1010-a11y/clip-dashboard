@@ -6,7 +6,7 @@ import UploadZone from '@/components/UploadZone';
 import { PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getTotalViewsPerClip, clipKey, type ClipTotals } from '@/lib/db';
+import { getTotalViewsPerClip, clipKey, displayClipCode, type ClipTotals } from '@/lib/db';
 
 interface Props {
   posts: UnifiedPost[];
@@ -39,7 +39,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
           {recent.map((post) => (
             <div
               key={post.id}
-              onClick={() => post.clip_code && open(post, post.clip_code)}
+              onClick={() => (post.clip_details_code || post.clip_code) && open(post, displayClipCode(post))}
               className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-4 hover:bg-[var(--bg-hover)] hover:border-[rgba(247,231,206,0.09)] transition-all group cursor-pointer"
             >
               <div className="flex items-center gap-2 mb-3">
@@ -59,7 +59,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
                 )}
                 <span className="text-[10px] text-[var(--text-2)] ml-auto font-medium">{post.date}</span>
               </div>
-              <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-[var(--text-1)] transition-colors">{post.clip_code}</p>
+              <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-[var(--text-1)] transition-colors">{displayClipCode(post)}</p>
               <div className="space-y-1">
                 {(() => {
                   const t = totalsMap[clipKey(post)];

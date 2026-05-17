@@ -218,6 +218,16 @@ export function clipKey(p: { clip_code?: string | null; clip_details_code?: stri
   return `unknown::${p.platform}`;
 }
 
+// User-facing label for a clip. Same precedence as clipKey but without the
+// platform suffix — clip_details_code (per-clip, like MBM015-CLIP-008) when
+// set, else clip_code (per-episode for shorts, the title for long-form),
+// else 'unknown'. Use this anywhere a clip identifier is rendered in JSX so
+// the producer/lookup/population/RENDERING keying contract stays unified
+// (2026-05-17 D4 rendering sweep — fourth pass after read/write/producer).
+export function displayClipCode(p: { clip_code?: string | null; clip_details_code?: string | null }): string {
+  return p.clip_details_code ?? p.clip_code ?? 'unknown';
+}
+
 export interface ClipTotals {
   clip_code: string;
   clip_details_code: string | undefined;

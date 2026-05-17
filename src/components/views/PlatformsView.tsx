@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getTotalViewsPerClip, clipKey, type ClipTotals } from '@/lib/db';
+import { getTotalViewsPerClip, clipKey, displayClipCode, type ClipTotals } from '@/lib/db';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -131,7 +131,7 @@ export default function PlatformsView({ posts }: Props) {
 
                     {/* Best post */}
                     {best && (
-                      <div onClick={() => best.clip_code && open(best, best.clip_code)} className="bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.05)] rounded-xl p-3.5 cursor-pointer hover:bg-[rgba(247,231,206,0.05)] transition-colors">
+                      <div onClick={() => (best.clip_details_code || best.clip_code) && open(best, displayClipCode(best))} className="bg-[rgba(247,231,206,0.03)] border border-[rgba(247,231,206,0.05)] rounded-xl p-3.5 cursor-pointer hover:bg-[rgba(247,231,206,0.05)] transition-colors">
                         <div className="flex items-center gap-1.5 mb-2">
                           <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--text-3)]">Best Post</p>
                           {best.url && (
@@ -140,7 +140,7 @@ export default function PlatformsView({ posts }: Props) {
                             </svg>
                           )}
                         </div>
-                        <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.clip_code}</p>
+                        <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{displayClipCode(best)}</p>
                         {(() => {
                           const bestTotals = totalsMap[clipKey(best)];
                           const bestViews = bestTotals?.total_views ?? best.views;
