@@ -217,8 +217,19 @@ export interface ClipTotals {
 // alongside views so callers can compute true lifetime engagement rates
 // instead of mixing latest-day-delta numerators with lifetime denominators
 // (caught 2026-05-17 audit: PlatformsView et al. were under-reporting YT
-// likes by 99.9%). PENDING-clip rows are excluded — same posture as
-// founder-report.
+// likes by 99.9%).
+//
+// PENDING-clip rows ARE included here by design. founder-report has its
+// own filtered SQL for founder-facing summaries; this function powers
+// operational/analytical surfaces (PlatformsView, ComparisonView,
+// ContentView, TopPostsTable) that need to show actual platform
+// performance during the PENDING-to-mapped transient window. Without
+// this, IG (where every Reel currently has clip_code='PENDING' because
+// no captions match MBM###-CLIP-### yet) silently shows zero engagement
+// while Dashboard correctly shows 12.5K views (caught 2026-05-17 Round 2
+// re-verification). Side effect of the current clip_code keying: all
+// PENDING clips on a given platform collapse into one bucket (D4 in the
+// 2026-05-17 audit) — deferred until the keying gets redesigned.
 //
 // Paginated to defeat the Supabase 1000-row response cap — same pattern as
 // getAllPostsByDate above and /api/founder-report. Caught 2026-05-17 Round 2
@@ -235,7 +246,6 @@ export async function getTotalViewsPerClip(platform?: string): Promise<ClipTotal
       .from('posts')
       .select('clip_code, clip_details_code, platform, views, likes, comments, shares, saves')
       .not('clip_code', 'is', null)
-      .neq('clip_code', 'PENDING')
       .range(from, from + PAGE - 1);
 
     if (platform && platform !== 'all') query = query.eq('platform', platform);
