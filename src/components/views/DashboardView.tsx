@@ -6,7 +6,7 @@ import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types
 import { IconEye } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { useFilter } from '@/context/FilterContext';
+import { useFilter, type PlatformFilter } from '@/context/FilterContext';
 import { getAllPostsByDate, getLatestPostsPerClip } from '@/lib/db';
 import { DateFilterBar, useDateFilter, type FilterPreset, type CustomRange } from '@/components/DateFilterBar';
 import { ContentTypeToggle, type ContentType } from '@/components/ContentTypeToggle';
@@ -81,7 +81,7 @@ interface Props {
 
 export default function DashboardView({ posts }: Props) {
   const { open: openVideoModal } = useVideoModal();
-  const { platform } = useFilter();
+  const { platform, setPlatform } = useFilter();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -295,7 +295,7 @@ export default function DashboardView({ posts }: Props) {
       {/* ── Left column ─────────────────────────────────────── */}
       <div className="flex-1 min-w-0 space-y-6">
 
-        {/* Date filter bar + content-type toggle */}
+        {/* Date filter bar + content-type toggle + platform toggle */}
         <div className="flex items-center gap-3 flex-wrap">
           <DateFilterBar
             preset={filterPreset}
@@ -304,6 +304,27 @@ export default function DashboardView({ posts }: Props) {
             onCustomRange={(start, end) => setCustomRange({ start, end })}
           />
           <ContentTypeToggle value={contentType} onChange={setContentType} />
+          <div className="flex items-center gap-1.5 flex-wrap" data-testid="platform-select">
+            {([
+              { value: 'all',       label: 'All Platforms' },
+              { value: 'youtube',   label: PLATFORM_LABELS.youtube },
+              { value: 'instagram', label: PLATFORM_LABELS.instagram },
+            ] as { value: PlatformFilter; label: string }[]).map((opt) => (
+              <button
+                key={opt.value}
+                data-testid={`platform-btn-${opt.value}`}
+                onClick={() => setPlatform(opt.value)}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all border"
+                style={{
+                  background: platform === opt.value ? 'var(--gold)' : 'rgba(247,231,206,0.04)',
+                  color: platform === opt.value ? '#000' : 'var(--text-3)',
+                  borderColor: platform === opt.value ? 'transparent' : 'rgba(247,231,206,0.08)',
+                }}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Stat grid — 8 cards, 4 columns */}
