@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { CONTENT_TYPES, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
-import { updatePostContentType, type ClipTotals } from '@/lib/db';
+import { updatePostContentType, clipKey, type ClipTotals } from '@/lib/db';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 
@@ -43,7 +43,7 @@ export default function TopPostsTable({ posts, onContentTypeChange, clipTotals }
     }
   };
 
-  const totalsFor    = (p: UnifiedPost) => clipTotals?.[`${p.clip_code}::${p.platform}`];
+  const totalsFor    = (p: UnifiedPost) => clipTotals?.[clipKey(p)];
   const clipViews    = (p: UnifiedPost) => totalsFor(p)?.total_views    ?? p.views;
   const clipLikes    = (p: UnifiedPost) => totalsFor(p)?.total_likes    ?? p.likes;
   const clipComments = (p: UnifiedPost) => totalsFor(p)?.total_comments ?? p.comments;

@@ -201,6 +201,21 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
 }
 
 // Returns total views per clip_code across all daily rows.
+// Per-(clip, platform) map key shared between producer and consumer.
+// Mirrors getLatestPostsPerClip's PENDING fallback: PENDING rows key by
+// clip_details_code (which carries the unique content_id suffix like
+// PENDING-IG-{mediaId}), so 54 IG Reels don't all collapse into a single
+// 'PENDING::instagram' bucket. Non-PENDING rows key by clip_code, which
+// still aggregates per-episode (e.g. MBM015's 16 shorts share clip_code)
+// — full per-clip-details granularity is D4 in the 2026-05-17 audit and
+// deferred until the keying gets redesigned.
+export function clipKey(p: { clip_code?: string | null; clip_details_code?: string | null; platform: string }): string {
+  if (p.clip_code === 'PENDING' && p.clip_details_code) {
+    return `${p.clip_details_code}::${p.platform}`;
+  }
+  return `${p.clip_code}::${p.platform}`;
+}
+
 export interface ClipTotals {
   clip_code: string;
   clip_details_code: string | undefined;
@@ -255,7 +270,11 @@ export async function getTotalViewsPerClip(platform?: string): Promise<ClipTotal
     if (!data || data.length === 0) break;
 
     for (const row of data) {
-      const key = `${row.clip_code as string}::${row.platform as string}`;
+      const key = clipKey({
+        clip_code: row.clip_code as string | null,
+        clip_details_code: row.clip_details_code as string | null,
+        platform: row.platform as string,
+      });
       const existing = map.get(key);
       if (existing) {
         existing.total_views    += Number(row.views    ?? 0);

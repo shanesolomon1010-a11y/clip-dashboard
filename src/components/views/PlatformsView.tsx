@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getTotalViewsPerClip, type ClipTotals } from '@/lib/db';
+import { getTotalViewsPerClip, clipKey, type ClipTotals } from '@/lib/db';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -29,7 +29,7 @@ export default function PlatformsView({ posts }: Props) {
   }, []);
 
   const platformData = useMemo(() => {
-    const totalsFor = (p: UnifiedPost) => totalsMap[`${p.clip_code}::${p.platform}`];
+    const totalsFor = (p: UnifiedPost) => totalsMap[clipKey(p)];
     const clipViews    = (p: UnifiedPost) => totalsFor(p)?.total_views    ?? p.views;
     const clipLikes    = (p: UnifiedPost) => totalsFor(p)?.total_likes    ?? p.likes;
     const clipComments = (p: UnifiedPost) => totalsFor(p)?.total_comments ?? p.comments;
@@ -142,7 +142,7 @@ export default function PlatformsView({ posts }: Props) {
                         </div>
                         <p className="text-[12px] text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-2">{best.clip_code}</p>
                         {(() => {
-                          const bestTotals = totalsMap[`${best.clip_code}::${best.platform}`];
+                          const bestTotals = totalsMap[clipKey(best)];
                           const bestViews = bestTotals?.total_views ?? best.views;
                           const bestInter = bestTotals
                             ? bestTotals.total_likes + bestTotals.total_comments + bestTotals.total_shares + bestTotals.total_saves

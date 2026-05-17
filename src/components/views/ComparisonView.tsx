@@ -11,7 +11,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
-import { getTotalViewsPerClip, type ClipTotals } from '@/lib/db';
+import { getTotalViewsPerClip, clipKey, type ClipTotals } from '@/lib/db';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -98,7 +98,7 @@ export default function ComparisonView({ posts }: Props) {
   }, []);
 
   const platformStats = useMemo<PlatformStats[]>(() => {
-    const totalsFor = (p: UnifiedPost) => totalsMap[`${p.clip_code}::${p.platform}`];
+    const totalsFor = (p: UnifiedPost) => totalsMap[clipKey(p)];
     const clipViews    = (p: UnifiedPost) => totalsFor(p)?.total_views    ?? p.views;
     const clipLikes    = (p: UnifiedPost) => totalsFor(p)?.total_likes    ?? p.likes;
     const clipComments = (p: UnifiedPost) => totalsFor(p)?.total_comments ?? p.comments;

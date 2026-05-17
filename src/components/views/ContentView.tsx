@@ -6,7 +6,7 @@ import UploadZone from '@/components/UploadZone';
 import { PLATFORM_COLORS, PLATFORM_LABELS, UnifiedPost } from '@/types';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
-import { getTotalViewsPerClip, type ClipTotals } from '@/lib/db';
+import { getTotalViewsPerClip, clipKey, type ClipTotals } from '@/lib/db';
 
 interface Props {
   posts: UnifiedPost[];
@@ -62,7 +62,7 @@ export default function ContentView({ posts, onUpload, onPostUpdate }: Props) {
               <p className="text-xs text-[var(--text-1)] font-medium leading-snug line-clamp-2 mb-3 group-hover:text-[var(--text-1)] transition-colors">{post.clip_code}</p>
               <div className="space-y-1">
                 {(() => {
-                  const t = totalsMap[`${post.clip_code}::${post.platform}`];
+                  const t = totalsMap[clipKey(post)];
                   const v = t?.total_views ?? post.views;
                   const interactions = t
                     ? t.total_likes + t.total_comments + t.total_shares + t.total_saves
