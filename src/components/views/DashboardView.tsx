@@ -15,10 +15,6 @@ const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
 const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
-const DASHBOARD_PRESET_KEY = 'dashboard_filter_preset';
-const DASHBOARD_RANGE_KEY = 'dashboard_filter_custom_range';
-const DASHBOARD_CONTENT_KEY = 'dashboard_content_type';
-
 function isFilterPreset(v: unknown): v is FilterPreset {
   return v === '7d' || v === '30d' || v === 'all' || v === 'custom';
 }
@@ -27,6 +23,10 @@ function isContentType(v: unknown): v is ContentType {
   return v === 'all' || v === 'long_form' || v === 'short';
 }
 
+// URL-only persistence — within-session navigation keeps the filter via
+// ?range/?start/?end/?contentType, but a fresh dashboard open (no URL state)
+// always defaults to 30d / all / all. localStorage layer removed 2026-05-17
+// because it surprised the user on fresh loads.
 function readInitialDashboardState(searchParams: URLSearchParams): {
   preset: FilterPreset;
   customRange: CustomRange | null;
@@ -45,31 +45,6 @@ function readInitialDashboardState(searchParams: URLSearchParams): {
   if (isContentType(urlContentType)) contentType = urlContentType;
   if (urlStart && urlEnd && YMD_RE.test(urlStart) && YMD_RE.test(urlEnd)) {
     customRange = { start: urlStart, end: urlEnd };
-  }
-
-  if (typeof window !== 'undefined') {
-    if (!urlRange) {
-      const stored = window.localStorage.getItem(DASHBOARD_PRESET_KEY);
-      if (isFilterPreset(stored)) preset = stored;
-    }
-    if (!urlContentType) {
-      const stored = window.localStorage.getItem(DASHBOARD_CONTENT_KEY);
-      if (isContentType(stored)) contentType = stored;
-    }
-    if (!(urlStart && urlEnd)) {
-      const raw = window.localStorage.getItem(DASHBOARD_RANGE_KEY);
-      if (raw) {
-        try {
-          const parsed = JSON.parse(raw) as { start?: unknown; end?: unknown };
-          if (typeof parsed.start === 'string' && typeof parsed.end === 'string'
-              && YMD_RE.test(parsed.start) && YMD_RE.test(parsed.end)) {
-            customRange = { start: parsed.start, end: parsed.end };
-          }
-        } catch {
-          // fall through
-        }
-      }
-    }
   }
 
   if (preset === 'custom' && !customRange) preset = '30d';
@@ -124,13 +99,6 @@ export default function DashboardView({ posts }: Props) {
 
   const firstSyncRef = useRef(true);
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem(DASHBOARD_PRESET_KEY, filterPreset);
-      window.localStorage.setItem(DASHBOARD_CONTENT_KEY, contentType);
-      if (filterPreset === 'custom' && customRange) {
-        window.localStorage.setItem(DASHBOARD_RANGE_KEY, JSON.stringify(customRange));
-      }
-    }
     // Skip the URL write on first render — the state was just read FROM the URL,
     // so re-writing would only thrash the history entry.
     if (firstSyncRef.current) {
@@ -152,7 +120,10 @@ export default function DashboardView({ posts }: Props) {
   }, [filterPreset, customRange, contentType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    getAllPostsByDate('youtube', filterStart ?? undefined, filterEnd ?? undefined)
+    // No platform arg — fetch all platforms; FilterContext.platform applies
+    // JS-side via dateFilteredDailyPosts. The platform-breakdown rail derives
+    // from a separate memo that always sees both platforms (comparison widget).
+    getAllPostsByDate(undefined, filterStart ?? undefined, filterEnd ?? undefined)
       .then(setAllDailyPosts)
       .catch(() => setAllDailyPosts([]));
   }, [filterStart, filterEnd]);
@@ -175,6 +146,22 @@ export default function DashboardView({ posts }: Props) {
   }, [posts, platform, contentType, filterStart, filterEnd]);
 
   const dateFilteredDailyPosts = useMemo(() => {
+    return allDailyPosts.filter((p) => {
+      if (platform !== 'all' && p.platform !== platform) return false;
+      if (contentType !== 'all' && p.content_type !== contentType) return false;
+      if (filterStart) {
+        const d = p.stat_date ?? p.date ?? '';
+        if (d < filterStart) return false;
+        if (filterEnd && d > filterEnd) return false;
+      }
+      return true;
+    });
+  }, [allDailyPosts, platform, contentType, filterStart, filterEnd]);
+
+  // Cross-platform view of the same date+contentType slice — feeds the
+  // Platforms comparison rail so it keeps showing all platforms even when the
+  // TopBar toggle is set to a single one.
+  const allPlatformsDailyPosts = useMemo(() => {
     return allDailyPosts.filter((p) => {
       if (contentType !== 'all' && p.content_type !== contentType) return false;
       if (filterStart) {
@@ -220,7 +207,7 @@ export default function DashboardView({ posts }: Props) {
   const platformTotals = useMemo(() => {
     const byPlatform = new Map<Platform, { views: number; clips: Set<string> }>();
     for (const pl of ALL_PLATFORMS) byPlatform.set(pl, { views: 0, clips: new Set() });
-    for (const p of dateFilteredDailyPosts) {
+    for (const p of allPlatformsDailyPosts) {
       const entry = byPlatform.get(p.platform);
       if (!entry) continue;
       entry.views += p.views;
@@ -233,7 +220,7 @@ export default function DashboardView({ posts }: Props) {
         count: byPlatform.get(pl)!.clips.size,
       }))
       .sort((a, b) => b.views - a.views);
-  }, [dateFilteredDailyPosts]);
+  }, [allPlatformsDailyPosts]);
 
   // Peak day per clip_code from allDailyPosts (respects content-type filter)
   const peakByClip = useMemo(() => {

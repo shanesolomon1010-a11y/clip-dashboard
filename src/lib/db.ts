@@ -246,19 +246,33 @@ export async function getAllPostsByDate(
   startDate?: string,
   endDate?: string,
 ): Promise<UnifiedPost[]> {
-  let query = supabase
-    .from('posts')
-    .select('*')
-    .order('stat_date', { ascending: true, nullsFirst: false });
+  // Paginated to defeat the Supabase 1000-row response cap (CLAUDE.md). Without
+  // bounds (e.g. Dashboard "All Time") the table easily exceeds 1000 rows and a
+  // single .select() would silently return only the oldest 1000 — same defensive
+  // pattern as /api/founder-report.
+  const PAGE = 1000;
+  const all: Record<string, unknown>[] = [];
+  let from = 0;
+  for (;;) {
+    let query = supabase
+      .from('posts')
+      .select('*')
+      .order('stat_date', { ascending: true, nullsFirst: false })
+      .range(from, from + PAGE - 1);
 
-  if (platform) query = query.eq('platform', platform);
-  if (startDate) query = query.gte('stat_date', startDate);
-  if (endDate) query = query.lte('stat_date', endDate);
+    if (platform) query = query.eq('platform', platform);
+    if (startDate) query = query.gte('stat_date', startDate);
+    if (endDate) query = query.lte('stat_date', endDate);
 
-  const { data, error } = await query;
-  if (error) throw error;
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...(data as Record<string, unknown>[]));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
 
-  return (data ?? []).map((row) => mapPostRow(row as Record<string, unknown>));
+  return all.map((row) => mapPostRow(row));
 }
 
 // Returns all rows unfiltered — used by the Data Editor.
