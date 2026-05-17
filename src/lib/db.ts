@@ -163,21 +163,17 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
     'hypes', 'hype_points', 'post_subscribers',
   ];
 
-  // Group all rows by clip_code::platform (already sorted stat_date DESC).
-  // PENDING rows share clip_code='PENDING' so we fall back to clip_details_code
-  // for the key suffix — otherwise every PENDING short collapses into one bucket.
+  // Group all rows by clipKey(row) — per-clip granularity (D4 fix). Truly
+  // orphan rows (both clip_code AND clip_details_code null) fall back to
+  // row.id so each stays as its own unique entry rather than collapsing into
+  // a single 'unknown::platform' bucket.
   const byKey = new Map<string, Record<string, unknown>[]>();
   for (const row of data ?? []) {
     const clipCode = row.clip_code as string | null;
     const clipDetailsCode = row.clip_details_code as string | null;
-    let key: string;
-    if (clipCode === 'PENDING' && clipDetailsCode) {
-      key = `${clipDetailsCode}::${row.platform as string}`;
-    } else if (clipCode && clipCode !== 'PENDING') {
-      key = `${clipCode}::${row.platform as string}`;
-    } else {
-      key = row.id as string;
-    }
+    const key = (clipCode || clipDetailsCode)
+      ? clipKey({ clip_code: clipCode, clip_details_code: clipDetailsCode, platform: row.platform as string })
+      : (row.id as string);
     if (!byKey.has(key)) byKey.set(key, []);
     byKey.get(key)!.push(row as Record<string, unknown>);
   }
@@ -202,18 +198,24 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
 
 // Returns total views per clip_code across all daily rows.
 // Per-(clip, platform) map key shared between producer and consumer.
-// Mirrors getLatestPostsPerClip's PENDING fallback: PENDING rows key by
-// clip_details_code (which carries the unique content_id suffix like
-// PENDING-IG-{mediaId}), so 54 IG Reels don't all collapse into a single
-// 'PENDING::instagram' bucket. Non-PENDING rows key by clip_code, which
-// still aggregates per-episode (e.g. MBM015's 16 shorts share clip_code)
-// — full per-clip-details granularity is D4 in the 2026-05-17 audit and
-// deferred until the keying gets redesigned.
+// Prefers clip_details_code (per-clip granularity) when set, falls back to
+// clip_code (per-episode for shorts, per-video for long-form), then to a
+// platform-scoped 'unknown' bucket for truly orphan rows.
+//
+// Granularity table:
+//   shorts:    clip_details_code is set (MBM###-CLIP-###) → per-clip
+//   long-form: clip_details_code is NULL, clip_code is the title → per-video
+//   IG Reels:  clip_details_code is PENDING-IG-{mediaId} → per-reel
+//   YT PENDING shorts: clip_details_code is PENDING-{contentId} → per-clip
+//
+// 2026-05-17 D4 fix: prior to this, the rule was "prefer clip_details_code
+// only for PENDING rows" which collapsed 51 distinct YT shorts into 10
+// episode buckets (MBM015 has 16 clips, all merged under one clip_code).
+// callers/consumers are unchanged — they already route through clipKey.
 export function clipKey(p: { clip_code?: string | null; clip_details_code?: string | null; platform: string }): string {
-  if (p.clip_code === 'PENDING' && p.clip_details_code) {
-    return `${p.clip_details_code}::${p.platform}`;
-  }
-  return `${p.clip_code}::${p.platform}`;
+  if (p.clip_details_code) return `${p.clip_details_code}::${p.platform}`;
+  if (p.clip_code) return `${p.clip_code}::${p.platform}`;
+  return `unknown::${p.platform}`;
 }
 
 export interface ClipTotals {
@@ -227,7 +229,7 @@ export interface ClipTotals {
   total_saves: number;
 }
 
-// Lifetime sums of daily-delta metrics, grouped by (clip_code, platform).
+// Lifetime sums of daily-delta metrics, grouped by clipKey(p).
 // Function name kept for compatibility — it now returns engagement totals
 // alongside views so callers can compute true lifetime engagement rates
 // instead of mixing latest-day-delta numerators with lifetime denominators
@@ -238,13 +240,23 @@ export interface ClipTotals {
 // own filtered SQL for founder-facing summaries; this function powers
 // operational/analytical surfaces (PlatformsView, ComparisonView,
 // ContentView, TopPostsTable) that need to show actual platform
-// performance during the PENDING-to-mapped transient window. Without
-// this, IG (where every Reel currently has clip_code='PENDING' because
-// no captions match MBM###-CLIP-### yet) silently shows zero engagement
-// while Dashboard correctly shows 12.5K views (caught 2026-05-17 Round 2
-// re-verification). Side effect of the current clip_code keying: all
-// PENDING clips on a given platform collapse into one bucket (D4 in the
-// 2026-05-17 audit) — deferred until the keying gets redesigned.
+// performance during the PENDING-to-mapped transient window.
+//
+// Per-clip granularity via clipKey (2026-05-17 D4 fix): each
+// clip_details_code gets its own bucket. Long-form keys by clip_code
+// (the title — clip_details_code is NULL for long-form) which is unique
+// per video.
+//
+// JS-side filter on (clip_code IS NOT NULL OR clip_details_code IS NOT NULL)
+// instead of SQL .not('clip_code', 'is', null). Two reasons:
+//   1. The .not(col, is, null) supabase-js pattern silently returned [] from
+//      the Vercel runtime against newly-added text columns earlier this
+//      session (fixes 88d6a92, 07bec9e). Defensive shift to JS filtering
+//      preempts the fourth trigger of that bug.
+//   2. Includes 26 NULL-clip_code shorts that have valid clip_details_codes
+//      (legacy/orphan rows that the SQL filter was silently excluding).
+//      They naturally consolidate with their mapped counterparts under
+//      clip_details_code keying.
 //
 // Paginated to defeat the Supabase 1000-row response cap — same pattern as
 // getAllPostsByDate above and /api/founder-report. Caught 2026-05-17 Round 2
@@ -260,7 +272,6 @@ export async function getTotalViewsPerClip(platform?: string): Promise<ClipTotal
     let query = supabase
       .from('posts')
       .select('clip_code, clip_details_code, platform, views, likes, comments, shares, saves')
-      .not('clip_code', 'is', null)
       .range(from, from + PAGE - 1);
 
     if (platform && platform !== 'all') query = query.eq('platform', platform);
@@ -270,9 +281,12 @@ export async function getTotalViewsPerClip(platform?: string): Promise<ClipTotal
     if (!data || data.length === 0) break;
 
     for (const row of data) {
+      const clipCode = row.clip_code as string | null;
+      const clipDetailsCode = row.clip_details_code as string | null;
+      if (clipCode == null && clipDetailsCode == null) continue;
       const key = clipKey({
-        clip_code: row.clip_code as string | null,
-        clip_details_code: row.clip_details_code as string | null,
+        clip_code: clipCode,
+        clip_details_code: clipDetailsCode,
         platform: row.platform as string,
       });
       const existing = map.get(key);

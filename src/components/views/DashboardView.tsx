@@ -395,8 +395,11 @@ export default function DashboardView({ posts }: Props) {
                 if (!isClipTotal(item) && item.clip_details_code) {
                   openVideoModal(item, item.clip_details_code);
                 } else if (isClipTotal(item) && item.clip_details_code) {
-                  // Find a matching post from `posts` to open modal
-                  const match = posts.find((p) => p.clip_code === item.clip_code);
+                  // Match by clip_details_code (not clip_code) so per-clip
+                  // posts entries don't get cross-matched after D4 — multiple
+                  // posts share a clip_code per episode, but clip_details_code
+                  // is unique per individual clip.
+                  const match = posts.find((p) => p.clip_details_code === item.clip_details_code);
                   if (match) openVideoModal(match, item.clip_details_code);
                 }
               };
