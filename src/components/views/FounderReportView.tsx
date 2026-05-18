@@ -279,9 +279,14 @@ export default function FounderReportView() {
       {!loading && data && (
         <div className="mt-6 space-y-1">
           {data.lastDataDate && (
-            <p className="text-[11px] text-[var(--text-3)]">
-              Data current through {formatLongDate(data.lastDataDate)}
-            </p>
+            <>
+              <p className="text-[11px] text-[var(--text-3)]">
+                Data current through {formatLongDate(data.lastDataDate)}
+              </p>
+              <p className="text-[10px] text-[var(--text-3)] italic">
+                YouTube Analytics is 2-3 days delayed; this is the latest available data.
+              </p>
+            </>
           )}
           {lastUpdated && (
             <p className="text-[11px] text-[var(--text-3)]">

@@ -81,9 +81,8 @@ interface ProbeResult {
 }
 
 async function getAuth(): Promise<InstagramAuthRow> {
-  // Service-role client (mirrors src/app/api/library/sync-urls/route.ts:15-18
-  // and scripts/youtube-studio-sync.ts:722-724). RLS blocks anon reads of
-  // instagram_auth — token rows are server-side only.
+  // Service-role client (mirrors src/app/api/library/sync-urls/route.ts:15-18).
+  // RLS blocks anon reads of instagram_auth — token rows are server-side only.
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {

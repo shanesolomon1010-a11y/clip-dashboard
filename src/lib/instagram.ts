@@ -5,9 +5,8 @@ import { createClient } from '@supabase/supabase-js';
 // so anon reads/writes are blocked. The cron sync route + discovery
 // orchestrator + probe script all run server-side, so module-level
 // instantiation is safe — this file is never imported by frontend code.
-// Pattern mirrors src/app/api/library/sync-urls/route.ts:15-18 and
-// scripts/youtube-studio-sync.ts:722-724. Exported so the sync orchestrator
-// can reuse it for the token refresh write-back.
+// Pattern mirrors src/app/api/library/sync-urls/route.ts:15-18. Exported so
+// the sync orchestrator can reuse it for the token refresh write-back.
 export const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,

@@ -1,5 +1,7 @@
 # YouTube Studio Playwright Sync Implementation Plan
 
+> **STATUS — DELETED 2026-05-18.** All artifacts created by this plan (`scripts/youtube-studio-sync.ts`, `.sh`, `.test.ts`, `com.clipstudio.youtubesync.plist`) were removed. The LaunchAgent was unloaded 2026-05-05 in favor of Vercel cron `/api/cron/youtube-sync`; the files were then deleted as inert risk. This plan is retained as a historical record only — do not implement.
+
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build a local Playwright script that exports per-video analytics from YouTube Studio and upserts daily delta rows into the Supabase `posts` table.

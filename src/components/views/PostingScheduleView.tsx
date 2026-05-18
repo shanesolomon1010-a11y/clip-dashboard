@@ -121,6 +121,9 @@ export default function PostingScheduleView() {
     supabase
       .from('scheduled_posts')
       .select('id, clip_code, title, platform, scheduled_date, post_time, status, content_type')
+      .order('scheduled_date', { ascending: true })
+      .order('post_time', { ascending: true })
+      .limit(5000)
       .then(({ data, error }) => {
         if (error) {
           console.error('scheduled_posts fetch error:', error);
@@ -136,6 +139,9 @@ export default function PostingScheduleView() {
     supabase
       .from('scheduled_posts')
       .select('id, clip_code, title, platform, scheduled_date, post_time, status, content_type')
+      .order('scheduled_date', { ascending: true })
+      .order('post_time', { ascending: true })
+      .limit(5000)
       .then(({ data, error }) => {
         if (error) console.error('scheduled_posts refetch error:', error);
         else if (data) setPosts(data as ScheduledPost[]);
