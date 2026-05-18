@@ -66,6 +66,9 @@ Two-part fix that became a recovery story:
 ### IG embed iframe fix (today)
 IG reel modal rendered the blockquote + Instagram embed.js script, which produced an iframe with no intrinsic dimensions inside a heightless blockquote → collapsed to 2px. Switched to a direct `/embed/` iframe matching YouTube's pattern (sized 280px container, `className="w-full h-full"`). Net -33 lines: deleted `InstagramEmbed` component and `Window.instgrm` global type declaration; no more third-party script load or race conditions on rapid modal open/close (`505fbee`).
 
+### Round 23 — carryover discrepancies closed (today)
+Three small Dashboard tile fixes closed the carryover queue from the end-of-session ground-truth check: Top Clips by Unique Viewers card now hides when platform === 'instagram' (IG has no unique-viewers source), Avg View Duration shows 'N/A' on IG (matches the Impression CTR pattern), and adds a 'YouTube only' caption on All Platforms (IG contributes nothing to the weighted blend, so the value is YT-only by construction — caption surfaces that). Single bundled commit `83253cb`. Build clean, all tests passed.
+
 ### Orphan cleanup pass (today)
 Audited 7 NAV_ITEMS missing from NAV_GROUPS + 3 truly-orphan components. Decisions:
 - **Revived 2 NAV entries**: `platforms` and `comparison` added to NAV_GROUPS Analytics (alongside dashboard + founder-report).
