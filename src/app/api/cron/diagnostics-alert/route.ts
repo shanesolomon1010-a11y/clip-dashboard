@@ -4,10 +4,12 @@ export const dynamic = 'force-dynamic';
 
 // Paths into the diagnostics response that read RED by design and should not
 // alert. The Playwright LaunchAgent scraper was deleted 2026-05-18 (per
-// CLAUDE.md) so `last_scraper_run` and `scraper_history` will read RED forever.
+// CLAUDE.md); last_scraper_run + scraper_history + studio_snapshots_latest_stat
+// are all downstream of that deletion and will read RED forever.
 const KNOWN_RED_PATHS = new Set([
   'cron_health.last_scraper_run.status',
   'scraper_history.status',
+  'data_freshness.studio_snapshots_latest_stat.status',
 ]);
 
 interface AnyObject { [k: string]: unknown }
@@ -46,10 +48,7 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const webhook = process.env.SLACK_DIAGNOSTICS_WEBHOOK;
   if (!webhook) {
-    return NextResponse.json(
-      { error: 'SLACK_DIAGNOSTICS_WEBHOOK not configured' },
-      { status: 500 },
-    );
+    return NextResponse.json({ skipped: true, reason: 'webhook not configured' });
   }
 
   const origin = new URL(request.url).origin;
