@@ -7,7 +7,7 @@ import { IconEye } from '@/components/Icons';
 import { formatNum } from '@/lib/utils';
 import { useVideoModal } from '@/context/VideoModalContext';
 import { useFilter, type PlatformFilter } from '@/context/FilterContext';
-import { getAllPostsByDate, getLatestPostsPerClip, displayClipCode } from '@/lib/db';
+import { getAllPostsByDate, getLatestPostsPerClip, clipKey, displayClipCode } from '@/lib/db';
 import { DateFilterBar, useDateFilter, type FilterPreset, type CustomRange } from '@/components/DateFilterBar';
 import { ContentTypeToggle, type ContentType } from '@/components/ContentTypeToggle';
 
@@ -69,7 +69,7 @@ function fmtDuration(seconds: number): string {
 
 
 interface ClipTotal {
-  clip_code: string;
+  clip_code: string | null;
   clip_details_code: string | undefined;
   platform: string;
   total_views: number;
@@ -176,10 +176,11 @@ export default function DashboardView({ posts }: Props) {
   const dateFilteredClipTotals = useMemo(() => {
     const map = new Map<string, ClipTotal>();
     for (const p of dateFilteredDailyPosts) {
-      if (!p.clip_code) continue;
-      const ex = map.get(p.clip_code);
+      if (!p.clip_code && !p.clip_details_code) continue;
+      const key = clipKey(p);
+      const ex = map.get(key);
       if (!ex) {
-        map.set(p.clip_code, { clip_code: p.clip_code, clip_details_code: p.clip_details_code, platform: p.platform, total_views: p.views });
+        map.set(key, { clip_code: p.clip_code ?? null, clip_details_code: p.clip_details_code, platform: p.platform, total_views: p.views });
       } else {
         ex.total_views += p.views;
       }
@@ -199,7 +200,7 @@ export default function DashboardView({ posts }: Props) {
   const totalPostsInWindow = useMemo(() => {
     const keys = new Set<string>();
     for (const p of dateFilteredDailyPosts) {
-      if (p.clip_code) keys.add(`${p.clip_code}::${p.platform}`);
+      if (p.clip_code || p.clip_details_code) keys.add(clipKey(p));
     }
     return keys.size;
   }, [dateFilteredDailyPosts]);
@@ -211,7 +212,7 @@ export default function DashboardView({ posts }: Props) {
       const entry = byPlatform.get(p.platform);
       if (!entry) continue;
       entry.views += p.views;
-      if (p.clip_code) entry.clips.add(p.clip_code);
+      if (p.clip_code || p.clip_details_code) entry.clips.add(clipKey(p));
     }
     return ALL_PLATFORMS
       .map((pl) => ({
@@ -222,15 +223,18 @@ export default function DashboardView({ posts }: Props) {
       .sort((a, b) => b.views - a.views);
   }, [allPlatformsDailyPosts]);
 
-  // Peak day per clip_code from allDailyPosts (respects content-type filter)
+  // Peak day per clip from allDailyPosts (respects content-type filter).
+  // Keyed by clipKey so each individual clip's peak day is tracked, not the
+  // best day across an entire episode group.
   const peakByClip = useMemo(() => {
     const map = new Map<string, { date: string; views: number }>();
     for (const p of allDailyPosts) {
-      if (!p.clip_code || !p.stat_date) continue;
+      if ((!p.clip_code && !p.clip_details_code) || !p.stat_date) continue;
       if (contentType !== 'all' && p.content_type !== contentType) continue;
-      const existing = map.get(p.clip_code);
+      const key = clipKey(p);
+      const existing = map.get(key);
       if (!existing || p.views > existing.views) {
-        map.set(p.clip_code, { date: p.stat_date, views: p.views });
+        map.set(key, { date: p.stat_date, views: p.views });
       }
     }
     return map;
@@ -351,7 +355,11 @@ export default function DashboardView({ posts }: Props) {
                     <>
                       <div className="space-y-1.5 mt-1">
                         {topUniqueViewers.clips.map((p) => (
-                          <div key={p.id} className="flex items-center justify-between gap-2">
+                          <div
+                            key={p.id}
+                            onClick={() => (p.clip_details_code || p.clip_code) && openVideoModal(p, displayClipCode(p))}
+                            className="flex items-center justify-between gap-2 cursor-pointer rounded px-1 -mx-1 hover:bg-[rgba(247,231,206,0.03)] transition-colors"
+                          >
                             <span className="text-[11px] text-[var(--text-2)] truncate" style={{ fontFamily: 'var(--font-mono)' }}>
                               {displayClipCode(p)}
                             </span>
@@ -386,31 +394,31 @@ export default function DashboardView({ posts }: Props) {
           </div>
           <div className="divide-y divide-[rgba(247,231,206,0.03)]">
             {topPosts.map((item, i) => {
-              // ClipTotal branch is the primary case — buckets are episode-level
-              // (dateFilteredClipTotals keys by clip_code, an intentional design choice
-              // deferred from D4). UnifiedPost branch is the fallback when no daily
-              // rows match the window; uses per-clip granularity from displayClipCode.
-              const clipCode = isClipTotal(item) ? item.clip_code : displayClipCode(item);
+              // Both branches now go per-clip (dateFilteredClipTotals buckets by
+              // clipKey post-D4 unification). displayClipCode renders the
+              // per-clip identifier; clipKey provides the lookup key for
+              // peakByClip and modal-open .find() matching.
+              const label = displayClipCode(item);
               const plt = isClipTotal(item) ? (item.platform as Platform) : item.platform;
               const views = isClipTotal(item) ? item.total_views : item.views;
-              const peak = clipCode ? peakByClip.get(clipCode) : undefined;
+              const peak = peakByClip.get(clipKey(item));
 
               const handleClick = () => {
-                if (!isClipTotal(item) && item.clip_details_code) {
-                  openVideoModal(item, item.clip_details_code);
-                } else if (isClipTotal(item) && item.clip_details_code) {
-                  // Match by clip_details_code (not clip_code) so per-clip
-                  // posts entries don't get cross-matched after D4 — multiple
-                  // posts share a clip_code per episode, but clip_details_code
-                  // is unique per individual clip.
-                  const match = posts.find((p) => p.clip_details_code === item.clip_details_code);
-                  if (match) openVideoModal(match, item.clip_details_code);
+                if (!isClipTotal(item)) {
+                  openVideoModal(item, displayClipCode(item));
+                } else {
+                  // Match by clipKey so long-form (NULL clip_details_code,
+                  // clip_code is the title) and per-clip shorts both resolve
+                  // to the exact post the user clicked.
+                  const targetKey = clipKey(item);
+                  const match = posts.find((p) => clipKey(p) === targetKey);
+                  if (match) openVideoModal(match, displayClipCode(item));
                 }
               };
 
               return (
                 <div
-                  key={isClipTotal(item) ? `${item.clip_code}::${item.platform}` : item.id}
+                  key={isClipTotal(item) ? clipKey(item) : item.id}
                   data-testid="post-row"
                   onClick={handleClick}
                   className="flex items-center gap-4 px-5 py-3.5 hover:bg-[rgba(247,231,206,0.02)] transition-colors group cursor-pointer relative"
@@ -425,7 +433,7 @@ export default function DashboardView({ posts }: Props) {
                   >
                     {PLATFORM_LABELS[plt]}
                   </span>
-                  <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{clipCode}</span>
+                  <span className="flex-1 text-[13px] text-[var(--text-2)] truncate min-w-0 group-hover:text-[var(--text-1)] transition-colors">{label}</span>
                   {!isClipTotal(item) && item.url && (
                     <svg className="w-3 h-3 shrink-0 text-[var(--text-2)]" viewBox="0 0 16 16" fill="currentColor">
                       <path d="M4 3l10 5-10 5V3z" />
