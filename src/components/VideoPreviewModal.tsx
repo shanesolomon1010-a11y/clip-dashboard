@@ -208,7 +208,7 @@ function ClipDetailBody({ detail }: { detail: ClipDetail }) {
 
 // ── Main export ───────────────────────────────────────────────────────────────
 
-export default function VideoPreviewModal({ onClose, clipCode }: Props) {
+export default function VideoPreviewModal({ post, onClose, clipCode }: Props) {
   const [clipDetail, setClipDetail] = useState<ClipDetail | null>(null);
   const [clipLoading, setClipLoading] = useState(false);
   const [clipFetched, setClipFetched] = useState(false);
@@ -271,7 +271,7 @@ export default function VideoPreviewModal({ onClose, clipCode }: Props) {
 
         {/* Section 1: Mini player */}
         <MiniPlayer
-          url={clipDetail?.video_url ?? null}
+          url={clipDetail?.video_url ?? post?.url ?? null}
           clipCode={clipCode}
         />
 

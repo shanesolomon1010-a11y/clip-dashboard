@@ -45,8 +45,8 @@ PENDING-row treatment is now intentionally inconsistent across surfaces: **found
 ### Posting Schedule audit + RLS UPDATE policy fix
 scheduled_posts had RLS with INSERT/READ/DELETE policies but no UPDATE — silent no-op on post_time edits (same pattern that hit IG cron on 2026-05-15). Fixed via SQL Editor + migration file. Calendar CRUD is otherwise clean: no aggregation drift, no pagination concerns at 76 rows, no .not(is, null) patterns, no D4 keying issues.
 
-### posts.url NULL backfill
-YT shorts had 208 historical rows (15% of bucket) with NULL url — all from pre-fa30b23 (2026-04-23) writer path that didn't populate the field. Current code (youtube-sync.ts, youtube-longform-sync.ts, instagram-sync.ts) writes url on every insert; no regression going forward. URL is deterministically reconstructable from content_id, so single UPDATE backfilled all 208 rows. IG reels (0 NULL) and YT long_form (0 NULL) were already clean.
+### posts.url NULL backfill + modal video_url fallback
+Two-part fix. First half: YT shorts had 208 historical rows with NULL posts.url from pre-fa30b23 writer paths; backfilled deterministically from content_id (data hygiene, correct fix going forward — all current writers populate url on every insert). Second half: separate-but-related — VideoPreviewModal was reading clip_details.video_url (86.7% NULL across clip_details table), not posts.url. The `post` prop was already passed through VideoModalContext but never destructured at the modal call site. Wired the dead prop, added clipDetail?.video_url ?? post?.url fallback. MP4 preview clips (the 17 manually-uploaded MBM015-CLIP-* headline banners in Supabase Storage) still take precedence; YouTube/IG URLs fill in the rest. 20 PENDING-IG-only clips continue showing the placeholder by design.
 
 ## In progress
 None blocking. All 13 commits on `main` are local and build-clean. Push is Shane's call.
