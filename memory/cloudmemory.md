@@ -2600,3 +2600,124 @@ Changed files:
   - src/app/api/founder-report/route.ts
   - src/lib/db.ts
 
+
+## 2026-05-17 08:51:50 — 7dc40ce
+**chore: session shutdown — IG pipeline shipped end-to-end**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
+
+## 2026-05-17 08:54:16 — 29ee77a
+**chore: session shutdown — IG pipeline shipped end-to-end**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
+
+## 2026-05-17 09:16:41 — b78f2cd
+**fix: re-key PENDING posts rows when shorts discovery auto-maps a video**
+
+Changed files:
+  - src/lib/db.ts
+  - src/lib/shorts-discovery.ts
+
+
+## 2026-05-17 09:46:19 — 0e9e28a
+**fix: mirror founder-report's PENDING-shorts filter in diagnostics consistency check**
+
+Changed files:
+  - src/app/api/diagnostics/route.ts
+
+
+## 2026-05-17 10:02:37 — b131a62
+**fix: Dashboard A+B+D3+D7 — All Time pagination, kill localStorage, wire platform toggle**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+  - src/lib/db.ts
+
+
+## 2026-05-17 10:17:10 — 8619ded
+**feat: inline platform toggle in DashboardView control row**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-05-17 10:29:25 — 24ebe57
+**fix: D1+D2+D5 — lifetime engagement metrics across PlatformsView, ComparisonView, ContentView, TopPostsTable**
+
+Changed files:
+  - src/components/TopPostsTable.tsx
+  - src/components/views/ComparisonView.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/PlatformsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-05-17 10:41:06 — ce23a65
+**fix: paginate getTotalViewsPerClip to defeat 1000-row response cap**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-05-17 10:57:43 — 560a37b
+**fix: include PENDING clips in getTotalViewsPerClip for analytical views**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-05-17 11:15:44 — 6572803
+**fix: align getTotalViewsPerClip keying with getLatestPostsPerClip's PENDING fallback**
+
+Changed files:
+  - src/components/TopPostsTable.tsx
+  - src/components/views/ComparisonView.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/PlatformsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-05-17 11:32:05 — 92c5a12
+**fix: use clipKey at totalsMap population sites, not just lookup sites**
+
+Changed files:
+  - src/components/views/ComparisonView.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/PlatformsView.tsx
+
+
+## 2026-05-17 11:40:56 — 1d25889
+**fix: D4 — per-clip granularity via clipKey, plus NULL-clip_code shorts rescue**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+  - src/lib/db.ts
+
+
+## 2026-05-17 11:51:11 — 5e16e3e
+**fix: D4 rendering sweep — displayClipCode helper, four-pass keying contract complete**
+
+Changed files:
+  - src/components/TopPostsTable.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/PlatformsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-05-17 20:55:50 — c007bfc
+**fix: Dashboard per-clip unification + Top Clips by Unique Viewers clickability**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+
