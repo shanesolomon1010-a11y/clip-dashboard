@@ -4,12 +4,6 @@ import { useEffect, useState } from 'react';
 import { UnifiedPost } from '@/types';
 import { fetchClipDetails, ClipDetail } from '@/lib/db';
 
-declare global {
-  interface Window {
-    instgrm?: { Embeds: { process: () => void } };
-  }
-}
-
 interface Props {
   post: UnifiedPost;
   onClose: () => void;
@@ -36,31 +30,6 @@ function detectEmbed(url: string): EmbedInfo {
   if (url.includes('instagram.com')) return { type: 'instagram' };
   if (url.endsWith('.mp4') || url.includes('supabase.co/storage')) return { type: 'mp4' };
   return null;
-}
-
-function InstagramEmbed({ url }: { url: string }) {
-  useEffect(() => {
-    const existing = document.querySelector('script[src*="instagram.com/embed.js"]');
-    if (!existing) {
-      const s = document.createElement('script');
-      s.src = '//www.instagram.com/embed.js';
-      s.async = true;
-      document.body.appendChild(s);
-    } else if (window.instgrm) {
-      window.instgrm.Embeds.process();
-    }
-  }, []);
-
-  return (
-    <div className="w-full overflow-hidden rounded-xl">
-      <blockquote
-        className="instagram-media"
-        data-instgrm-permalink={url}
-        data-instgrm-version="14"
-        style={{ width: '100%', minWidth: 0, maxWidth: '100%' }}
-      />
-    </div>
-  );
 }
 
 // ── MiniPlayer: used in clip detail mode ──────────────────────────────────────
@@ -95,9 +64,17 @@ function MiniPlayer({ url, clipCode }: { url: string | null; clipCode: string })
   }
 
   if (embed?.type === 'instagram') {
+    const embedUrl = url.endsWith('/embed/') ? url : `${url.replace(/\/$/, '')}/embed/`;
     return (
-      <div style={{ height: 280, overflow: 'hidden' }} className="rounded-xl">
-        <InstagramEmbed url={url} />
+      <div className="w-full rounded-xl overflow-hidden bg-black" style={{ height: 280 }}>
+        <iframe
+          title="Instagram reel"
+          src={embedUrl}
+          allow="autoplay; encrypted-media"
+          allowFullScreen
+          className="w-full h-full"
+          style={{ border: 0 }}
+        />
       </div>
     );
   }
