@@ -104,7 +104,7 @@ function MetricCard({ value, label, suffix = '' }: MetricCardProps) {
 
   return (
     <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl p-6">
-      <p className="text-[36px] font-bold text-[var(--text-1)] leading-none tabular-nums">
+      <p className="text-[36px] font-bold text-[var(--text-1)] leading-none tabular-nums whitespace-nowrap">
         {formatted}{suffix}
       </p>
       <p className="text-[13px] text-[var(--text-3)] mt-2">{label}</p>
