@@ -233,6 +233,7 @@ export async function getTotalViewsPerClip(platform?: string): Promise<ClipTotal
     let query = supabase
       .from('posts')
       .select('clip_code, clip_details_code, platform, views, likes, comments, shares, saves')
+      .order('id', { ascending: true })
       .range(from, from + PAGE - 1);
 
     if (platform && platform !== 'all') query = query.eq('platform', platform);
