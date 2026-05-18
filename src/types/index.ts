@@ -58,15 +58,6 @@ export interface UnifiedPost {
 
 export type DateRange = '1d' | '7d' | '30d' | '90d' | 'all';
 
-export type GoalMetric = 'views' | 'likes' | 'engagement_rate' | 'followers';
-
-export const GOAL_METRIC_LABELS: Record<GoalMetric, string> = {
-  views: 'Views',
-  likes: 'Likes',
-  engagement_rate: 'Eng. Rate',
-  followers: 'Followers',
-};
-
 export const CONTENT_TYPES = [
   'Hook Video',
   'Tutorial',

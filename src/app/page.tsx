@@ -3,17 +3,12 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { UnifiedPost } from '@/types';
-import { getLatestPostsPerClip, upsertPosts } from '@/lib/db';
+import { getLatestPostsPerClip } from '@/lib/db';
 import Sidebar, { NavSection } from '@/components/Sidebar';
 import DashboardView from '@/components/views/DashboardView';
-import ContentView from '@/components/views/ContentView';
 import PlatformsView from '@/components/views/PlatformsView';
-import EditorView from '@/components/views/EditorView';
 import SettingsView from '@/components/views/SettingsView';
 import ComparisonView from '@/components/views/ComparisonView';
-import CaptionView from '@/components/views/CaptionView';
-import ScriptAnalyzerView from '@/components/views/ScriptAnalyzerView';
-import TranscriberView from '@/components/views/TranscriberView';
 import PostingScheduleView from '@/components/views/PostingScheduleView';
 import SocialCopyView from '@/components/views/SocialCopyView';
 import FounderReportView from '@/components/views/FounderReportView';
@@ -22,8 +17,8 @@ import { FilterProvider } from '@/context/FilterContext';
 
 
 const VALID_NAV_SECTIONS = new Set<NavSection>([
-  'dashboard', 'content', 'schedule', 'platforms',
-  'comparison', 'captions', 'scriptAnalyzer', 'transcriber', 'editor', 'settings', 'social-copy', 'founder-report',
+  'dashboard', 'schedule', 'platforms',
+  'comparison', 'settings', 'social-copy', 'founder-report',
 ]);
 
 function AppInner() {
@@ -58,28 +53,6 @@ function AppInner() {
     setPosts([]);
   };
 
-  const handleUpload = async (newPosts: UnifiedPost[]) => {
-    // Merge into local state immediately
-    setPosts((prev) => {
-      const existingIds = new Set(prev.map((p) => p.id));
-      return [...prev, ...newPosts.filter((p) => !existingIds.has(p.id))];
-    });
-
-    // Persist to Supabase in the background
-    try {
-      await upsertPosts(newPosts);
-    } catch {
-      // Non-fatal — data is still in local state for this session
-      console.error('Failed to save posts to Supabase');
-    }
-  };
-
-  const handlePostUpdate = (postId: string, contentType: string | undefined) => {
-    setPosts((prev) =>
-      prev.map((p) => p.id === postId ? { ...p, content_type: contentType } : p)
-    );
-  };
-
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-[var(--bg-base)]">
@@ -100,16 +73,11 @@ function AppInner() {
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
           <main className="flex-1 overflow-y-auto">
             {activeNav === 'dashboard'  && <DashboardView posts={posts} />}
-            {activeNav === 'content'    && <ContentView posts={posts} onUpload={handleUpload} onPostUpdate={handlePostUpdate} />}
             {activeNav === 'schedule'   && <PostingScheduleView />}
             {activeNav === 'platforms'  && <PlatformsView posts={posts} />}
             {activeNav === 'comparison' && <ComparisonView posts={posts} />}
-            {activeNav === 'captions'        && <CaptionView />}
-            {activeNav === 'scriptAnalyzer' && <ScriptAnalyzerView />}
-            {activeNav === 'transcriber'    && <TranscriberView />}
             {activeNav === 'founder-report' && <FounderReportView />}
             {activeNav === 'social-copy' && <SocialCopyView />}
-            {activeNav === 'editor'      && <EditorView />}
             {activeNav === 'settings'   && <SettingsView onClearData={handleClearData} />}
           </main>
         </div>

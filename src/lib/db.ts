@@ -19,55 +19,6 @@ function adminClient(): SupabaseClient {
   return _adminClient;
 }
 
-// ── Editor feedback ───────────────────────────────────────────────────────────
-
-export interface EditorFeedbackRow {
-  id: string;
-  created_at: string;
-  prompt: string;
-  ffmpeg_commands_generated: string; // stored in fcpxml_generated column in Supabase
-  feedback: string;
-  feedback_type: 'good' | 'mistake';
-}
-
-export async function fetchEditorFeedback(): Promise<EditorFeedbackRow[]> {
-  const { data, error } = await supabase
-    .from('editor_feedback')
-    .select('id, created_at, prompt, fcpxml_generated, feedback, feedback_type')
-    .order('created_at', { ascending: false })
-    .limit(20);
-
-  if (error) throw error;
-  return (data ?? []).map((row: Record<string, unknown>) => ({
-    id: row.id as string,
-    created_at: row.created_at as string,
-    prompt: row.prompt as string,
-    ffmpeg_commands_generated: row.fcpxml_generated as string,
-    feedback: row.feedback as string,
-    feedback_type: row.feedback_type as 'good' | 'mistake',
-  }));
-}
-
-export async function saveEditorFeedback(
-  row: Omit<EditorFeedbackRow, 'id' | 'created_at'>
-): Promise<void> {
-  const { error } = await supabase.from('editor_feedback').insert({
-    prompt: row.prompt,
-    fcpxml_generated: row.ffmpeg_commands_generated,
-    feedback: row.feedback,
-    feedback_type: row.feedback_type,
-  });
-  if (error) throw error;
-}
-
-export async function clearEditorFeedback(): Promise<void> {
-  const { error } = await supabase
-    .from('editor_feedback')
-    .delete()
-    .not('id', 'is', null);
-  if (error) throw error;
-}
-
 // ── Posts ─────────────────────────────────────────────────────────────────────
 
 function calcEngagementRate(
@@ -248,9 +199,9 @@ export interface ClipTotals {
 //
 // PENDING-clip rows ARE included here by design. founder-report has its
 // own filtered SQL for founder-facing summaries; this function powers
-// operational/analytical surfaces (PlatformsView, ComparisonView,
-// ContentView, TopPostsTable) that need to show actual platform
-// performance during the PENDING-to-mapped transient window.
+// operational/analytical surfaces (PlatformsView, ComparisonView) that
+// need to show actual platform performance during the PENDING-to-mapped
+// transient window.
 //
 // Per-clip granularity via clipKey (2026-05-17 D4 fix): each
 // clip_details_code gets its own bucket. Long-form keys by clip_code
@@ -549,78 +500,6 @@ export async function updatePostContentType(
     .from('posts')
     .update({ content_type })
     .match({ platform, title, date });
-  if (error) throw error;
-}
-
-// ── Goals ─────────────────────────────────────────────────────────────────────
-
-export interface GoalRow {
-  id: string;
-  platform: string;
-  metric: string;
-  target: number;
-  created_at: string;
-}
-
-export async function fetchGoals(): Promise<GoalRow[]> {
-  const { data, error } = await supabase
-    .from('goals')
-    .select('*')
-    .order('created_at', { ascending: false });
-  if (error) throw error;
-  return (data ?? []) as GoalRow[];
-}
-
-export async function saveGoal(
-  platform: string,
-  metric: string,
-  target: number
-): Promise<void> {
-  // Delete existing goal for this platform+metric then insert fresh
-  await supabase.from('goals').delete().match({ platform, metric });
-  const { error } = await supabase.from('goals').insert({ platform, metric, target });
-  if (error) throw error;
-}
-
-// ── Captions ──────────────────────────────────────────────────────────────────
-
-export interface CaptionRow {
-  id: string;
-  created_at: string;
-  clip_description: string;
-  platform: string;
-  tone: string;
-  caption_text: string;
-}
-
-export async function fetchCaptions(): Promise<CaptionRow[]> {
-  const { data, error } = await supabase
-    .from('captions')
-    .select('*')
-    .order('created_at', { ascending: false })
-    .limit(10);
-  if (error) throw error;
-  return (data ?? []) as CaptionRow[];
-}
-
-export async function saveCaption(
-  row: Omit<CaptionRow, 'id' | 'created_at'>
-): Promise<void> {
-  const { error } = await supabase.from('captions').insert(row);
-  if (error) throw error;
-}
-
-// ── Script analyses ────────────────────────────────────────────────────────────
-
-export async function saveScriptAnalysis(row: {
-  script_text: string;
-  overall_score: number;
-  platform_scores: unknown;
-  platform_breakdowns: unknown;
-  recommendations: unknown;
-  title?: string;
-}): Promise<void> {
-  const { error } = await supabase.from('script_analyses').insert(row);
   if (error) throw error;
 }
 

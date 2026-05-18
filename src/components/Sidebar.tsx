@@ -1,25 +1,20 @@
 'use client';
 
-import { IconDashboard, IconContent, IconPlatforms, IconSettings, IconUpload, IconSparkles, IconScissors, IconComparison, IconScriptAnalyzer, IconTranscriber, IconCalendar, IconFounderReport } from './Icons';
+import { IconDashboard, IconPlatforms, IconSettings, IconComparison, IconCalendar, IconFounderReport } from './Icons';
 
-export type NavSection = 'dashboard' | 'content' | 'schedule' | 'platforms' | 'comparison' | 'captions' | 'scriptAnalyzer' | 'transcriber' | 'editor' | 'settings' | 'social-copy' | 'founder-report';
+export type NavSection = 'dashboard' | 'schedule' | 'platforms' | 'comparison' | 'settings' | 'social-copy' | 'founder-report';
 
 const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?: string }[] = [
   { id: 'dashboard',      label: 'Dashboard',        icon: <IconDashboard      className="w-4 h-4" /> },
-  { id: 'content',        label: 'Content',          icon: <IconContent        className="w-4 h-4" /> },
   { id: 'schedule',       label: 'Posting Schedule', icon: <IconCalendar       className="w-4 h-4" /> },
   { id: 'founder-report', label: 'Founder Report',   icon: <IconFounderReport  className="w-4 h-4" /> },
   { id: 'platforms',      label: 'Platforms',        icon: <IconPlatforms      className="w-4 h-4" /> },
   { id: 'comparison',     label: 'Comparison',       icon: <IconComparison     className="w-4 h-4" /> },
-  { id: 'captions',       label: 'Captions',         icon: <IconSparkles       className="w-4 h-4" />, badge: 'AI' },
-  { id: 'transcriber',    label: 'Transcriber',      icon: <IconTranscriber    className="w-4 h-4" />, badge: 'AI' },
-  { id: 'scriptAnalyzer', label: 'Script Analyzer',  icon: <IconScriptAnalyzer className="w-4 h-4" />, badge: 'AI' },
-  { id: 'editor',         label: 'Editor',           icon: <IconScissors       className="w-4 h-4" />, badge: 'AI' },
   { id: 'settings',       label: 'Settings',         icon: <IconSettings       className="w-4 h-4" /> },
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', 'founder-report'] },
+  { label: 'Analytics', items: ['dashboard', 'founder-report', 'platforms', 'comparison'] },
   { label: 'Workspace', items: ['schedule', 'settings'] },
 ];
 
@@ -91,24 +86,6 @@ export default function Sidebar({ active, onNavigate }: Props) {
         })}
       </nav>
 
-      {/* Import CTA — minimal, no filled button */}
-      <div className="px-3 pb-5">
-        <div className="border border-[rgba(247,231,206,0.06)] rounded-xl p-4">
-          <div className="flex items-center gap-2 mb-2.5">
-            <IconUpload className="w-3.5 h-3.5 text-[var(--text-3)]" />
-            <span className="text-[11px] font-semibold text-[var(--text-2)] tracking-wide">Import Data</span>
-          </div>
-          <p className="text-[10px] text-[var(--text-3)] leading-relaxed mb-3">
-            Upload CSV exports from any platform.
-          </p>
-          <button
-            onClick={() => onNavigate('content')}
-            className="w-full text-[11px] font-semibold text-[var(--gold)] border border-[var(--gold-border)] bg-[var(--gold-dim)] hover:bg-[rgba(212,146,42,0.12)] rounded-lg py-2 transition-colors"
-          >
-            Upload CSV
-          </button>
-        </div>
-      </div>
     </aside>
   );
 }

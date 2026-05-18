@@ -48,6 +48,9 @@ scheduled_posts had RLS with INSERT/READ/DELETE policies but no UPDATE — silen
 ### posts.url NULL backfill + modal video_url fallback
 Two-part fix. First half: YT shorts had 208 historical rows with NULL posts.url from pre-fa30b23 writer paths; backfilled deterministically from content_id (data hygiene, correct fix going forward — all current writers populate url on every insert). Second half: separate-but-related — VideoPreviewModal was reading clip_details.video_url (86.7% NULL across clip_details table), not posts.url. The `post` prop was already passed through VideoModalContext but never destructured at the modal call site. Wired the dead prop, added clipDetail?.video_url ?? post?.url fallback. MP4 preview clips (the 17 manually-uploaded MBM015-CLIP-* headline banners in Supabase Storage) still take precedence; YouTube/IG URLs fill in the rest. 20 PENDING-IG-only clips continue showing the placeholder by design.
 
+### Orphan cleanup pass
+Revived platforms + comparison views into NAV_GROUPS (they were complete and recently-fixed but invisible in the sidebar). Deleted 5 abandoned surfaces: content (analytical view, redundant with platforms/comparison), captions/transcriber/scriptAnalyzer/editor (AI tools never integrated into workflow). Deleted 3 orphan components: TopBar (superseded by inline Dashboard toggle), BestTimeCard, GoalsSection. Dead db.ts exports removed; goals DB table preserved per CLAUDE.md (preservation over deletion when future use uncertain).
+
 ## In progress
 None blocking. All 13 commits on `main` are local and build-clean. Push is Shane's call.
 

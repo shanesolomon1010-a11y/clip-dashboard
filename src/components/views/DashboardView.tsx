@@ -160,7 +160,7 @@ export default function DashboardView({ posts }: Props) {
 
   // Cross-platform view of the same date+contentType slice — feeds the
   // Platforms comparison rail so it keeps showing all platforms even when the
-  // TopBar toggle is set to a single one.
+  // inline platform toggle is set to a single one.
   const allPlatformsDailyPosts = useMemo(() => {
     return allDailyPosts.filter((p) => {
       if (contentType !== 'all' && p.content_type !== contentType) return false;
