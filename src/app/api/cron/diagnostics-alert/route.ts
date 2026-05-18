@@ -4,12 +4,15 @@ export const dynamic = 'force-dynamic';
 
 // Paths into the diagnostics response that read RED by design and should not
 // alert. The Playwright LaunchAgent scraper was deleted 2026-05-18 (per
-// CLAUDE.md); last_scraper_run + scraper_history + studio_snapshots_latest_stat
-// are all downstream of that deletion and will read RED forever.
+// CLAUDE.md). Four checks are downstream of that deletion and will read RED
+// forever: last_scraper_run, scraper_history, studio_snapshots_latest_stat,
+// and coverage (compares posts vs studio_snapshots clip sets — the latter
+// stops growing, so missing-from-studio accumulates over time).
 const KNOWN_RED_PATHS = new Set([
   'cron_health.last_scraper_run.status',
   'scraper_history.status',
   'data_freshness.studio_snapshots_latest_stat.status',
+  'coverage.status',
 ]);
 
 interface AnyObject { [k: string]: unknown }
