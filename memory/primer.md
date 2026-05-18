@@ -49,6 +49,7 @@ None blocking. All 13 commits on `main` are local and build-clean. Push is Shane
 - **Founder Report tab + Posting Schedule tab not yet verified in browser.** Claude in Chrome only ran TEST 1–4 on Dashboard + PlatformsView + ComparisonView + ContentView. These two tabs got code-level review during the audit but no live click-through.
 - **Modal "Video URL not set yet" empty body.** Looks like `posts.url` is NULL for most rows — data ingestion gap, not rendering. Separate investigation; could be missing in YT sync's metadata pass, IG sync's permalink mapping, or a per-row data quality issue. Probe `SELECT COUNT(*) FROM posts WHERE url IS NULL GROUP BY platform, content_type` first.
 - **Top Content widget design call now closed.** Round 5 made it per-clip; prior rounds had deferred this as an "intentional design decision." Shane decided this round.
+- **Posting Schedule Optimizer — NOT YET BUILT.** Planning conversation past; no code. Decision-trigger: when `scheduled_posts` crosses 200 rows per platform (~6 months of posting history, currently at 38). Then build the statistical analysis + Claude narrative widget on top of PostingScheduleView. Stub for now.
 
 ## Orphan inventory (flagged for revive-or-delete)
 - **Components** mounted nowhere — `TopBar.tsx` (date pills + platform select, replaced inline this session), `BestTimeCard.tsx` (day-of-week eng rate bucket), `GoalsSection.tsx` (per-platform goal-vs-actual). Need decision: delete or revive.
