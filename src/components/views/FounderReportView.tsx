@@ -100,7 +100,7 @@ interface MetricCardProps {
 function MetricCard({ value, label, suffix = '' }: MetricCardProps) {
   const formatted = value % 1 === 0
     ? value.toLocaleString()
-    : value.toFixed(1);
+    : value.toLocaleString(undefined, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
   return (
     <div className="bg-[var(--bg-card)] border border-white/[0.05] rounded-2xl p-6">

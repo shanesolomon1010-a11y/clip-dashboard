@@ -73,6 +73,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           .gte('stat_date', startDate)
           .lte('stat_date', endDate)
           .or('clip_details_code.is.null,clip_details_code.not.like.PENDING-%')
+          .order('id', { ascending: true })
           .range(from, from + PAGE - 1);
         if (error) {
           logSupabaseError('statRows', error);
@@ -110,6 +111,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           .gte('posted_at', startDate)
           .lte('posted_at', `${endDate}T23:59:59.999Z`)
           .or('clip_details_code.is.null,clip_details_code.not.like.PENDING-%')
+          .order('id', { ascending: true })
           .range(from, from + PAGE - 1);
         if (error) {
           logSupabaseError('postedRows', error);
