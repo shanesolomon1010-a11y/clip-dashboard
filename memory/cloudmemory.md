@@ -2721,3 +2721,97 @@ Changed files:
 Changed files:
   - src/components/views/DashboardView.tsx
 
+
+## 2026-05-17 21:04:25 — 649f77d
+**chore: session shutdown — IG cron live + Dashboard UI-vs-data audit complete**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
+
+## 2026-05-17 23:43:03 — 9facd5c
+**fix: founder-report follow-ups (B + C from audit)**
+
+Changed files:
+  - src/app/api/founder-report/route.ts
+  - src/components/views/FounderReportView.tsx
+
+
+## 2026-05-17 23:52:17 — 03c55a5
+**fix: nowrap MetricCard value+suffix (B follow-up)**
+
+Changed files:
+  - src/components/views/FounderReportView.tsx
+
+
+## 2026-05-17 23:59:04 — 44e9e0f
+**fix(rls): add UPDATE policy for scheduled_posts + log Optimizer stub**
+
+Changed files:
+  - memory/primer.md
+  - supabase/migrations/20260517_scheduled_posts_update_policy.sql
+
+
+## 2026-05-18 00:01:17 — 5b738c1
+**docs: trim scheduled_posts migration + log audit in primer Just-completed**
+
+Changed files:
+  - memory/primer.md
+  - supabase/migrations/20260517_scheduled_posts_update_policy.sql
+
+
+## 2026-05-18 00:10:27 — 77618a5
+**data: backfill 208 NULL urls on YT shorts + log in primer**
+
+Changed files:
+  - memory/primer.md
+  - supabase/migrations/20260517_backfill_youtube_shorts_url.sql
+
+
+## 2026-05-18 00:17:25 — d2d7640
+**fix: VideoPreviewModal falls back to post.url when clip_details.video_url is null**
+
+Changed files:
+  - memory/primer.md
+  - src/components/VideoPreviewModal.tsx
+
+
+## 2026-05-18 00:24:22 — 505fbee
+**fix: IG embed collapsed to 2px — switch to direct /embed/ iframe**
+
+Changed files:
+  - src/components/VideoPreviewModal.tsx
+
+
+## 2026-05-18 09:07:57 — c1e38db
+**refactor: orphan cleanup pass — revive 2 nav entries, delete 16 dead files**
+
+Changed files:
+  - memory/primer.md
+  - src/app/api/analyze-script/route.ts
+  - src/app/api/transcribe/route.ts
+  - src/app/page.tsx
+  - src/components/BestTimeCard.tsx
+  - src/components/GoalsSection.tsx
+  - src/components/Icons.tsx
+  - src/components/ScriptAnalyzer/PlatformScoreCard.tsx
+  - src/components/ScriptAnalyzer/ScoreBreakdown.tsx
+  - src/components/ScriptAnalyzer/ScriptInput.tsx
+  - src/components/ScriptAnalyzer/TranscriptionUploader.tsx
+  - src/components/Sidebar.tsx
+  - src/components/TopBar.tsx
+  - src/components/TopPostsTable.tsx
+  - src/components/UploadZone.tsx
+  - src/components/views/CaptionView.tsx
+  - src/components/views/ContentView.tsx
+  - src/components/views/DashboardView.tsx
+  - src/components/views/EditorView.tsx
+  - src/components/views/ScriptAnalyzerView.tsx
+  - src/components/views/TranscriberView.tsx
+  - src/lib/db.ts
+  - src/types/index.ts
+  - src/types/scriptAnalyzer.ts
+
