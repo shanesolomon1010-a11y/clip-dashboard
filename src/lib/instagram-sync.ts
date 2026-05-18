@@ -188,6 +188,7 @@ async function syncOneMedia(
       comments: insights.comments,
       shares: insights.shares,
       saves: insights.saved,
+      avg_view_duration_seconds: insights.avgWatchTimeSeconds,
     };
     console.log(
       `[instagram-sync] bootstrapping ${mediaId} (${clipDetailsCode}) at stat_date ${bootstrapDate} ` +
@@ -213,6 +214,10 @@ async function syncOneMedia(
     comments: clampDelta('comments', clipDetailsCode, insights.comments, previous.comments),
     shares: clampDelta('shares', clipDetailsCode, insights.shares, previous.shares),
     saves: clampDelta('saved', clipDetailsCode, insights.saved, previous.saves),
+    // IG's ig_reels_avg_watch_time is lifetime per-Reel (not a counter), so
+    // we write the current value as-is rather than diffing. See
+    // MediaInsights.avgWatchTimeSeconds comment for the semantic-mismatch note.
+    avg_view_duration_seconds: insights.avgWatchTimeSeconds,
   };
 
   const commentRows = await tolerantFetchComments(mediaId, clipDetailsCode, accessToken);

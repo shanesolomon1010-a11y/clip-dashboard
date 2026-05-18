@@ -169,6 +169,14 @@ export interface MediaInsights {
   shares: number;
   saved: number;
   totalInteractions: number;
+  // Lifetime average watch time per Reel, in seconds. IG returns
+  // ig_reels_avg_watch_time in milliseconds; we convert here. Unlike YT's
+  // per-day avg_view_duration_seconds, this is a single lifetime-to-date
+  // value, so the same number is written on every daily delta row for a
+  // given Reel until IG recomputes it. Mixing daily-YT and lifetime-IG in
+  // a single weighted average is imperfect but directionally useful for
+  // cross-platform tiles.
+  avgWatchTimeSeconds: number;
 }
 
 interface InsightsResponseValue {
@@ -197,6 +205,7 @@ const REELS_METRICS = [
   'shares',
   'saved',
   'total_interactions',
+  'ig_reels_avg_watch_time',
 ] as const;
 
 // Fetches Reels insights for one media. All values returned are LIFETIME
@@ -227,13 +236,14 @@ export async function fetchMediaInsights(
 
   return {
     mediaId,
-    views:             byName.get('views') ?? 0,
-    reach:             byName.get('reach') ?? 0,
-    likes:             byName.get('likes') ?? 0,
-    comments:          byName.get('comments') ?? 0,
-    shares:            byName.get('shares') ?? 0,
-    saved:             byName.get('saved') ?? 0,
-    totalInteractions: byName.get('total_interactions') ?? 0,
+    views:               byName.get('views') ?? 0,
+    reach:               byName.get('reach') ?? 0,
+    likes:               byName.get('likes') ?? 0,
+    comments:            byName.get('comments') ?? 0,
+    shares:              byName.get('shares') ?? 0,
+    saved:               byName.get('saved') ?? 0,
+    totalInteractions:   byName.get('total_interactions') ?? 0,
+    avgWatchTimeSeconds: (byName.get('ig_reels_avg_watch_time') ?? 0) / 1000,
   };
 }
 
