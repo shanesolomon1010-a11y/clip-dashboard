@@ -4,7 +4,7 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD will be the close commit on `main` (local). **22 commits unpushed** on `main` (yesterday's 13 + today's 8 + the close). Branch tracking `origin/main` at `29ee77a` (the pre-yesterday IG-pipeline shutdown). Single `git push origin main` lands everything from both sessions.
+HEAD is `e336ba0` (the close commit) on `main` (local). **1 commit unpushed**: only the close itself. Branch tracking `origin/main` at `c1e38db` (today's orphan cleanup) — the prior 21 commits from yesterday + today already shipped to remote during this session. Single `git push origin main` lands the close commit (primer/lessons/CLAUDE updates).
 
 Yesterday (2026-05-17) was the comprehensive UI-vs-data audit and 6-round Dashboard fix arc. Today (2026-05-18) was the follow-on audit pass: Founder Report verification → Posting Schedule audit → posts.url + modal video_url investigation → IG embed iframe fix → orphan cleanup. Net: dashboard surfaces verified clean, RLS gap closed, 3,076 lines of dead code removed, 3 small UI discrepancies queued for next session.
 
