@@ -42,6 +42,9 @@ Original audit identified 7 issues (D1–D7) plus 2 user-flagged (A: All-Time em
 ### D6 closed-as-by-design
 PENDING-row treatment is now intentionally inconsistent across surfaces: **founder-report excludes PENDING** (founder-facing semantics — un-curated content shouldn't reach stakeholders), **analytical views include PENDING** (operational semantics — see real platform performance during the transient PENDING→mapped window). Diagnostics mirrors founder-report's filter. Both decisions deliberate.
 
+### Posting Schedule audit + RLS UPDATE policy fix
+scheduled_posts had RLS with INSERT/READ/DELETE policies but no UPDATE — silent no-op on post_time edits (same pattern that hit IG cron on 2026-05-15). Fixed via SQL Editor + migration file. Calendar CRUD is otherwise clean: no aggregation drift, no pagination concerns at 76 rows, no .not(is, null) patterns, no D4 keying issues.
+
 ## In progress
 None blocking. All 13 commits on `main` are local and build-clean. Push is Shane's call.
 
