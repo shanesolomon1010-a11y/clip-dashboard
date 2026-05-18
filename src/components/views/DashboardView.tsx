@@ -341,8 +341,14 @@ export default function DashboardView({ posts }: Props) {
             { label: 'Total Likes',       value: formatNum(statsGrid.totalLikes) },
             { label: 'Total Comments',    value: formatNum(statsGrid.totalComments) },
             { label: 'Total Shares',      value: formatNum(statsGrid.totalShares) },
-            { label: 'Avg View Duration', value: fmtDuration(statsGrid.avgDuration) },
-          ] as { label: string; value: string }[]).map(({ label, value }) => {
+            {
+              label: 'Avg View Duration',
+              value: platform === 'instagram' ? 'N/A' : fmtDuration(statsGrid.avgDuration),
+              caption: platform === 'all' ? 'YouTube only' : undefined,
+            },
+          ] as { label: string; value: string; caption?: string }[])
+            .filter(({ label }) => !(label === 'Unique Viewers' && platform === 'instagram'))
+            .map(({ label, value, caption }) => {
             if (label === 'Unique Viewers') {
               return (
                 <div key={label} className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4">
@@ -381,6 +387,9 @@ export default function DashboardView({ posts }: Props) {
               <div key={label} className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--text-3)] mb-2">{label}</p>
                 <p className="text-2xl font-bold tabular-nums leading-none" style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{value}</p>
+                {caption && (
+                  <p className="text-[10px] text-[var(--text-3)] mt-1.5">{caption}</p>
+                )}
               </div>
             );
           })}
