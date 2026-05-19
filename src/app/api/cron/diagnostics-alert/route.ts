@@ -55,7 +55,18 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const origin = new URL(request.url).origin;
-  const diagRes = await fetch(`${origin}/api/diagnostics`, { cache: 'no-store' });
+  // Vercel deployment-protection workaround: on scheduled invocations, the
+  // cron infra routes to a protected alias domain (Protect Cron Jobs). The
+  // primary request bypasses protection via the Bearer header Vercel sets;
+  // any secondary fetch back to ${origin} hits the same protected alias and
+  // gets a 401 HTML auth wall unless it carries the same Bearer. Manual curls
+  // against the public production URL bypass this entirely because they
+  // never touch the protected alias. Propagate CRON_SECRET so both paths
+  // work. Same pattern for any future cross-route fetch in this project.
+  const diagRes = await fetch(`${origin}/api/diagnostics`, {
+    cache: 'no-store',
+    headers: { Authorization: `Bearer ${cronSecret}` },
+  });
   if (!diagRes.ok) {
     const body = await diagRes.text();
     await postToSlack(
