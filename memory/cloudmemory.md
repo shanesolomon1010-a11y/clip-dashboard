@@ -2815,3 +2815,104 @@ Changed files:
   - src/types/index.ts
   - src/types/scriptAnalyzer.ts
 
+
+## 2026-05-18 09:38:20 — e336ba0
+**chore: session shutdown — Founder Report verified, RLS gap closed, orphan cleanup**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
+
+## 2026-05-18 09:38:34 — 91d3a34
+**chore: correct primer unpushed-count to actual state**
+
+Changed files:
+  - memory/primer.md
+
+
+## 2026-05-18 10:37:07 — 83253cb
+**fix: Dashboard tile platform-awareness — hide Unique Viewers on IG, N/A duration on IG, 'YouTube only' caption on All**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-05-18 10:46:55 — a2cb86d
+**chore: log Round 23 in primer — carryover discrepancies closed**
+
+Changed files:
+  - memory/primer.md
+
+
+## 2026-05-18 13:46:54 — 8ec6bd9
+**chore: hygiene bundle — YT-delay caption, scheduled_posts query harden, delete inactive LaunchAgent**
+
+Changed files:
+  - CLAUDE.md
+  - docs/superpowers/plans/2026-04-11-youtube-studio-sync.md
+  - scripts/README.md
+  - scripts/com.clipstudio.youtubesync.plist
+  - scripts/instagram-insights-probe.ts
+  - scripts/youtube-studio-sync.sh
+  - scripts/youtube-studio-sync.test.ts
+  - scripts/youtube-studio-sync.ts
+  - src/components/views/FounderReportView.tsx
+  - src/components/views/PostingScheduleView.tsx
+  - src/lib/instagram.ts
+
+
+## 2026-05-18 13:48:53 — 912953d
+**fix: add .order() to getTotalViewsPerClip pagination (3a)**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-05-18 13:52:03 — 32da918
+**feat(cron): diagnostics-alert posts RED statuses to Slack every 6h (5b)**
+
+Changed files:
+  - src/app/api/cron/diagnostics-alert/route.ts
+  - vercel.json
+
+
+## 2026-05-18 14:09:21 — 31788bc
+**feat: pull ig_reels_avg_watch_time into IG sync, true weighted-blend Avg View Duration (1b)**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+  - src/lib/instagram-sync.ts
+  - src/lib/instagram.ts
+
+
+## 2026-05-18 14:12:09 — 433ff73
+**feat: pull ig_reels_avg_watch_time into IG sync (1b)**
+
+Changed files:
+  - src/lib/instagram-sync.ts
+  - src/lib/instagram.ts
+
+
+## 2026-05-18 14:14:13 — 83c684c
+**fix(cron): diagnostics-alert noise patches — mute studio_snapshots, no-op when webhook unset**
+
+Changed files:
+  - src/app/api/cron/diagnostics-alert/route.ts
+
+
+## 2026-05-18 14:37:07 — 0496847
+**fix(cron): mute coverage.status — 4th scraper-deletion fallout**
+
+Changed files:
+  - src/app/api/cron/diagnostics-alert/route.ts
+
+
+## 2026-05-18 19:24:42 — 4e80c0f
+**fix(cron): pass Bearer CRON_SECRET on diagnostics-alert secondary fetch**
+
+Changed files:
+  - src/app/api/cron/diagnostics-alert/route.ts
+

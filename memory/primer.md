@@ -4,114 +4,97 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD is `e336ba0` (the close commit) on `main` (local). **1 commit unpushed**: only the close itself. Branch tracking `origin/main` at `c1e38db` (today's orphan cleanup) — the prior 21 commits from yesterday + today already shipped to remote during this session. Single `git push origin main` lands the close commit (primer/lessons/CLAUDE updates).
+HEAD is `4e80c0f` on `main` (the Vercel-protection Bearer fix). All work shipped — `origin/main == 4e80c0f` after multiple background pushes during the cleanup pass. **No unpushed commits.** Working tree clean except for `memory/cloudmemory.md` (post-commit hook artifact, includable in close) and `.claude/worktrees/` (ignored).
 
-Yesterday (2026-05-17) was the comprehensive UI-vs-data audit and 6-round Dashboard fix arc. Today (2026-05-18) was the follow-on audit pass: Founder Report verification → Posting Schedule audit → posts.url + modal video_url investigation → IG embed iframe fix → orphan cleanup. Net: dashboard surfaces verified clean, RLS gap closed, 3,076 lines of dead code removed, 3 small UI discrepancies queued for next session.
+This session was the "fix-only cleanup pass" — six items ranging from a one-line tooltip to a new cron alerter, executed across 7 commits. Closes out the carryover queue that built up over the 2026-05-17 → 2026-05-18 two-day audit arc.
 
-### Commits unpushed on `main` (yesterday + today, oldest → newest)
-**Yesterday (2026-05-17):**
-- `b78f2cd` fix: re-key PENDING posts rows when shorts discovery auto-maps a video
-- `0e9e28a` fix: mirror founder-report's PENDING-shorts filter in diagnostics consistency check
-- `b131a62` fix: Dashboard A+B+D3+D7 — All Time pagination, kill localStorage, wire platform toggle
-- `8619ded` feat: inline platform toggle in DashboardView control row
-- `24ebe57` fix: D1+D2+D5 — lifetime engagement metrics across analytical views
-- `ce23a65` fix: paginate getTotalViewsPerClip to defeat 1000-row response cap
-- `560a37b` fix: include PENDING clips in getTotalViewsPerClip for analytical views
-- `6572803` fix: align getTotalViewsPerClip keying with getLatestPostsPerClip's PENDING fallback
-- `92c5a12` fix: use clipKey at totalsMap population sites, not just lookup sites
-- `1d25889` fix: D4 — per-clip granularity via clipKey, plus NULL-clip_code shorts rescue
-- `5e16e3e` fix: D4 rendering sweep — displayClipCode helper, four-pass keying contract complete
-- `c007bfc` fix: Dashboard per-clip unification + Top Clips by Unique Viewers clickability
-- `649f77d` chore: session shutdown — IG cron live + Dashboard UI-vs-data audit complete
+### Commits unpushed on `main`
+None. All 7 commits in this pass shipped during the session, plus the 4 prior unpushed commits from yesterday/yesterday's close which were pushed in the background early in this session.
 
-**Today (2026-05-18):**
-- `9facd5c` fix: founder-report follow-ups (B + C from audit) — comma-format watch-time, .order('id') on pagination
-- `03c55a5` fix: nowrap MetricCard value+suffix (B follow-up) — prevents "6,204.6 hrs" wrap at All Time
-- `44e9e0f` fix(rls): add UPDATE policy for scheduled_posts + log Optimizer stub
-- `5b738c1` docs: trim scheduled_posts migration + log audit in primer Just-completed
-- `77618a5` data: backfill 208 NULL urls on YT shorts + log in primer
-- `d2d7640` fix: VideoPreviewModal falls back to post.url when clip_details.video_url is null
-- `505fbee` fix: IG embed collapsed to 2px — switch to direct /embed/ iframe
-- `c1e38db` refactor: orphan cleanup pass — revive 2 nav entries, delete 16 dead files
-- (the close commit you're about to write — primer.md / lessons.md / CLAUDE.md updates)
+### Commits shipped this session (oldest → newest)
+- `8ec6bd9` chore: hygiene bundle — YT-delay caption, scheduled_posts query harden, delete inactive LaunchAgent (1a + 2a + 5a)
+- `912953d` fix: add .order() to getTotalViewsPerClip pagination (3a)
+- `32da918` feat(cron): diagnostics-alert posts RED statuses to Slack every 6h (5b)
+- `433ff73` feat: pull ig_reels_avg_watch_time into IG sync (1b)
+- `83c684c` fix(cron): diagnostics-alert noise patches — mute studio_snapshots, no-op when webhook unset
+- `0496847` fix(cron): mute coverage.status — 4th scraper-deletion fallout
+- `4e80c0f` fix(cron): pass Bearer CRON_SECRET on diagnostics-alert secondary fetch
 
-## Just completed (2026-05-17 → 2026-05-18)
+## Just completed
 
-### Health sweep + two cascading fixes (yesterday)
-- **YT cron silent failure (3 days stale)**: diagnosed as `posts_contentid_platform_statdate_key` collision after shorts auto-discovery auto-mapped previously-PENDING content_ids that already had posts rows under their old `PENDING-{contentId}` clip_details_code. Fix: `rekeyPendingPostsToMappedCode()` runs immediately after `setClipDetailContentIdIfNull()` in `shorts-discovery.ts`, shifts existing posts rows to the new code. Plus a one-shot SQL UPDATE for the 4 already-stuck content_ids (3xEuwroHK48, QW4qkjBxYLM, 7WUxFwyHpIw, HOoXWvKsCHc).
-- **Diagnostics consistency check 34% undercount**: `/api/diagnostics`'s recompute query lacked the `.or('clip_details_code.is.null,clip_details_code.not.like.PENDING-%')` filter founder-report applied. One-line fix.
+### Hygiene bundle (8ec6bd9)
+Three small items bundled because each was a one-line or one-file change:
+- **1a (Founder Report YT-delay caption)**: Added a sub-caption under the "Data current through {date}" footer: "YouTube Analytics is 2-3 days delayed; this is the latest available data." Removes ambiguity for stakeholders who might read a 3-day-old date as a cron failure. Edited `src/components/views/FounderReportView.tsx`.
+- **2a (scheduled_posts query hardening)**: Added `.order('scheduled_date', { ascending: true }).order('post_time', { ascending: true }).limit(5000)` to both `loadPosts()` and `refetchPosts()` in `PostingScheduleView.tsx`. Same defensive shape as the founder-report pagination fix. Currently at 76 rows, generous headroom.
+- **5a (LaunchAgent deletion cascade)**: Deleted 4 files (`scripts/youtube-studio-sync.ts`, `.sh`, `.test.ts`, `com.clipstudio.youtubesync.plist`). Updated CLAUDE.md (two rules collapsed to one updated rule about the deletion). Rewrote `scripts/README.md` to a brief directory overview. Annotated `docs/superpowers/plans/2026-04-11-youtube-studio-sync.md` with a "STATUS — DELETED 2026-05-18" header. Cleaned stale comment refs in `src/lib/instagram.ts` and `scripts/instagram-insights-probe.ts`. Net -1,239 lines.
 
-### Six rounds of Dashboard fixes (yesterday, per the audit)
-Original audit identified 7 issues (D1–D7) plus 2 user-flagged (A: All-Time empty; B: localStorage persistence). All addressed across Rounds 1–5 culminating in `c007bfc`. Key invariants now enforced: pagination always uses `.order()`, per-clip keying uses the `clipKey()` helper, JSX renders via `displayClipCode()`, and Top Content widget granularity matches the rest of the Dashboard.
+### getTotalViewsPerClip .order() fix (912953d)
+**This is the actual root cause of the Dashboard 138.8K vs Platforms 138.7K divergence carried over from Round 21.** `getTotalViewsPerClip` paginates 1000 rows at a time but had no stable `.order()`, letting Postgres return rows in undefined order across pages — duplicates/skips silently shifted the lifetime total by ~95 views. One-line fix (`.order('id', { ascending: true })`). Top Content keying via `clipKey()` was always correct; the user's framing of the bug ("Top Content widget buckets by clip_code independently") was the wrong diagnosis — I investigated, found the real cause, and made the smaller correct fix instead of executing the proposed refactor. DB sum (138,800) = Dashboard statsGrid = Platforms now all agree.
 
-### D6 closed-as-by-design (yesterday)
-PENDING-row treatment is now intentionally inconsistent across surfaces: **founder-report excludes PENDING** (founder-facing semantics — un-curated content shouldn't reach stakeholders), **analytical views include PENDING** (operational semantics — see real platform performance during the transient PENDING→mapped window). Diagnostics mirrors founder-report's filter. Both decisions deliberate.
+### Diagnostics alerter (32da918 + 83c684c + 0496847 + 4e80c0f)
+New cron at `/api/cron/diagnostics-alert` running every 6h, posts to Slack via `SLACK_DIAGNOSTICS_WEBHOOK`. Walks the diagnostics response for any `status === 'red'`, mutes a known-RED set, posts a single-line Slack alert via Incoming Webhook with the failing paths + link back to the diagnostics URL.
 
-### Founder Report audit + B/C fixes (today)
-Audited all 7 metric cards across 7d / 30d / All Time. All ground-truth-clean. Two real bugs fixed:
-- **B (comma-format + nowrap)**: MetricCard's decimal branch used `toFixed(1)` which stripped thousands separators; "6204.6 hrs" wrapped to two lines at All Time. Fixed via `toLocaleString` + `whitespace-nowrap` on the value paragraph (two commits: 9facd5c + 03c55a5).
-- **C (.order() on pagination)**: both pagination loops in `/api/founder-report/route.ts` lacked stable ordering — latent multi-page-fetch bug at All Time (5,107 + 4,899 rows / 6+5 page fetches). Added `.order('id', { ascending: true })`. CLAUDE.md rule citation in commit message.
-- **A (sidebar nav)**: deferred-then-closed as not-a-bug. Code looked correct; DevTools repro confirmed bug doesn't reproduce on clean session. Original report was probably clicking from already-active state (no-op).
-- **D (30d numeric drift)**: closed as not-a-bug. UI window shifts ±1 day because `presetRange()` uses UTC date math (`toISOString().slice(0,10)`) while `setDate(getDate()-30)` operates on local date. The 3% "drift" was my ground-truth query missing this — UI is correct.
+Iterated across 4 commits as we discovered structural realities of the diagnostics surface and Vercel's deployment protection:
+- **32da918** — initial route + cron registration (`vercel.json`). Mute list: `last_scraper_run`, `scraper_history`.
+- **83c684c** — two noise patches: added `studio_snapshots_latest_stat.status` to mute list, changed missing-webhook from 500 → 200 with `{ skipped: true }` (Vercel logs stay clean during env-var setup).
+- **0496847** — added `coverage.status` to mute list. Coverage compares posts vs studio_snapshots clip sets over 7d; studio_snapshots stopped growing post-deletion, so the missing-from-studio gap accumulates. 4th scraper-deletion fallout, completes the mute set.
+- **4e80c0f** — propagated `Authorization: Bearer ${cronSecret}` to the secondary fetch. Scheduled cron tick at 7 PM landed a 401 in Slack — Vercel cron routes scheduled invocations to a protected alias domain (Protect Cron Jobs); the primary request bypasses protection via Bearer, but a bare secondary fetch hit the auth wall. Manual curls bypassed this by hitting the public production URL directly, not the protected alias. Inline comment captures the workaround for any future cross-route fetch.
 
-### Posting Schedule audit + RLS UPDATE policy fix (today)
-The "Posting Schedule" tab is a calendar CRUD, NOT an optimizer (primer reference to "Option 1 → Option 2" upgrade was a planning conversation that never translated to code; logged as NOT YET BUILT in carryover). One real bug: `scheduled_posts` had RLS with INSERT/READ/DELETE policies but no UPDATE — silent no-op on `post_time` inline edits (same pattern that hit IG cron on 2026-05-15). Fixed via SQL Editor + migration file `20260517_scheduled_posts_update_policy.sql`. Calendar CRUD is otherwise clean: no aggregation drift, no pagination concerns at 76 rows, no `.not(is, null)` patterns, no D4 keying issues.
+End-of-session manual verifications: `{"alerted":false,"red_paths":[]}` post-deploy. **Definitive verification of the protection fix is the next scheduled tick (1 AM UTC) — see carryover.**
 
-### posts.url NULL backfill + modal video_url fallback (today)
-Two-part fix that became a recovery story:
-- **First half (data hygiene)**: YT shorts had 208 historical rows with NULL posts.url from pre-fa30b23 writer paths; backfilled deterministically from content_id via single UPDATE. Migration file `20260517_backfill_youtube_shorts_url.sql`. All current writers (youtube-sync.ts, youtube-longform-sync.ts, instagram-sync.ts) populate url on every insert — no regression going forward.
-- **Recovery**: backfill verified at DB level (0 NULL urls), but modal STILL showed "Video URL not set yet". Diagnosed: VideoPreviewModal reads `clipDetail?.video_url` from the `clip_details` table (86.7% NULL across that table), not `posts.url`. The `post` prop was passed through VideoModalContext but never destructured at the modal call site. Wired the dead prop, added `clipDetail?.video_url ?? post?.url ?? null` fallback (`d2d7640`). MP4 preview clips (17 manually-uploaded MBM015-CLIP-* headline banners) still take precedence; YouTube/IG URLs fill in the rest. 20 PENDING-IG-only clips continue showing the placeholder by design.
-- **Lesson**: see `tasks/lessons.md` 2026-05-18 — don't recommend a backfill from a UI symptom without tracing the actual rendering column first.
-
-### IG embed iframe fix (today)
-IG reel modal rendered the blockquote + Instagram embed.js script, which produced an iframe with no intrinsic dimensions inside a heightless blockquote → collapsed to 2px. Switched to a direct `/embed/` iframe matching YouTube's pattern (sized 280px container, `className="w-full h-full"`). Net -33 lines: deleted `InstagramEmbed` component and `Window.instgrm` global type declaration; no more third-party script load or race conditions on rapid modal open/close (`505fbee`).
-
-### Round 23 — carryover discrepancies closed (today)
-Three small Dashboard tile fixes closed the carryover queue from the end-of-session ground-truth check: Top Clips by Unique Viewers card now hides when platform === 'instagram' (IG has no unique-viewers source), Avg View Duration shows 'N/A' on IG (matches the Impression CTR pattern), and adds a 'YouTube only' caption on All Platforms (IG contributes nothing to the weighted blend, so the value is YT-only by construction — caption surfaces that). Single bundled commit `83253cb`. Build clean, all tests passed.
-
-### Orphan cleanup pass (today)
-Audited 7 NAV_ITEMS missing from NAV_GROUPS + 3 truly-orphan components. Decisions:
-- **Revived 2 NAV entries**: `platforms` and `comparison` added to NAV_GROUPS Analytics (alongside dashboard + founder-report).
-- **Deleted 5 NAV surfaces + cascade**: content, captions, transcriber, scriptAnalyzer, editor — all 5 view files plus transitive orphans (TopPostsTable, UploadZone, src/components/ScriptAnalyzer/ folder with 4 sub-components, src/types/scriptAnalyzer.ts, src/app/api/transcribe/, src/app/api/analyze-script/, 5 dead icons in Icons.tsx, dead db.ts sections: editor_feedback/goals/captions/script_analyses, GoalMetric+GOAL_METRIC_LABELS in types/index.ts).
-- **Deleted 3 orphan components**: TopBar (superseded), BestTimeCard, GoalsSection.
-- **Preserved**: `goals`, `captions`, `script_analyses`, `editor_feedback` DB tables (per CLAUDE.md — preservation over deletion when future use uncertain).
-- **Also removed**: the "Upload Data → Upload CSV" CTA in the sidebar footer (its target tab was content, now deleted; no other CSV upload surface remains).
-- **Net**: 24 files changed, +13 / -3,076 lines. Build clean. Final sidebar shape: Analytics (Dashboard, Founder Report, Platforms, Comparison) + Workspace (Posting Schedule, Settings) (`c1e38db`).
+### IG sync metric expansion (433ff73)
+Pulled `ig_reels_avg_watch_time` into the IG sync pipeline:
+- `src/lib/instagram.ts`: `REELS_METRICS` gains `'ig_reels_avg_watch_time'`; `MediaInsights` gains `avgWatchTimeSeconds` (IG returns ms, divided by 1000). Semantic-mismatch note inline: IG's value is lifetime-per-Reel (not a per-day delta like YT's), so we write it as-is rather than diffing.
+- `src/lib/instagram-sync.ts`: writes `avg_view_duration_seconds` on both bootstrap and delta rows.
+- **Dashboard UI Avg View Duration tile intentionally unchanged.** The "YouTube only" caption + IG → "N/A" override stay until enough IG rows accumulate (~24h of cron ticks) to make the weighted blend meaningful. UI flip is a future-session decision.
+- Forward-only: historical 269 IG rows stay NULL.
 
 ## In progress
-None. All 22 commits on `main` are local and build-clean. Push is Shane's call.
+None. Carryover queue is empty after this pass; what remains is verification waiting.
 
 ## Carryover for next session
 
-### Three small UI discrepancies surfaced in end-of-session ground-truth check
-- **(a) Dashboard All Time YT shows 138.8K but Platforms shows 138.7K** (ground truth 138,705). Two aggregation paths diverge by ~50-100 views. Likely filter mismatch between `getAllPostsByDate` per-day SUM and `getTotalViewsPerClip` clip-level SUM. Both use `clipKey` but one of them may be filtering differently. Diagnosis: run both functions against the same input, compare row sets.
-- **(b) Top Clips by Unique Viewers widget on Dashboard ignores platform filter** — shows YouTube clips when Instagram filter is active. Either (i) apply the platform filter in the widget's data fetch, or (ii) add an explicit "YouTube only" label and accept that the widget is YT-scoped by design (YT is the only platform with unique_viewers data anyway).
-- **(c) Avg View Duration UI shows 0:42, ground truth is 133.8s (2:13)** — ~3x divergence. Suggests weighted-vs-simple-average mismatch or YT-only vs all-platforms scoping issue. Low priority since metric isn't load-bearing.
+### Vercel protection-fix verification — wait for 1 AM UTC scheduled tick
+The 4e80c0f Bearer-propagation fix is the surgical version of the workaround. Manual curl post-deploy returns clean `{"alerted":false,"red_paths":[]}`, but that path never hits the protected alias. **Definitive proof comes from the next scheduled tick.** Two outcomes:
+- **Silent success** → fix held. Mute baseline + protection fix both correct. Move on.
+- **Another 401 warning in Slack** → Option B fallback: extract diagnostics computation logic from `src/app/api/diagnostics/route.ts` into a shared lib (`src/lib/diagnostics.ts`) exporting a `buildDiagnostics()` function. Both the route handler and the cron alerter call it directly — no HTTP hop, no auth wall. ~30 min refactor. Surface the split before doing it.
 
-### Still pending from prior carryover (verify status before acting)
-- **Founder Report tab + Posting Schedule tab** both got code + ground-truth-level audits today; Founder Report was browser-verified by Claude in Chrome. Posting Schedule has the RLS fix shipped but not browser-verified end-to-end (specifically the post_time edit happy path now that the policy is in place).
-- **Posting Schedule Optimizer — NOT YET BUILT.** Planning conversation past; no code. Decision-trigger: when `scheduled_posts` crosses 200 rows per platform (~6 months of posting history, currently at 38 per platform). Then build the statistical analysis + Claude narrative widget on top of PostingScheduleView. Stub for now.
+### IG avg_view_duration_seconds populate check (24h after first cron tick)
+After ~24h of IG cron ticks (every 6h), sanity-check that the new column is flowing:
+```sql
+SELECT COUNT(avg_view_duration_seconds) FROM posts WHERE platform='instagram';
+```
+If > 0, the metric is flowing. If 0, debug the IG sync path — `fetchMediaInsights` may be silently failing the new metric request, or the writer isn't picking up the field.
+
+### Dashboard Avg View Duration UI math flip (deferred decision)
+Once IG `avg_view_duration_seconds` data has accumulated, decide whether to flip the math:
+- Drop the "YouTube only" caption on All Platforms
+- Drop the IG → "N/A" override on the Instagram-only filter
+- Let the existing weighted-blend math (which already skips NULL rows) produce a real cross-platform value
+
+Open question for that future session: is the daily-YT-AVD vs lifetime-IG-AVD semantic mismatch tolerable for a single tile, or should the IG side write to a separate `lifetime_avg_view_duration_seconds` column? Re-read `src/lib/instagram.ts` MediaInsights comment for the prior thinking.
 
 ## Known non-issues (don't escalate)
-- **YT cron `stat_date` trailing today by 2-3 days is the YouTube Analytics API's intrinsic reporting lag, NOT a cron failure.** Confirmed today (2026-05-18) — IG cron at stat_date 5-18, YT cron at stat_date 5-15. Proof YT cron is running fine: YT shorts row count +8 in 24h, +5 view drift on existing rows in same period. Per `tasks/lessons.md` 2026-05-18.
+- **`/api/diagnostics` has no route-level auth.** Verified during this session. The GET handler accepts any request — the 401 we saw on the scheduled tick was Vercel deployment protection, not a route gate. Don't add route-level auth without checking impacts on `buildInternalConsistency`'s sub-fetch to `/api/founder-report` (which already passes `x-dashboard-secret`).
+- **YT cron stat_date trailing today by 2-3 days is intrinsic.** Per CLAUDE.md and lessons.md 2026-05-18. Cron itself runs fine.
+- **`cron_health.last_scraper_run`, `scraper_history.status`, `data_freshness.studio_snapshots_latest_stat.status`, `coverage.status` all RED forever.** All four are downstream of the Playwright LaunchAgent deletion (2026-05-18). All four are explicitly muted in `KNOWN_RED_PATHS` so the alerter ignores them. Don't try to "fix" any of them by re-creating the scraper.
 
 ## Data shape facts (still current)
-- **Modal URL backfill holds**: 0 NULL urls across 5,385 total `posts` rows (1,395 YT shorts + 3,721 YT long_form + 269 IG reels). All current writers populate url on every insert.
-- **52 distinct shorts** in `posts` under 11 distinct clip_codes (10 mapped + 1 PENDING). Post-D4: visible as 52 individual clip entries in analytical views.
-- **16 long-form videos** with `clip_code = the full title` (NOT "MBM016" — that's Shorts-episode framing). 16 distinct clip_codes, NULL clip_details_code, 1:1 with content_id.
-- **54+ IG Reels** all currently `clip_code='PENDING'` because no captions match `/MBM\d{3}-CLIP-\d{3}/`. Distinct via `clip_details_code='PENDING-IG-{mediaId}'`. Post-D4, each is a distinct entry.
+- **5,123 YT posts rows** across 1,062 distinct stat_dates (2023-06-16 → 2026-05-15). 69 distinct clip keys. 0 NULL clip_code AND clip_details_code (orphan-free).
+- **269 IG posts rows** — historically all NULL `avg_view_duration_seconds`. Going forward, new rows populate via 433ff73.
+- **5,392 total posts rows.** Lifetime YT view total per `getTotalViewsPerClip('youtube')` now correctly reports 138,800 (was reporting 138,705 pre-912953d due to pagination-without-order skips).
+- **No Slack webhook configured yet OR it was configured during this session** — manual curl returned `alerted: true` on the first fire, proving the env var IS set. (User likely added it between commits 32da918 and the first fire-test.)
 
 ## Shared helpers in db.ts
-- `clipKey({ clip_code?, clip_details_code?, platform })` → string. Per-clip key for any lookup table. Prefers clip_details_code, falls back to clip_code, then "unknown::{platform}".
-- `displayClipCode({ clip_code?, clip_details_code? })` → string. User-facing label. Same precedence minus platform suffix.
-- `ClipTotals` interface — return shape from `getTotalViewsPerClip` including total_likes/comments/shares/saves.
+- `clipKey({ clip_code?, clip_details_code?, platform })` — string per-clip lookup key.
+- `displayClipCode({ clip_code?, clip_details_code? })` — user-facing label.
+- `ClipTotals` — return shape from `getTotalViewsPerClip` including all engagement totals.
 
 ## Next natural action (in priority order)
-1. **Push the 22 unpushed commits** to ship both sessions' work to prod (Shane's call — run `git push origin main` manually).
-2. **Browser-verify post-deploy**: (i) IG modal embed renders at 280px not 2px; (ii) modal URL fallback shows YouTube iframe for shorts/long-form; (iii) sidebar has Dashboard + Founder Report + Platforms + Comparison + Posting Schedule + Settings only; (iv) post_time inline edit on Posting Schedule actually persists across refresh.
-3. **Investigate discrepancy (a)** — Dashboard vs Platforms All Time YT views diverge by ~50-100. Single-function diff likely.
-4. **Investigate discrepancy (b)** — Top Clips by Unique Viewers platform filter. Pick (i) wire filter or (ii) explicit YT-only label.
-5. **Investigate discrepancy (c)** — Avg View Duration 3x mismatch. Lowest priority.
+1. **Wait for the 1 AM UTC diagnostics-alert tick.** No action required from anyone; just observe whether Slack stays silent (good) or sends a 401 warning (triggers Option B).
+2. **24h after the IG cron started populating duration** (so roughly mid-day 2026-05-19+), run the IG AVD count check above. Confirm metric is flowing.
+3. **Pick the next session's focus** — clip production / social copy / new dashboard features. The fix queue is empty.
 
 ## Blocked / open
-- **Supabase MCP read-only** (carried from prior session): still blocked from running migrations + DML via `mcp__supabase__apply_migration` / `execute_sql`. Workflow remains manual SQL Editor for writes. Two migration files committed this session were applied by Shane manually (RLS UPDATE policy + posts.url backfill); MCP was used only for the verifying SELECT after.
+- **Supabase MCP read-only** (carried from prior session): still blocked from running migrations + DML via `mcp__supabase__apply_migration` / `execute_sql`. Workflow remains manual SQL Editor for writes. Read-only SELECT for diagnostics is fine without asking.
+- **`SLACK_DIAGNOSTICS_WEBHOOK` env var** appears to be set in Vercel envs (alerter posted a real Slack message on first fire). Confirm via Slack history — `:rotating_light: *Clip Dashboard diagnostics RED* (1) • coverage.status` should be in the alert channel.
