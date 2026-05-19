@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { buildDiagnostics } from '@/lib/diagnostics';
+import { buildDiagnostics, type DiagnosticsResponse, type AnomalyRow } from '@/lib/diagnostics';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,12 +32,54 @@ function collectRedPaths(obj: unknown, prefix = ''): string[] {
   return out;
 }
 
+function countStatuses(obj: unknown, counts = { green: 0, yellow: 0, red: 0 }): { green: number; yellow: number; red: number } {
+  if (obj === null || typeof obj !== 'object') return counts;
+  for (const [k, v] of Object.entries(obj as AnyObject)) {
+    if (k === 'status' && (v === 'green' || v === 'yellow' || v === 'red')) {
+      counts[v as 'green' | 'yellow' | 'red']++;
+    } else if (typeof v === 'object' && v !== null) {
+      countStatuses(v, counts);
+    }
+  }
+  return counts;
+}
+
+function formatHours(h: number | null): string {
+  if (h == null) return 'n/a';
+  if (h < 1) return `${Math.round(h * 60)}m ago`;
+  return `${Math.round(h * 10) / 10}h ago`;
+}
+
+function formatAnomalyLines(anomalies: AnomalyRow[]): string {
+  if (anomalies.length === 0) return '';
+  const lines = anomalies.map((a) => {
+    const kind = a.kind.replace(/_/g, ' ');
+    return `  • [${a.platform}] \`${a.content_id}\` — ${kind}: ${a.detail}`;
+  });
+  return `\n*Top anomalies:*\n${lines.join('\n')}`;
+}
+
 async function postToSlack(webhook: string, text: string): Promise<void> {
-  await fetch(webhook, {
+  const res = await fetch(webhook, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => '');
+    throw new Error(`Slack ${res.status}: ${body.slice(0, 200)}`);
+  }
+}
+
+async function trySlackPost(webhook: string, text: string): Promise<void> {
+  try {
+    await postToSlack(webhook, text);
+  } catch (err) {
+    console.error('[diagnostics-alert] postToSlack failed:', {
+      message: err instanceof Error ? err.message : String(err),
+      payload_preview: text.slice(0, 200),
+    });
+  }
 }
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -57,12 +99,12 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const origin = new URL(request.url).origin;
 
-  let data: unknown;
+  let data: DiagnosticsResponse;
   try {
     data = await buildDiagnostics();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    await postToSlack(
+    await trySlackPost(
       webhook,
       `:warning: diagnostics-alert cron: buildDiagnostics threw. ${msg.slice(0, 300)}`,
     );
@@ -70,16 +112,33 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const redPaths = collectRedPaths(data);
+  const isHeartbeatTick = new Date().getUTCHours() === 0;
+
+  // Daily heartbeat at 00:00 UTC, regardless of red_paths.
+  if (isHeartbeatTick) {
+    const counts = countStatuses(data);
+    const ytShort = data.cron_health.last_youtube_sync_short.hours_ago;
+    const ytLong = data.cron_health.last_youtube_sync_longform.hours_ago;
+    const ig = data.cron_health.last_instagram_sync.hours_ago;
+    await trySlackPost(
+      webhook,
+      `:bar_chart: *Clip Dashboard daily heartbeat* — ${counts.green} green, ${counts.yellow} yellow, ${counts.red} red.\n` +
+        `Last syncs: YT shorts ${formatHours(ytShort)}, YT longform ${formatHours(ytLong)}, IG ${formatHours(ig)}.`,
+    );
+  }
 
   if (redPaths.length === 0) {
-    return NextResponse.json({ alerted: false, red_paths: [] });
+    return NextResponse.json({ alerted: isHeartbeatTick, red_paths: [], heartbeat: isHeartbeatTick });
   }
 
   const lines = redPaths.map((p) => `• \`${p}\``).join('\n');
-  await postToSlack(
+  const anomalyDetail = redPaths.includes('anomaly_check.status')
+    ? formatAnomalyLines(data.anomaly_check.top_anomalies)
+    : '';
+  await trySlackPost(
     webhook,
-    `:rotating_light: *Clip Dashboard diagnostics RED* (${redPaths.length})\n${lines}\n\nDetails: ${origin}/api/diagnostics`,
+    `:rotating_light: *Clip Dashboard diagnostics RED* (${redPaths.length})\n${lines}${anomalyDetail}\n\nDetails: ${origin}/api/diagnostics`,
   );
 
-  return NextResponse.json({ alerted: true, red_paths: redPaths });
+  return NextResponse.json({ alerted: true, red_paths: redPaths, heartbeat: isHeartbeatTick });
 }
