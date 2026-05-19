@@ -118,16 +118,38 @@ export interface DiagnosticsResponse {
     posts_instagram_null_content_id_count: number;
     studio_snapshots_null_clip_details_code_count: number;
     posts_orphaned_rows: number;
+    posts_shorts_duplicate_row_count: number;
+    posts_longform_duplicate_row_count: number;
+    posts_instagram_duplicate_row_count: number;
     status: StatusLevel;
   };
   auth_health: {
     instagram: AuthHealthCheck;
   };
+  anomaly_check: AnomalyCheck;
   internal_consistency: ConsistencyCheck;
   drift_check: DriftCheck;
   coverage: CoverageCheck;
   scraper_history: ScraperHistoryCheck;
   generated_at: string;
+}
+
+export interface AnomalyRow {
+  content_id: string;
+  platform: string;
+  kind: 'view_spike' | 'watch_exceeds_views' | 'negative_metric' | 'view_decay';
+  detail: string;
+  current_value: number;
+  previous_value: number;
+  ratio: number | null;
+}
+
+export interface AnomalyCheck {
+  rows_checked: number;
+  anomalies_found: number;
+  top_anomalies: AnomalyRow[];
+  status: StatusLevel;
+  error?: string;
 }
 
 export interface BuildDiagnosticsOptions {
@@ -334,12 +356,17 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
     if (c && !known.has(c)) orphaned++;
   }
 
+  const duplicates = await countDuplicateRows();
+
   const status = aggregateStatus(
     nullCountStatus(postsNullContentId),
     nullCountStatus(postsNullClipDetailsCodeShort),
     nullCountStatus(postsInstagramNullContentId),
     nullCountStatus(studioNullClipDetailsCode),
     nullCountStatus(orphaned),
+    nullCountStatus(duplicates.shorts),
+    nullCountStatus(duplicates.longform),
+    nullCountStatus(duplicates.instagram),
   );
 
   return {
@@ -348,8 +375,233 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
     posts_instagram_null_content_id_count: postsInstagramNullContentId,
     studio_snapshots_null_clip_details_code_count: studioNullClipDetailsCode,
     posts_orphaned_rows: orphaned,
+    posts_shorts_duplicate_row_count: duplicates.shorts,
+    posts_longform_duplicate_row_count: duplicates.longform,
+    posts_instagram_duplicate_row_count: duplicates.instagram,
     status,
   };
+}
+
+// Pulls every (clip_details_code | content_id, platform, stat_date) tuple from
+// posts and counts duplicates per group in JS. supabase-js can't express HAVING
+// directly. ~5.4k rows current; paginated 1000-at-a-time per the data-layer
+// SELECT 1000-row cap (see CLAUDE.md "Supabase 1000-row response cap").
+async function countDuplicateRows(): Promise<{ shorts: number; longform: number; instagram: number }> {
+  type Row = {
+    clip_details_code: string | null;
+    content_id: string | null;
+    platform: string | null;
+    stat_date: string | null;
+    content_type: string | null;
+  };
+
+  const all: Row[] = [];
+  const PAGE = 1000;
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('clip_details_code, content_id, platform, stat_date, content_type')
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    all.push(...(data as Row[]));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+
+  const shortsCounts = new Map<string, number>();
+  const longformCounts = new Map<string, number>();
+  const igCounts = new Map<string, number>();
+  for (const r of all) {
+    if (!r.platform || !r.stat_date) continue;
+    if (r.platform === 'youtube' && r.content_type === 'short' && r.clip_details_code) {
+      const key = `${r.clip_details_code}|${r.platform}|${r.stat_date}`;
+      shortsCounts.set(key, (shortsCounts.get(key) ?? 0) + 1);
+    } else if (r.platform === 'youtube' && r.content_type === 'long_form' && r.content_id) {
+      const key = `${r.content_id}|${r.platform}|${r.stat_date}`;
+      longformCounts.set(key, (longformCounts.get(key) ?? 0) + 1);
+    } else if (r.platform === 'instagram' && r.content_id) {
+      const key = `${r.content_id}|${r.platform}|${r.stat_date}`;
+      igCounts.set(key, (igCounts.get(key) ?? 0) + 1);
+    }
+  }
+
+  let shortsDupes = 0;
+  shortsCounts.forEach((c) => { if (c > 1) shortsDupes += c - 1; });
+  let longformDupes = 0;
+  longformCounts.forEach((c) => { if (c > 1) longformDupes += c - 1; });
+  let igDupes = 0;
+  igCounts.forEach((c) => { if (c > 1) igDupes += c - 1; });
+
+  return { shorts: shortsDupes, longform: longformDupes, instagram: igDupes };
+}
+
+async function buildAnomalyCheck(now: Date): Promise<AnomalyCheck> {
+  try {
+    const yesterday = new Date(now);
+    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+    const dayBefore = new Date(now);
+    dayBefore.setUTCDate(dayBefore.getUTCDate() - 2);
+    const yYMD = toYMD(yesterday);
+    const dbYMD = toYMD(dayBefore);
+
+    type Row = {
+      content_id: string | null;
+      platform: string | null;
+      stat_date: string | null;
+      posted_at: string | null;
+      views: number | null;
+      watch_time_hours: number | null;
+      avg_view_duration_seconds: number | null;
+      likes: number | null;
+      comments: number | null;
+      shares: number | null;
+    };
+
+    const rows: Row[] = [];
+    const PAGE = 1000;
+    let from = 0;
+    for (;;) {
+      const { data, error } = await supabase
+        .from('posts')
+        .select('content_id, platform, stat_date, posted_at, views, watch_time_hours, avg_view_duration_seconds, likes, comments, shares')
+        .in('stat_date', [yYMD, dbYMD])
+        .order('id', { ascending: true })
+        .range(from, from + PAGE - 1);
+      if (error || !data || data.length === 0) break;
+      rows.push(...(data as Row[]));
+      if (data.length < PAGE) break;
+      from += PAGE;
+    }
+
+    type Pair = { yesterday?: Row; dayBefore?: Row };
+    const byKey = new Map<string, Pair>();
+    for (const r of rows) {
+      if (!r.content_id || !r.platform || !r.stat_date) continue;
+      const key = `${r.content_id}|${r.platform}`;
+      const pair = byKey.get(key) ?? {};
+      if (r.stat_date === yYMD) pair.yesterday = r;
+      else if (r.stat_date === dbYMD) pair.dayBefore = r;
+      byKey.set(key, pair);
+    }
+
+    const anomalies: AnomalyRow[] = [];
+    let rowsChecked = 0;
+
+    const entries: Array<[string, Pair]> = [];
+    byKey.forEach((pair, key) => entries.push([key, pair]));
+    for (const [key, pair] of entries) {
+      const y = pair.yesterday;
+      if (!y) continue;
+      rowsChecked++;
+      const [content_id, platform] = key.split('|');
+      const yViews = Number(y.views ?? 0);
+      const yWatch = Number(y.watch_time_hours ?? 0);
+
+      // C: negative metrics (any platform).
+      const metrics: Array<[string, number | null]> = [
+        ['views', y.views],
+        ['watch_time_hours', y.watch_time_hours],
+        ['avg_view_duration_seconds', y.avg_view_duration_seconds],
+        ['likes', y.likes],
+        ['comments', y.comments],
+        ['shares', y.shares],
+      ];
+      for (const [name, val] of metrics) {
+        if (val != null && Number(val) < 0) {
+          anomalies.push({
+            content_id,
+            platform,
+            kind: 'negative_metric',
+            detail: `${name}=${val}`,
+            current_value: Number(val),
+            previous_value: 0,
+            ratio: null,
+          });
+        }
+      }
+
+      // B: watch_time exceeds 1.0 hr/view (physics ceiling per assignment).
+      if (yViews > 0 && yWatch > yViews * 1.0) {
+        anomalies.push({
+          content_id,
+          platform,
+          kind: 'watch_exceeds_views',
+          detail: `${yWatch}h watch / ${yViews} views = ${(yWatch / yViews).toFixed(2)}h/view`,
+          current_value: yWatch,
+          previous_value: yViews,
+          ratio: yWatch / yViews,
+        });
+      }
+
+      // A + D: day-over-day comparisons (need prev day).
+      const d = pair.dayBefore;
+      if (d) {
+        const dViews = Number(d.views ?? 0);
+        if (dViews > 0 && yViews > 100 * dViews) {
+          anomalies.push({
+            content_id,
+            platform,
+            kind: 'view_spike',
+            detail: `${yViews} views yesterday vs ${dViews} day-before (${(yViews / dViews).toFixed(1)}x)`,
+            current_value: yViews,
+            previous_value: dViews,
+            ratio: yViews / dViews,
+          });
+        }
+        if (dViews > 0 && yViews < 0.10 * dViews) {
+          // Skip first 3 days post-upload (organic spike → drop is normal).
+          let daysSinceUpload: number | null = null;
+          if (y.posted_at) {
+            const upload = new Date(y.posted_at);
+            daysSinceUpload = (now.getTime() - upload.getTime()) / (1000 * 60 * 60 * 24);
+          }
+          if (daysSinceUpload == null || daysSinceUpload > 3) {
+            anomalies.push({
+              content_id,
+              platform,
+              kind: 'view_decay',
+              detail: `${yViews} views yesterday vs ${dViews} day-before (${((yViews / dViews) * 100).toFixed(0)}%)`,
+              current_value: yViews,
+              previous_value: dViews,
+              ratio: yViews / dViews,
+            });
+          }
+        }
+      }
+    }
+
+    // Sort by severity. Hard anomalies (view_spike, watch_exceeds_views,
+    // negative_metric) always outrank decays. Within hard, larger ratio first.
+    const HARD = new Set(['view_spike', 'watch_exceeds_views', 'negative_metric']);
+    anomalies.sort((a, b) => {
+      const aHard = HARD.has(a.kind) ? 1 : 0;
+      const bHard = HARD.has(b.kind) ? 1 : 0;
+      if (aHard !== bHard) return bHard - aHard;
+      return (b.ratio ?? 0) - (a.ratio ?? 0);
+    });
+    const top = anomalies.slice(0, 5);
+
+    const hasHard = anomalies.some((a) => HARD.has(a.kind));
+    const hasSoft = anomalies.some((a) => a.kind === 'view_decay');
+    const status: StatusLevel = hasHard ? 'red' : hasSoft ? 'yellow' : 'green';
+
+    return {
+      rows_checked: rowsChecked,
+      anomalies_found: anomalies.length,
+      top_anomalies: top,
+      status,
+    };
+  } catch (err) {
+    return {
+      rows_checked: 0,
+      anomalies_found: 0,
+      top_anomalies: [],
+      status: 'red',
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
 }
 
 async function buildAuthHealth(now: Date): Promise<DiagnosticsResponse['auth_health']> {
@@ -725,6 +977,7 @@ export async function buildDiagnostics(
     data_freshness,
     schema_integrity,
     auth_health,
+    anomaly_check,
     internal_consistency,
     drift_check,
     coverage,
@@ -734,6 +987,7 @@ export async function buildDiagnostics(
     buildDataFreshness(now),
     buildSchemaIntegrity(),
     buildAuthHealth(now),
+    buildAnomalyCheck(now),
     buildInternalConsistency(now),
     buildDriftCheck(now, driftWindowDays, driftPctYellow, driftPctRed),
     buildCoverage(now),
@@ -752,6 +1006,7 @@ export async function buildDiagnostics(
     data_freshness,
     schema_integrity,
     auth_health,
+    anomaly_check,
     internal_consistency,
     drift_check,
     coverage,
