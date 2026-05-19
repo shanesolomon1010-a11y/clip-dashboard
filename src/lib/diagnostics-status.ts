@@ -46,6 +46,13 @@ export function nullCountStatus(count: number): StatusLevel {
   return 'red';
 }
 
+export function tokenExpiryStatus(daysRemaining: number | null): StatusLevel {
+  if (daysRemaining === null || !isFiniteNumber(daysRemaining)) return 'red';
+  if (daysRemaining <= 3) return 'red';
+  if (daysRemaining <= 14) return 'yellow';
+  return 'green';
+}
+
 export function scraperRunStatus(runsLast7Days: number): StatusLevel {
   if (!isFiniteNumber(runsLast7Days) || runsLast7Days < 0) return 'red';
   if (runsLast7Days >= 5) return 'green';

@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { supabaseAdmin } from '@/lib/instagram';
 import { buildFounderReport } from '@/lib/founder-report';
 import {
   freshnessStatus,
@@ -6,9 +7,16 @@ import {
   statFreshnessStatus,
   nullCountStatus,
   scraperRunStatus,
+  tokenExpiryStatus,
   aggregateStatus,
   type StatusLevel,
 } from '@/lib/diagnostics-status';
+
+// IG cron runs 4×/day (every 6h via vercel.json); use tighter thresholds than
+// the YT defaults so an 8h gap is yellow, 16h is red. Hardcoded — not exposed
+// as query params.
+const IG_FRESHNESS_YELLOW_HOURS = 8;
+const IG_FRESHNESS_RED_HOURS = 16;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -77,6 +85,13 @@ export interface ScraperHistoryCheck {
   status: StatusLevel;
 }
 
+export interface AuthHealthCheck {
+  token_expiry: string | null;
+  days_remaining: number | null;
+  status: StatusLevel;
+  error?: string;
+}
+
 export interface DiagnosticsResponse {
   thresholds: {
     drift_pct_red: number;
@@ -88,19 +103,25 @@ export interface DiagnosticsResponse {
   cron_health: {
     last_youtube_sync_short: FreshnessCheck;
     last_youtube_sync_longform: FreshnessCheck;
+    last_instagram_sync: FreshnessCheck;
     last_scraper_run: FreshnessCheck;
   };
   data_freshness: {
     posts_short_latest_stat: StatDateCheck;
     posts_longform_latest_stat: StatDateCheck;
+    posts_instagram_latest_stat: StatDateCheck;
     studio_snapshots_latest_stat: StatDateCheck;
   };
   schema_integrity: {
     posts_null_content_id_count: number;
     posts_null_clip_details_code_short_count: number;
+    posts_instagram_null_content_id_count: number;
     studio_snapshots_null_clip_details_code_count: number;
     posts_orphaned_rows: number;
     status: StatusLevel;
+  };
+  auth_health: {
+    instagram: AuthHealthCheck;
   };
   internal_consistency: ConsistencyCheck;
   drift_check: DriftCheck;
@@ -175,6 +196,14 @@ async function buildCronHealth(
     .limit(1)
     .maybeSingle();
 
+  const { data: igRow } = await supabase
+    .from('posts')
+    .select('updated_at')
+    .eq('platform', 'instagram')
+    .order('updated_at', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data: scraperRow } = await supabase
     .from('studio_snapshots')
     .select('scraped_at')
@@ -182,21 +211,26 @@ async function buildCronHealth(
     .limit(1)
     .maybeSingle();
 
-  function toCheck(timestamp: string | null | undefined): FreshnessCheck {
+  function toCheck(
+    timestamp: string | null | undefined,
+    yellow: number,
+    red: number,
+  ): FreshnessCheck {
     if (!timestamp) return { timestamp: null, hours_ago: null, status: 'red' };
     const ts = new Date(timestamp);
     const hoursAgo = hoursBetween(now, ts);
     return {
       timestamp,
       hours_ago: Math.round(hoursAgo * 10) / 10,
-      status: freshnessStatus(hoursAgo, yellowHours, redHours),
+      status: freshnessStatus(hoursAgo, yellow, red),
     };
   }
 
   return {
-    last_youtube_sync_short: toCheck(shortRow?.updated_at as string | undefined),
-    last_youtube_sync_longform: toCheck(longRow?.updated_at as string | undefined),
-    last_scraper_run: toCheck(scraperRow?.scraped_at as string | undefined),
+    last_youtube_sync_short: toCheck(shortRow?.updated_at as string | undefined, yellowHours, redHours),
+    last_youtube_sync_longform: toCheck(longRow?.updated_at as string | undefined, yellowHours, redHours),
+    last_instagram_sync: toCheck(igRow?.updated_at as string | undefined, IG_FRESHNESS_YELLOW_HOURS, IG_FRESHNESS_RED_HOURS),
+    last_scraper_run: toCheck(scraperRow?.scraped_at as string | undefined, yellowHours, redHours),
   };
 }
 
@@ -221,6 +255,15 @@ async function buildDataFreshness(now: Date): Promise<DiagnosticsResponse['data_
     .limit(1)
     .maybeSingle();
 
+  const { data: igStatRow } = await supabase
+    .from('posts')
+    .select('stat_date')
+    .eq('platform', 'instagram')
+    .not('stat_date', 'is', null)
+    .order('stat_date', { ascending: false, nullsFirst: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data: studioRow } = await supabase
     .from('studio_snapshots')
     .select('stat_date')
@@ -238,6 +281,7 @@ async function buildDataFreshness(now: Date): Promise<DiagnosticsResponse['data_
   return {
     posts_short_latest_stat: toCheck(shortRow?.stat_date as string | undefined),
     posts_longform_latest_stat: toCheck(longRow?.stat_date as string | undefined),
+    posts_instagram_latest_stat: toCheck(igStatRow?.stat_date as string | undefined),
     studio_snapshots_latest_stat: toCheck(studioRow?.stat_date as string | undefined),
   };
 }
@@ -254,6 +298,14 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
       is: (col: string, value: null) => unknown;
     };
     return tq.eq('content_type', 'short').is('clip_details_code', null);
+  });
+
+  const postsInstagramNullContentId = await countRows('posts', q => {
+    const tq = q as unknown as {
+      eq: (col: string, value: string) => typeof tq;
+      is: (col: string, value: null) => unknown;
+    };
+    return tq.eq('platform', 'instagram').is('content_id', null);
   });
 
   const studioNullClipDetailsCode = await countRows('studio_snapshots', q =>
@@ -285,6 +337,7 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
   const status = aggregateStatus(
     nullCountStatus(postsNullContentId),
     nullCountStatus(postsNullClipDetailsCodeShort),
+    nullCountStatus(postsInstagramNullContentId),
     nullCountStatus(studioNullClipDetailsCode),
     nullCountStatus(orphaned),
   );
@@ -292,10 +345,63 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
   return {
     posts_null_content_id_count: postsNullContentId,
     posts_null_clip_details_code_short_count: postsNullClipDetailsCodeShort,
+    posts_instagram_null_content_id_count: postsInstagramNullContentId,
     studio_snapshots_null_clip_details_code_count: studioNullClipDetailsCode,
     posts_orphaned_rows: orphaned,
     status,
   };
+}
+
+async function buildAuthHealth(now: Date): Promise<DiagnosticsResponse['auth_health']> {
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('instagram_auth')
+      .select('token_expiry')
+      .maybeSingle();
+
+    if (error) {
+      return {
+        instagram: {
+          token_expiry: null,
+          days_remaining: null,
+          status: 'red',
+          error: error.message,
+        },
+      };
+    }
+    if (!data) {
+      return {
+        instagram: {
+          token_expiry: null,
+          days_remaining: null,
+          status: 'red',
+          error: 'no instagram_auth row',
+        },
+      };
+    }
+
+    const expiry = (data as { token_expiry: string }).token_expiry;
+    const expiryDate = new Date(expiry);
+    const daysRemaining = Math.floor(
+      (expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
+    );
+    return {
+      instagram: {
+        token_expiry: expiry,
+        days_remaining: daysRemaining,
+        status: tokenExpiryStatus(daysRemaining),
+      },
+    };
+  } catch (err) {
+    return {
+      instagram: {
+        token_expiry: null,
+        days_remaining: null,
+        status: 'red',
+        error: err instanceof Error ? err.message : String(err),
+      },
+    };
+  }
 }
 
 async function buildInternalConsistency(
@@ -618,6 +724,7 @@ export async function buildDiagnostics(
     cron_health,
     data_freshness,
     schema_integrity,
+    auth_health,
     internal_consistency,
     drift_check,
     coverage,
@@ -626,6 +733,7 @@ export async function buildDiagnostics(
     buildCronHealth(now, freshnessHoursYellow, freshnessHoursRed),
     buildDataFreshness(now),
     buildSchemaIntegrity(),
+    buildAuthHealth(now),
     buildInternalConsistency(now),
     buildDriftCheck(now, driftWindowDays, driftPctYellow, driftPctRed),
     buildCoverage(now),
@@ -643,6 +751,7 @@ export async function buildDiagnostics(
     cron_health,
     data_freshness,
     schema_integrity,
+    auth_health,
     internal_consistency,
     drift_check,
     coverage,
