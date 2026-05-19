@@ -17,7 +17,6 @@ export async function GET(request: Request): Promise<NextResponse> {
       freshnessHoursRed: parseNumberParam(searchParams.get('freshness_hours_red'), 24),
       freshnessHoursYellow: parseNumberParam(searchParams.get('freshness_hours_yellow'), 12),
       driftWindowDays: parseNumberParam(searchParams.get('drift_window_days'), 7),
-      origin: new URL(request.url).origin,
     });
 
     return new NextResponse(JSON.stringify(body), {

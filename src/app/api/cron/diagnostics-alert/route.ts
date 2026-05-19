@@ -57,15 +57,9 @@ export async function GET(request: Request): Promise<NextResponse> {
 
   const origin = new URL(request.url).origin;
 
-  // Direct in-process call — no HTTP hop. Prior approach (fetch ${origin}/api/diagnostics
-  // with Bearer header) was blocked by Vercel deployment-protection on the cron-alias
-  // domain regardless of the Bearer; 1 AM and 7 AM scheduled ticks both 401'd on
-  // 2026-05-19 confirming the workaround doesn't hold. The internal_consistency check
-  // still makes a sub-fetch to /api/founder-report and may hit the same 401 in cron
-  // context — accept it for now, mute internal_consistency.status if it stays RED.
   let data: unknown;
   try {
-    data = await buildDiagnostics({ origin });
+    data = await buildDiagnostics();
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     await postToSlack(

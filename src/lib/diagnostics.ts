@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase';
+import { buildFounderReport } from '@/lib/founder-report';
 import {
   freshnessStatus,
   driftStatus,
@@ -114,7 +115,6 @@ export interface BuildDiagnosticsOptions {
   freshnessHoursRed?: number;
   freshnessHoursYellow?: number;
   driftWindowDays?: number;
-  origin?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,16 +298,7 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
   };
 }
 
-interface FounderReportShape {
-  longFormViews?: number;
-  shortsViews?: number;
-  longFormWatchTimeHours?: number;
-  shortsWatchTimeHours?: number;
-  error?: string;
-}
-
 async function buildInternalConsistency(
-  origin: string | undefined,
   now: Date,
 ): Promise<ConsistencyCheck> {
   const empty: ConsistencyCheck = {
@@ -326,21 +317,20 @@ async function buildInternalConsistency(
     status: 'red',
   };
 
-  if (!origin) {
-    return { ...empty, error: 'origin not provided' };
-  }
-
-  let displayed: FounderReportShape;
+  let displayed: {
+    longFormViews: number;
+    shortsViews: number;
+    longFormWatchTimeHours: number;
+    shortsWatchTimeHours: number;
+  };
   try {
-    const reportUrl = new URL('/api/founder-report?window=30', origin);
-    const res = await fetch(reportUrl.toString(), {
-      cache: 'no-store',
-      headers: { 'x-dashboard-secret': process.env.DASHBOARD_SECRET ?? '' },
-    });
-    displayed = (await res.json()) as FounderReportShape;
-    if (!res.ok || displayed.error) {
-      return { ...empty, error: displayed.error ?? `HTTP ${res.status}` };
-    }
+    const report = await buildFounderReport({ window: 30 });
+    displayed = {
+      longFormViews: report.longFormViews,
+      shortsViews: report.shortsViews,
+      longFormWatchTimeHours: report.longFormWatchTimeHours,
+      shortsWatchTimeHours: report.shortsWatchTimeHours,
+    };
   } catch (err) {
     return { ...empty, error: err instanceof Error ? err.message : String(err) };
   }
@@ -383,10 +373,10 @@ async function buildInternalConsistency(
   longformWatchRecomputed = Math.round(longformWatchRecomputed * 10) / 10;
   shortsWatchRecomputed = Math.round(shortsWatchRecomputed * 10) / 10;
 
-  const longformViewsDisplayed = displayed.longFormViews ?? 0;
-  const shortsViewsDisplayed = displayed.shortsViews ?? 0;
-  const longformWatchDisplayed = displayed.longFormWatchTimeHours ?? 0;
-  const shortsWatchDisplayed = displayed.shortsWatchTimeHours ?? 0;
+  const longformViewsDisplayed = displayed.longFormViews;
+  const shortsViewsDisplayed = displayed.shortsViews;
+  const longformWatchDisplayed = displayed.longFormWatchTimeHours;
+  const shortsWatchDisplayed = displayed.shortsWatchTimeHours;
 
   const deltas = [
     longformViewsDisplayed - longformViewsRecomputed,
@@ -636,7 +626,7 @@ export async function buildDiagnostics(
     buildCronHealth(now, freshnessHoursYellow, freshnessHoursRed),
     buildDataFreshness(now),
     buildSchemaIntegrity(),
-    buildInternalConsistency(options.origin, now),
+    buildInternalConsistency(now),
     buildDriftCheck(now, driftWindowDays, driftPctYellow, driftPctRed),
     buildCoverage(now),
     buildScraperHistory(now),
