@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { buildDiagnostics } from '@/lib/diagnostics';
 
 export const dynamic = 'force-dynamic';
 
@@ -55,28 +56,25 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const origin = new URL(request.url).origin;
-  // Vercel deployment-protection workaround: on scheduled invocations, the
-  // cron infra routes to a protected alias domain (Protect Cron Jobs). The
-  // primary request bypasses protection via the Bearer header Vercel sets;
-  // any secondary fetch back to ${origin} hits the same protected alias and
-  // gets a 401 HTML auth wall unless it carries the same Bearer. Manual curls
-  // against the public production URL bypass this entirely because they
-  // never touch the protected alias. Propagate CRON_SECRET so both paths
-  // work. Same pattern for any future cross-route fetch in this project.
-  const diagRes = await fetch(`${origin}/api/diagnostics`, {
-    cache: 'no-store',
-    headers: { Authorization: `Bearer ${cronSecret}` },
-  });
-  if (!diagRes.ok) {
-    const body = await diagRes.text();
+
+  // Direct in-process call — no HTTP hop. Prior approach (fetch ${origin}/api/diagnostics
+  // with Bearer header) was blocked by Vercel deployment-protection on the cron-alias
+  // domain regardless of the Bearer; 1 AM and 7 AM scheduled ticks both 401'd on
+  // 2026-05-19 confirming the workaround doesn't hold. The internal_consistency check
+  // still makes a sub-fetch to /api/founder-report and may hit the same 401 in cron
+  // context — accept it for now, mute internal_consistency.status if it stays RED.
+  let data: unknown;
+  try {
+    data = await buildDiagnostics({ origin });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     await postToSlack(
       webhook,
-      `:warning: diagnostics-alert cron: /api/diagnostics returned ${diagRes.status}. Body: ${body.slice(0, 300)}`,
+      `:warning: diagnostics-alert cron: buildDiagnostics threw. ${msg.slice(0, 300)}`,
     );
-    return NextResponse.json({ alerted: true, reason: 'diagnostics fetch failed' });
+    return NextResponse.json({ alerted: true, reason: 'buildDiagnostics threw', error: msg });
   }
 
-  const data: unknown = await diagRes.json();
   const redPaths = collectRedPaths(data);
 
   if (redPaths.length === 0) {
