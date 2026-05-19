@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { buildDiagnostics, type DiagnosticsResponse, type AnomalyRow } from '@/lib/diagnostics';
+import { startCronRun, finishCronRun } from '@/lib/cron-runs';
 
 export const dynamic = 'force-dynamic';
 
@@ -98,6 +99,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   const origin = new URL(request.url).origin;
+  const runId = await startCronRun('diagnostics-alert');
 
   let data: DiagnosticsResponse;
   try {
@@ -108,13 +110,16 @@ export async function GET(request: Request): Promise<NextResponse> {
       webhook,
       `:warning: diagnostics-alert cron: buildDiagnostics threw. ${msg.slice(0, 300)}`,
     );
+    // buildDiagnostics threw, but the alerter still did its job (notified Slack).
+    // That's a 'partial' from cron_runs' perspective — the cron ran to completion,
+    // just with an internal error it surfaced.
+    await finishCronRun(runId, 'partial', { errors: 1, error_message: msg });
     return NextResponse.json({ alerted: true, reason: 'buildDiagnostics threw', error: msg });
   }
 
   const redPaths = collectRedPaths(data);
   const isHeartbeatTick = new Date().getUTCHours() === 0;
 
-  // Daily heartbeat at 00:00 UTC, regardless of red_paths.
   if (isHeartbeatTick) {
     const counts = countStatuses(data);
     const ytShort = data.cron_health.last_youtube_sync_short.hours_ago;
@@ -128,6 +133,7 @@ export async function GET(request: Request): Promise<NextResponse> {
   }
 
   if (redPaths.length === 0) {
+    await finishCronRun(runId, 'success', { metadata: { red_paths: 0, heartbeat: isHeartbeatTick } });
     return NextResponse.json({ alerted: isHeartbeatTick, red_paths: [], heartbeat: isHeartbeatTick });
   }
 
@@ -140,5 +146,6 @@ export async function GET(request: Request): Promise<NextResponse> {
     `:rotating_light: *Clip Dashboard diagnostics RED* (${redPaths.length})\n${lines}${anomalyDetail}\n\nDetails: ${origin}/api/diagnostics`,
   );
 
+  await finishCronRun(runId, 'success', { metadata: { red_paths: redPaths.length, heartbeat: isHeartbeatTick } });
   return NextResponse.json({ alerted: true, red_paths: redPaths, heartbeat: isHeartbeatTick });
 }

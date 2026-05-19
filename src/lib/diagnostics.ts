@@ -126,6 +126,7 @@ export interface DiagnosticsResponse {
   auth_health: {
     instagram: AuthHealthCheck;
   };
+  cron_completion: CronCompletionCheck;
   anomaly_check: AnomalyCheck;
   internal_consistency: ConsistencyCheck;
   drift_check: DriftCheck;
@@ -149,6 +150,22 @@ export interface AnomalyCheck {
   anomalies_found: number;
   top_anomalies: AnomalyRow[];
   status: StatusLevel;
+  error?: string;
+}
+
+export interface CronCompletionPerCron {
+  last_success_at: string | null;
+  hours_since_success: number | null;
+  last_run_status: 'running' | 'success' | 'partial' | 'failed' | null;
+  last_run_errors: number;
+  status: StatusLevel;
+}
+
+export interface CronCompletionCheck {
+  youtube_sync: CronCompletionPerCron;
+  youtube_sync_longform: CronCompletionPerCron;
+  instagram_sync: CronCompletionPerCron;
+  diagnostics_alert: CronCompletionPerCron;
   error?: string;
 }
 
@@ -604,6 +621,92 @@ async function buildAnomalyCheck(now: Date): Promise<AnomalyCheck> {
   }
 }
 
+// Per-cron RED thresholds (hours since last 'success'). YT crons run 1x/day;
+// IG runs 4x/day; diagnostics-alert runs 4x/day — IG and diagnostics-alert get
+// tighter thresholds because their normal cadence is hours, not a day.
+const CRON_COMPLETION_RED_HOURS: Record<string, number> = {
+  'youtube-sync': 36,
+  'youtube-sync-longform': 36,
+  'instagram-sync': 12,
+  'diagnostics-alert': 12,
+};
+
+async function buildCronCompletion(now: Date): Promise<CronCompletionCheck> {
+  type Row = {
+    cron_name: string;
+    started_at: string;
+    finished_at: string | null;
+    status: 'running' | 'success' | 'partial' | 'failed';
+    errors: number | null;
+  };
+
+  const empty: CronCompletionPerCron = {
+    last_success_at: null,
+    hours_since_success: null,
+    last_run_status: null,
+    last_run_errors: 0,
+    status: 'red',
+  };
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('cron_runs')
+      .select('cron_name, started_at, finished_at, status, errors')
+      .order('started_at', { ascending: false })
+      .limit(500);
+
+    if (error) {
+      return {
+        youtube_sync: empty,
+        youtube_sync_longform: empty,
+        instagram_sync: empty,
+        diagnostics_alert: empty,
+        error: error.message,
+      };
+    }
+
+    const rows = (data ?? []) as Row[];
+
+    const perCron = (name: string): CronCompletionPerCron => {
+      const lastRun = rows.find((r) => r.cron_name === name);
+      const lastSuccess = rows.find((r) => r.cron_name === name && r.status === 'success');
+      const lastSuccessAt = lastSuccess?.finished_at ?? lastSuccess?.started_at ?? null;
+      const hoursSince = lastSuccessAt
+        ? hoursBetween(now, new Date(lastSuccessAt))
+        : null;
+      const redHours = CRON_COMPLETION_RED_HOURS[name] ?? 36;
+      const lastErrors = lastRun?.errors ?? 0;
+
+      let status: StatusLevel = 'green';
+      if (hoursSince == null || hoursSince >= redHours) status = 'red';
+      else if (lastErrors > 0 || lastRun?.status === 'partial' || lastRun?.status === 'failed') status = 'yellow';
+
+      return {
+        last_success_at: lastSuccessAt,
+        hours_since_success: hoursSince == null ? null : Math.round(hoursSince * 10) / 10,
+        last_run_status: lastRun?.status ?? null,
+        last_run_errors: lastErrors,
+        status,
+      };
+    };
+
+    return {
+      youtube_sync: perCron('youtube-sync'),
+      youtube_sync_longform: perCron('youtube-sync-longform'),
+      instagram_sync: perCron('instagram-sync'),
+      diagnostics_alert: perCron('diagnostics-alert'),
+    };
+  } catch (err) {
+    return {
+      youtube_sync: empty,
+      youtube_sync_longform: empty,
+      instagram_sync: empty,
+      diagnostics_alert: empty,
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 async function buildAuthHealth(now: Date): Promise<DiagnosticsResponse['auth_health']> {
   try {
     const { data, error } = await supabaseAdmin
@@ -977,6 +1080,7 @@ export async function buildDiagnostics(
     data_freshness,
     schema_integrity,
     auth_health,
+    cron_completion,
     anomaly_check,
     internal_consistency,
     drift_check,
@@ -987,6 +1091,7 @@ export async function buildDiagnostics(
     buildDataFreshness(now),
     buildSchemaIntegrity(),
     buildAuthHealth(now),
+    buildCronCompletion(now),
     buildAnomalyCheck(now),
     buildInternalConsistency(now),
     buildDriftCheck(now, driftWindowDays, driftPctYellow, driftPctRed),
@@ -1006,6 +1111,7 @@ export async function buildDiagnostics(
     data_freshness,
     schema_integrity,
     auth_health,
+    cron_completion,
     anomaly_check,
     internal_consistency,
     drift_check,
