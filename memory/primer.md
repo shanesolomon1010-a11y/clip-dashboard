@@ -4,97 +4,96 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD is `4e80c0f` on `main` (the Vercel-protection Bearer fix). All work shipped — `origin/main == 4e80c0f` after multiple background pushes during the cleanup pass. **No unpushed commits.** Working tree clean except for `memory/cloudmemory.md` (post-commit hook artifact, includable in close) and `.claude/worktrees/` (ignored).
+HEAD is `cf3b8b5` on `main` — the Option B refactor extracting `buildDiagnostics` into a shared lib (`src/lib/diagnostics.ts`) and dropping the inter-route HTTP fetch from `/api/cron/diagnostics-alert`. **Deployed and verified live** by manual curl at 18:17 UTC returning `HTTP/2 200 {"alerted":false,"red_paths":[]}` from the new bundle.
 
-This session was the "fix-only cleanup pass" — six items ranging from a one-line tooltip to a new cron alerter, executed across 7 commits. Closes out the carryover queue that built up over the 2026-05-17 → 2026-05-18 two-day audit arc.
+The close commit landing right after this primer carries the lessons + CLAUDE.md updates + this rewrite + `memory/cloudmemory.md` (post-commit-hook auto-dirty). The close commit is **unpushed**; Shane pushes manually after reviewing the handoff.
+
+### Commits shipped this session
+- `cf3b8b5` refactor(cron): extract buildDiagnostics into shared lib, drop inter-route fetch
 
 ### Commits unpushed on `main`
-None. All 7 commits in this pass shipped during the session, plus the 4 prior unpushed commits from yesterday/yesterday's close which were pushed in the background early in this session.
-
-### Commits shipped this session (oldest → newest)
-- `8ec6bd9` chore: hygiene bundle — YT-delay caption, scheduled_posts query harden, delete inactive LaunchAgent (1a + 2a + 5a)
-- `912953d` fix: add .order() to getTotalViewsPerClip pagination (3a)
-- `32da918` feat(cron): diagnostics-alert posts RED statuses to Slack every 6h (5b)
-- `433ff73` feat: pull ig_reels_avg_watch_time into IG sync (1b)
-- `83c684c` fix(cron): diagnostics-alert noise patches — mute studio_snapshots, no-op when webhook unset
-- `0496847` fix(cron): mute coverage.status — 4th scraper-deletion fallout
-- `4e80c0f` fix(cron): pass Bearer CRON_SECRET on diagnostics-alert secondary fetch
+- The close commit being made now (memory/lessons/CLAUDE.md hygiene).
 
 ## Just completed
 
-### Hygiene bundle (8ec6bd9)
-Three small items bundled because each was a one-line or one-file change:
-- **1a (Founder Report YT-delay caption)**: Added a sub-caption under the "Data current through {date}" footer: "YouTube Analytics is 2-3 days delayed; this is the latest available data." Removes ambiguity for stakeholders who might read a 3-day-old date as a cron failure. Edited `src/components/views/FounderReportView.tsx`.
-- **2a (scheduled_posts query hardening)**: Added `.order('scheduled_date', { ascending: true }).order('post_time', { ascending: true }).limit(5000)` to both `loadPosts()` and `refetchPosts()` in `PostingScheduleView.tsx`. Same defensive shape as the founder-report pagination fix. Currently at 76 rows, generous headroom.
-- **5a (LaunchAgent deletion cascade)**: Deleted 4 files (`scripts/youtube-studio-sync.ts`, `.sh`, `.test.ts`, `com.clipstudio.youtubesync.plist`). Updated CLAUDE.md (two rules collapsed to one updated rule about the deletion). Rewrote `scripts/README.md` to a brief directory overview. Annotated `docs/superpowers/plans/2026-04-11-youtube-studio-sync.md` with a "STATUS — DELETED 2026-05-18" header. Cleaned stale comment refs in `src/lib/instagram.ts` and `scripts/instagram-insights-probe.ts`. Net -1,239 lines.
+### Option B refactor (cf3b8b5)
+Background: the 2026-05-18 4e80c0f fix tried to bypass Vercel deployment protection by propagating `Authorization: Bearer ${cronSecret}` to the diagnostics-alert's secondary fetch to `/api/diagnostics`. **Two consecutive scheduled ticks (1 AM and 7 AM UTC) both 401'd despite the Bearer header.** Manual curls succeeded because they hit the public URL, not the protected alias. Hypothesis empirically wrong.
 
-### getTotalViewsPerClip .order() fix (912953d)
-**This is the actual root cause of the Dashboard 138.8K vs Platforms 138.7K divergence carried over from Round 21.** `getTotalViewsPerClip` paginates 1000 rows at a time but had no stable `.order()`, letting Postgres return rows in undefined order across pages — duplicates/skips silently shifted the lifetime total by ~95 views. One-line fix (`.order('id', { ascending: true })`). Top Content keying via `clipKey()` was always correct; the user's framing of the bug ("Top Content widget buckets by clip_code independently") was the wrong diagnosis — I investigated, found the real cause, and made the smaller correct fix instead of executing the proposed refactor. DB sum (138,800) = Dashboard statsGrid = Platforms now all agree.
+Refactor surface:
+- **`src/lib/diagnostics.ts` (new, ~530 lines):** runtime-agnostic `buildDiagnostics(options?: BuildDiagnosticsOptions): Promise<DiagnosticsResponse>`. Owns all 7 check builders (cron_health, data_freshness, schema_integrity, internal_consistency, drift_check, coverage, scraper_history), all helpers, and all types. No `Request`, no `NextResponse`, no header reads. `BuildDiagnosticsOptions` takes the 5 thresholds + `origin` (consumed only by `buildInternalConsistency` for the founder-report sub-fetch).
+- **`src/app/api/diagnostics/route.ts`** (slim, ~37 lines): parses 5 threshold query params, calls `buildDiagnostics({ ..., origin: new URL(request.url).origin })`, wraps in `NextResponse.json` with the existing `Cache-Control: public, s-maxage=60, stale-while-revalidate=30` header. Response shape and 500 error wrapping unchanged. No app-level auth (verified during session — the prior 401s were Vercel protection, not a route gate).
+- **`src/app/api/cron/diagnostics-alert/route.ts`:** dropped the `fetch(${origin}/api/diagnostics)` block and the Bearer-workaround comment. Calls `buildDiagnostics({ origin })` directly in-process. Top-level Bearer auth on the cron route itself, `KNOWN_RED_PATHS`, Slack message format, missing-webhook skip-with-200 all preserved.
 
-### Diagnostics alerter (32da918 + 83c684c + 0496847 + 4e80c0f)
-New cron at `/api/cron/diagnostics-alert` running every 6h, posts to Slack via `SLACK_DIAGNOSTICS_WEBHOOK`. Walks the diagnostics response for any `status === 'red'`, mutes a known-RED set, posts a single-line Slack alert via Incoming Webhook with the failing paths + link back to the diagnostics URL.
+Verification: `npm run build` clean (Next 14.2.35, 22/22 static pages, no type or lint errors). Manual curl at 18:17 UTC returned 200 with new bundle headers. **True cron-context verification was still pending at session close** — see carryover #1.
 
-Iterated across 4 commits as we discovered structural realities of the diagnostics surface and Vercel's deployment protection:
-- **32da918** — initial route + cron registration (`vercel.json`). Mute list: `last_scraper_run`, `scraper_history`.
-- **83c684c** — two noise patches: added `studio_snapshots_latest_stat.status` to mute list, changed missing-webhook from 500 → 200 with `{ skipped: true }` (Vercel logs stay clean during env-var setup).
-- **0496847** — added `coverage.status` to mute list. Coverage compares posts vs studio_snapshots clip sets over 7d; studio_snapshots stopped growing post-deletion, so the missing-from-studio gap accumulates. 4th scraper-deletion fallout, completes the mute set.
-- **4e80c0f** — propagated `Authorization: Bearer ${cronSecret}` to the secondary fetch. Scheduled cron tick at 7 PM landed a 401 in Slack — Vercel cron routes scheduled invocations to a protected alias domain (Protect Cron Jobs); the primary request bypasses protection via Bearer, but a bare secondary fetch hit the auth wall. Manual curls bypassed this by hitting the public production URL directly, not the protected alias. Inline comment captures the workaround for any future cross-route fetch.
+### Stale-bundle alert diagnosed by message-format inspection (no code action)
+After cf3b8b5 deployed, the 12:00 UTC scheduled tick produced a Slack message reading `"diagnostics-alert cron: /api/diagnostics returned 401"`. Investigation outcome:
+- cf3b8b5 committed at 17:09 UTC (12:09 PM CDT) — ~5h **after** the 12:00 UTC tick fired.
+- The string `"/api/diagnostics returned 401"` only exists in pre-cf3b8b5 source. The new bundle uses `"buildDiagnostics threw"` on the same catch path.
+- Conclusion: stale-bundle alert, no code action. Captured as lessons.md technique (2026-05-19, second entry).
 
-End-of-session manual verifications: `{"alerted":false,"red_paths":[]}` post-deploy. **Definitive verification of the protection fix is the next scheduled tick (1 AM UTC) — see carryover.**
+### Diagnostics + cron coverage audit (research only, no code)
+Produced a comprehensive gap-analysis report on what `/api/diagnostics` currently covers vs what the YT/IG cron failure modes actually surface. Output:
+- **7 checks currently covered** (the existing `buildDiagnostics` shape).
+- **8 high-priority gaps identified** — top 3: IG sync coverage (currently zero on diagnostics), per-clip anomaly detection (10× day-over-day view jumps, watch_time > views × max_duration), token-expiry early warning + cron-completion signal.
+- **Prioritized 7-step build queue** with complexity estimates and per-step Shane-action items.
 
-### IG sync metric expansion (433ff73)
-Pulled `ig_reels_avg_watch_time` into the IG sync pipeline:
-- `src/lib/instagram.ts`: `REELS_METRICS` gains `'ig_reels_avg_watch_time'`; `MediaInsights` gains `avgWatchTimeSeconds` (IG returns ms, divided by 1000). Semantic-mismatch note inline: IG's value is lifetime-per-Reel (not a per-day delta like YT's), so we write it as-is rather than diffing.
-- `src/lib/instagram-sync.ts`: writes `avg_view_duration_seconds` on both bootstrap and delta rows.
-- **Dashboard UI Avg View Duration tile intentionally unchanged.** The "YouTube only" caption + IG → "N/A" override stay until enough IG rows accumulate (~24h of cron ticks) to make the weighted blend meaningful. UI flip is a future-session decision.
-- Forward-only: historical 269 IG rows stay NULL.
+Report lives in conversation history; not committed as a doc file (per project convention: tasks/notes live in conversation unless explicitly persisted).
 
 ## In progress
-None. Carryover queue is empty after this pass; what remains is verification waiting.
+None. The audit produced a build queue but Shane scoped the session as research, not building.
 
 ## Carryover for next session
 
-### Vercel protection-fix verification — wait for 1 AM UTC scheduled tick
-The 4e80c0f Bearer-propagation fix is the surgical version of the workaround. Manual curl post-deploy returns clean `{"alerted":false,"red_paths":[]}`, but that path never hits the protected alias. **Definitive proof comes from the next scheduled tick.** Two outcomes:
-- **Silent success** → fix held. Mute baseline + protection fix both correct. Move on.
-- **Another 401 warning in Slack** → Option B fallback: extract diagnostics computation logic from `src/app/api/diagnostics/route.ts` into a shared lib (`src/lib/diagnostics.ts`) exporting a `buildDiagnostics()` function. Both the route handler and the cron alerter call it directly — no HTTP hop, no auth wall. ~30 min refactor. Surface the split before doing it.
+### 1. Option B fix — final cron-context verification still pending
+The 18:00 UTC scheduled tick (first cron-context invocation of the new bundle) had not yet been observed when the session closed. Check Slack for any `:rotating_light:` or `:warning:` message dated 2026-05-19 18:00 UTC or later. Two outcomes map to two next actions:
 
-### IG avg_view_duration_seconds populate check (24h after first cron tick)
-After ~24h of IG cron ticks (every 6h), sanity-check that the new column is flowing:
+- **Silent OR only-pre-existing-mute-list paths in alert** → full fix held end-to-end. Move on to the build queue.
+- **`internal_consistency.status` listed in red_paths** → the founder-report sub-fetch is the open layer. The `buildInternalConsistency` call inside `buildDiagnostics` still makes one HTTP hop to `/api/founder-report`, which in cron context hits the same Vercel-protection 401. Two ways to resolve:
+  - (a) one-line mute: add `'internal_consistency.status'` to `KNOWN_RED_PATHS` in `src/app/api/cron/diagnostics-alert/route.ts`. Cheap but silences a real consistency check.
+  - (b) ~30-min refactor: extract `/api/founder-report`'s computation into `src/lib/founder-report.ts`, call it in-process from `buildInternalConsistency`. Preserves the check. **Recommend (b).**
+
+### 2. Diagnostics gap queue (from this session's audit)
+Build queue, ordered by recommended ship order (full details in audit report — conversation history):
+
+1. **C1 — IG sync coverage** (~30 min, small, no schema). Extend cron_health + data_freshness + schema_integrity with IG-specific subfields. Pure addition to `src/lib/diagnostics.ts`.
+2. **C7 — internal_consistency cron-context fix** (one-liner mute OR ~30-min extract). See carryover #1.
+3. **C5 — anomaly check** (~1.5h, medium). New `buildAnomalyCheck()` flagging views > 100× previous day, watch_time > views × 1.0, etc. Returns top 5 anomalous rows in response so the Slack alert is actionable.
+4. **C6 — postToSlack error handling + daily heartbeat** (~20 min). Meta-alerting hygiene: detect when the alerter itself can't deliver.
+5. **C2 — token expiry early warning** (~30 min). IG token has structured expiry in `instagram_auth.token_expiry`; compute days remaining, surface yellow/red.
+6. **C8 — duplicate-row schema check** (~30 min). `GROUP BY (clip_details_code, platform, stat_date) HAVING COUNT(*) > 1` — joins existing schema_integrity card.
+7. **C3 + C4 — cron_runs table + error surfacing** (bigger, needs migration). Replaces the "rows updated_at" proxy with a real "did this cron complete?" signal.
+
+Open questions Shane should weigh in on before C3 (cron_runs schema shape) and C5 (anomaly thresholds).
+
+### 3. IG `avg_view_duration_seconds` populate check (carried from prior session)
+24h+ after the 2026-05-18 433ff73 IG-sync expansion, run:
 ```sql
 SELECT COUNT(avg_view_duration_seconds) FROM posts WHERE platform='instagram';
 ```
-If > 0, the metric is flowing. If 0, debug the IG sync path — `fetchMediaInsights` may be silently failing the new metric request, or the writer isn't picking up the field.
+> 0 confirms the new metric is flowing.
 
-### Dashboard Avg View Duration UI math flip (deferred decision)
-Once IG `avg_view_duration_seconds` data has accumulated, decide whether to flip the math:
-- Drop the "YouTube only" caption on All Platforms
-- Drop the IG → "N/A" override on the Instagram-only filter
-- Let the existing weighted-blend math (which already skips NULL rows) produce a real cross-platform value
-
-Open question for that future session: is the daily-YT-AVD vs lifetime-IG-AVD semantic mismatch tolerable for a single tile, or should the IG side write to a separate `lifetime_avg_view_duration_seconds` column? Re-read `src/lib/instagram.ts` MediaInsights comment for the prior thinking.
+### 4. Dashboard Avg View Duration UI math flip (carried, deferred)
+Once IG AVD data has accumulated, decide whether to drop the "YouTube only" caption + IG → "N/A" override. Open question: tolerate the daily-YT-AVD vs lifetime-IG-AVD semantic mismatch, or split into a separate `lifetime_avg_view_duration_seconds` column?
 
 ## Known non-issues (don't escalate)
-- **`/api/diagnostics` has no route-level auth.** Verified during this session. The GET handler accepts any request — the 401 we saw on the scheduled tick was Vercel deployment protection, not a route gate. Don't add route-level auth without checking impacts on `buildInternalConsistency`'s sub-fetch to `/api/founder-report` (which already passes `x-dashboard-secret`).
-- **YT cron stat_date trailing today by 2-3 days is intrinsic.** Per CLAUDE.md and lessons.md 2026-05-18. Cron itself runs fine.
-- **`cron_health.last_scraper_run`, `scraper_history.status`, `data_freshness.studio_snapshots_latest_stat.status`, `coverage.status` all RED forever.** All four are downstream of the Playwright LaunchAgent deletion (2026-05-18). All four are explicitly muted in `KNOWN_RED_PATHS` so the alerter ignores them. Don't try to "fix" any of them by re-creating the scraper.
+- **Pre-deploy scheduled ticks 401ing.** The Vercel protected-alias 401s from 12:00 UTC and earlier ran the pre-cf3b8b5 bundle. Don't re-debug.
+- **The 4 KNOWN_RED_PATHS** (`cron_health.last_scraper_run.status`, `scraper_history.status`, `data_freshness.studio_snapshots_latest_stat.status`, `coverage.status`). Structural fallout from scraper deletion 2026-05-18; all explicitly muted in the alerter.
+- **`/api/diagnostics` has no route-level auth.** Verified during this session. The cron-context 401s were Vercel deployment protection, not an app-level gate.
+- **YT cron `stat_date` trailing today by 2-3 days** — intrinsic YouTube Analytics API reporting lag, not a cron failure.
 
-## Data shape facts (still current)
-- **5,123 YT posts rows** across 1,062 distinct stat_dates (2023-06-16 → 2026-05-15). 69 distinct clip keys. 0 NULL clip_code AND clip_details_code (orphan-free).
-- **269 IG posts rows** — historically all NULL `avg_view_duration_seconds`. Going forward, new rows populate via 433ff73.
-- **5,392 total posts rows.** Lifetime YT view total per `getTotalViewsPerClip('youtube')` now correctly reports 138,800 (was reporting 138,705 pre-912953d due to pagination-without-order skips).
-- **No Slack webhook configured yet OR it was configured during this session** — manual curl returned `alerted: true` on the first fire, proving the env var IS set. (User likely added it between commits 32da918 and the first fire-test.)
+## Data shape facts (still current — no schema changes this session)
+- **5,123 YT posts rows** across 69 distinct clip keys, 0 orphans.
+- **269 IG posts rows.** New rows since 433ff73 populate `avg_view_duration_seconds`; historical rows stay NULL.
+- **5,392 total posts rows.** Lifetime YT view total per `getTotalViewsPerClip('youtube')` = 138,800.
 
-## Shared helpers in db.ts
-- `clipKey({ clip_code?, clip_details_code?, platform })` — string per-clip lookup key.
-- `displayClipCode({ clip_code?, clip_details_code? })` — user-facing label.
-- `ClipTotals` — return shape from `getTotalViewsPerClip` including all engagement totals.
+## Architectural pattern established this session
+**Computation that's callable from both an HTTP route and a cron should live in a runtime-agnostic lib** (no `Request` / `NextResponse` / header reads). The HTTP route is a thin wrapper; the cron calls the lib directly. Precedent: `src/lib/diagnostics.ts` (cf3b8b5). Avoids the Vercel deployment-protection trap entirely. Same pattern likely applies to `/api/founder-report` if C7's option (b) is taken.
 
 ## Next natural action (in priority order)
-1. **Wait for the 1 AM UTC diagnostics-alert tick.** No action required from anyone; just observe whether Slack stays silent (good) or sends a 401 warning (triggers Option B).
-2. **24h after the IG cron started populating duration** (so roughly mid-day 2026-05-19+), run the IG AVD count check above. Confirm metric is flowing.
-3. **Pick the next session's focus** — clip production / social copy / new dashboard features. The fix queue is empty.
+1. **Check Slack for the 18:00 UTC + 00:00 UTC ticks** before doing anything else. The outcome decides whether C7 needs the bigger fix or just the one-line mute.
+2. **Push the close commit** (`git push origin main`).
+3. **Pick C1 (IG diagnostics coverage)** as the first build queue item — fastest, smallest, highest value-per-line.
 
 ## Blocked / open
-- **Supabase MCP read-only** (carried from prior session): still blocked from running migrations + DML via `mcp__supabase__apply_migration` / `execute_sql`. Workflow remains manual SQL Editor for writes. Read-only SELECT for diagnostics is fine without asking.
-- **`SLACK_DIAGNOSTICS_WEBHOOK` env var** appears to be set in Vercel envs (alerter posted a real Slack message on first fire). Confirm via Slack history — `:rotating_light: *Clip Dashboard diagnostics RED* (1) • coverage.status` should be in the alert channel.
+- Supabase MCP write tools (`apply_migration`, `execute_sql` for DML) still blocked. Manual SQL Editor workflow for DDL/DML. Read-only SELECT for diagnostics fine without asking.
