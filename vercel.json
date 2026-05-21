@@ -19,7 +19,7 @@
   ],
   "functions": {
     "src/app/api/cron/youtube-sync/route.ts": {
-      "maxDuration": 60
+      "maxDuration": 300
     },
     "src/app/api/cron/youtube-sync-longform/route.ts": {
       "maxDuration": 60
