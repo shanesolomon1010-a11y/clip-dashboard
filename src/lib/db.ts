@@ -93,17 +93,34 @@ function mapPostRow(row: Record<string, unknown>): UnifiedPost {
 
 // Returns one row per clip_code+platform using the latest stat_date.
 // Posts without a clip_code are returned as-is (each row is unique).
+//
+// Paginated to defeat the Supabase 1000-row response cap (CLAUDE.md). Without
+// pagination this silently truncated at 1000 rows once posts exceeded that.
+// Triple .order() — primary stat_date DESC + posted_at DESC for the
+// latest-per-clip contract (rows[0] within each byKey group is the latest),
+// id ASC tiebreaker for stable cross-page ordering.
 export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedPost[]> {
-  let query = supabase
-    .from('posts')
-    .select('*')
-    .order('stat_date', { ascending: false, nullsFirst: false })
-    .order('posted_at', { ascending: false });
+  const PAGE = 1000;
+  const all: Record<string, unknown>[] = [];
+  let from = 0;
+  for (;;) {
+    let query = supabase
+      .from('posts')
+      .select('*')
+      .order('stat_date', { ascending: false, nullsFirst: false })
+      .order('posted_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
 
-  if (platform) query = query.eq('platform', platform);
+    if (platform) query = query.eq('platform', platform);
 
-  const { data, error } = await query;
-  if (error) throw error;
+    const { data, error } = await query;
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    all.push(...(data as Record<string, unknown>[]));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
 
   // Fields written only by the Playwright agent (period aggregates merged onto a
   // specific stat_date row). The Analytics API writes newer daily rows without
@@ -119,14 +136,14 @@ export async function getLatestPostsPerClip(platform?: string): Promise<UnifiedP
   // row.id so each stays as its own unique entry rather than collapsing into
   // a single 'unknown::platform' bucket.
   const byKey = new Map<string, Record<string, unknown>[]>();
-  for (const row of data ?? []) {
+  for (const row of all) {
     const clipCode = row.clip_code as string | null;
     const clipDetailsCode = row.clip_details_code as string | null;
     const key = (clipCode || clipDetailsCode)
       ? clipKey({ clip_code: clipCode, clip_details_code: clipDetailsCode, platform: row.platform as string })
       : (row.id as string);
     if (!byKey.has(key)) byKey.set(key, []);
-    byKey.get(key)!.push(row as Record<string, unknown>);
+    byKey.get(key)!.push(row);
   }
 
   // Use the latest row as the base, then back-fill any null agent-only fields
