@@ -2934,3 +2934,17 @@ Changed files:
   - src/app/api/diagnostics/route.ts
   - src/lib/diagnostics.ts
 
+
+## 2026-05-21 18:35:41 — 034643f
+**fix(cron): bump YT shorts maxDuration to 300s**
+
+Changed files:
+  - vercel.json
+
+
+## 2026-05-21 18:40:41 — 83c8df7
+**chore(db): add posts.updated_at BEFORE UPDATE trigger migration**
+
+Changed files:
+  - supabase/migrations/20260521_posts_updated_at_trigger.sql
+

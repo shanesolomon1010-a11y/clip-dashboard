@@ -4,96 +4,102 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD is `cf3b8b5` on `main` — the Option B refactor extracting `buildDiagnostics` into a shared lib (`src/lib/diagnostics.ts`) and dropping the inter-route HTTP fetch from `/api/cron/diagnostics-alert`. **Deployed and verified live** by manual curl at 18:17 UTC returning `HTTP/2 200 {"alerted":false,"red_paths":[]}` from the new bundle.
+HEAD is `83c8df7` on `main`, **all pushed**. Local matches origin/main. Two major fixes shipped + the 6-item proactive-alerting build queue from May 19 fully landed:
 
-The close commit landing right after this primer carries the lessons + CLAUDE.md updates + this rewrite + `memory/cloudmemory.md` (post-commit-hook auto-dirty). The close commit is **unpushed**; Shane pushes manually after reviewing the handoff.
+1. **6-item diagnostics buildout** (May 19) — IG sync coverage, IG token expiry, anomaly detection, duplicate-row schema check, Slack hardening + daily heartbeat, cron_runs tracking + completion check.
+2. **YT shorts maxDuration bump 60s → 300s** (May 21) — scheduled tick was hitting Vercel's 60s timeout and stuck in `running` status; raised to 5× headroom.
+3. **`posts.updated_at` BEFORE UPDATE trigger** (May 22) — `DEFAULT now()` was bumping INSERT-only, leaving `updated_at` frozen on every ON CONFLICT DO UPDATE. IG cron silently wrote successfully for 3 days without bumping the column. Trigger + function shipped via `supabase/migrations/20260521_posts_updated_at_trigger.sql`, applied manually in SQL Editor, verified end-to-end with both IG and YT shorts manual fires (lag dropped to <50s vs NOW).
 
-### Commits shipped this session
-- `cf3b8b5` refactor(cron): extract buildDiagnostics into shared lib, drop inter-route fetch
+### Commits shipped this multi-session arc
+- `d3d9032` refactor(diagnostics): extract founder-report into shared lib, drop inter-route fetch
+- `356b9bf` feat(diagnostics): IG sync coverage + IG token expiry checks
+- `264cb80` feat(diagnostics): anomaly detection + duplicate-row schema check
+- `ea0958e` feat(cron): Slack hardening + daily heartbeat + anomaly inline
+- `1571582` feat(cron): cron_runs tracking + completion check
+- `034643f` fix(cron): bump YT shorts maxDuration to 300s
+- `83c8df7` chore(db): add posts.updated_at BEFORE UPDATE trigger migration
 
-### Commits unpushed on `main`
-- The close commit being made now (memory/lessons/CLAUDE.md hygiene).
+Plus the close commit landing right after this primer (memory + lessons + CLAUDE.md hygiene). All unpushed at session close, per protocol.
 
 ## Just completed
 
-### Option B refactor (cf3b8b5)
-Background: the 2026-05-18 4e80c0f fix tried to bypass Vercel deployment protection by propagating `Authorization: Bearer ${cronSecret}` to the diagnostics-alert's secondary fetch to `/api/diagnostics`. **Two consecutive scheduled ticks (1 AM and 7 AM UTC) both 401'd despite the Bearer header.** Manual curls succeeded because they hit the public URL, not the protected alias. Hypothesis empirically wrong.
+### IG silent-writes bug (root cause + fix)
+3-day mystery: IG cron reported `status='success', rows_processed=57` while `MAX(posts.updated_at)` stayed pinned at 11:00 UTC May 21. Diagnostics surfaced it as `cron_health.last_instagram_sync` ratcheting to "19h ago" overnight despite the alerter showing all crons running. Root cause: `posts.updated_at` had `DEFAULT now()` but no `BEFORE UPDATE` trigger. ON CONFLICT DO UPDATE on the same `(clip_details_code, platform, stat_date)` tuple updates the row in place but doesn't fire column defaults — `updated_at` is never written by the UPDATE path. IG writes only today's stat_date, so the first daily INSERT bumps `updated_at`; the subsequent 3 ticks UPDATE the same row and leave it pinned. YT was masked because YT Analytics' 2–3 day reporting lag means each daily cron brings in NEW stat_dates → INSERTs → DEFAULT now() fires cleanly.
 
-Refactor surface:
-- **`src/lib/diagnostics.ts` (new, ~530 lines):** runtime-agnostic `buildDiagnostics(options?: BuildDiagnosticsOptions): Promise<DiagnosticsResponse>`. Owns all 7 check builders (cron_health, data_freshness, schema_integrity, internal_consistency, drift_check, coverage, scraper_history), all helpers, and all types. No `Request`, no `NextResponse`, no header reads. `BuildDiagnosticsOptions` takes the 5 thresholds + `origin` (consumed only by `buildInternalConsistency` for the founder-report sub-fetch).
-- **`src/app/api/diagnostics/route.ts`** (slim, ~37 lines): parses 5 threshold query params, calls `buildDiagnostics({ ..., origin: new URL(request.url).origin })`, wraps in `NextResponse.json` with the existing `Cache-Control: public, s-maxage=60, stale-while-revalidate=30` header. Response shape and 500 error wrapping unchanged. No app-level auth (verified during session — the prior 401s were Vercel protection, not a route gate).
-- **`src/app/api/cron/diagnostics-alert/route.ts`:** dropped the `fetch(${origin}/api/diagnostics)` block and the Bearer-workaround comment. Calls `buildDiagnostics({ origin })` directly in-process. Top-level Bearer auth on the cron route itself, `KNOWN_RED_PATHS`, Slack message format, missing-webhook skip-with-200 all preserved.
+Fix: `BEFORE UPDATE` trigger on `posts` that sets `NEW.updated_at = now()`. Migration `20260521_posts_updated_at_trigger.sql`. One existing caller (`youtube-longform-sync.ts:394`) writes `updated_at` explicitly to `posts`; on INSERT the caller's value wins (no trigger fires), on UPDATE the trigger overrides — both end up "approximately the cron run time", which is the contract diagnostics has always assumed.
 
-Verification: `npm run build` clean (Next 14.2.35, 22/22 static pages, no type or lint errors). Manual curl at 18:17 UTC returned 200 with new bundle headers. **True cron-context verification was still pending at session close** — see carryover #1.
+Initial migration apply via Supabase SQL Editor silently failed — `pg_proc` and `pg_trigger` were empty after Shane said "applied". 30 min of "the fix doesn't work" debugging until catalog query revealed the trigger absent. Shane re-ran successfully on second attempt. Verified end-to-end:
+- IG fire: 58 rows touched, MAX(updated_at) 7.87s behind NOW(), 161ms after cron `finished_at`.
+- YT shorts fire: 227 rows (all UPDATEs — YT lag means no new stat_dates today), 46s lag.
+- `/api/diagnostics` `cron_health.last_instagram_sync.status: green`, `hours_ago: 0`.
 
-### Stale-bundle alert diagnosed by message-format inspection (no code action)
-After cf3b8b5 deployed, the 12:00 UTC scheduled tick produced a Slack message reading `"diagnostics-alert cron: /api/diagnostics returned 401"`. Investigation outcome:
-- cf3b8b5 committed at 17:09 UTC (12:09 PM CDT) — ~5h **after** the 12:00 UTC tick fired.
-- The string `"/api/diagnostics returned 401"` only exists in pre-cf3b8b5 source. The new bundle uses `"buildDiagnostics threw"` on the same catch path.
-- Conclusion: stale-bundle alert, no code action. Captured as lessons.md technique (2026-05-19, second entry).
+### YT shorts 60s timeout (mitigated)
+14:00 UTC scheduled ticks on May 20 + May 21 left `cron_runs` rows stuck in `status='running'` with no `finished_at`. Vercel killed the function at 60s before `finishCronRun` ran. Fix: bump `vercel.json` `maxDuration` for `/api/cron/youtube-sync` to 300s (Pro tier). Other crons unchanged. May 22 14:00 UTC scheduled tick ran 61s and succeeded — either deploy timing or Vercel grace margin; can't strictly confirm 300s deploy state from this single data point. Next scheduled tick on the fresh bundle is the clean test.
 
-### Diagnostics + cron coverage audit (research only, no code)
-Produced a comprehensive gap-analysis report on what `/api/diagnostics` currently covers vs what the YT/IG cron failure modes actually surface. Output:
-- **7 checks currently covered** (the existing `buildDiagnostics` shape).
-- **8 high-priority gaps identified** — top 3: IG sync coverage (currently zero on diagnostics), per-clip anomaly detection (10× day-over-day view jumps, watch_time > views × max_duration), token-expiry early warning + cron-completion signal.
-- **Prioritized 7-step build queue** with complexity estimates and per-step Shane-action items.
+### 6-item diagnostics buildout (May 19 session — fully landed)
+Detailed in commits above. Quick map of what each adds to `/api/diagnostics`:
+- **C1**: `cron_health.last_instagram_sync`, `data_freshness.posts_instagram_latest_stat`, `schema_integrity.posts_instagram_null_content_id_count`.
+- **C2**: new `auth_health.instagram` top-level field — surfaces IG token `days_remaining` (RED ≤3, YELLOW ≤14).
+- **C5**: new `anomaly_check` top-level field — view spikes >100× day-over-day, watch_time > views × 1.0, negative metrics, view decay (skipping first 3 days post-upload). Top 5 anomalies returned inline; Slack alert includes them when `anomaly_check.status` is RED.
+- **C8**: 3 new duplicate-row counts in `schema_integrity` (shorts/longform/IG).
+- **C6**: `postToSlack` hardened (throws on non-2xx, caught at call sites with console.error). Daily heartbeat at 00:00 UTC tick with green/yellow/red counts + last-sync hours.
+- **C3+C4**: new `cron_runs` table (migration `20260519_cron_runs.sql`, applied) + `src/lib/cron-runs.ts` with `startCronRun` / `finishCronRun` (sentinel-0 fallback for missing-table). All 4 cron routes wrapped. New `cron_completion` top-level field reads `cron_runs` for actual "did this cron finish?" signal, independent of `posts.updated_at`.
 
-Report lives in conversation history; not committed as a doc file (per project convention: tasks/notes live in conversation unless explicitly persisted).
+Plus Commit 1A (May 19): extracted `/api/founder-report` computation into runtime-agnostic `src/lib/founder-report.ts` so `buildInternalConsistency` calls it in-process instead of via HTTP — eliminates the Vercel deployment-protection 401 risk for the last surviving inter-route fetch. Pattern precedent: cf3b8b5 `src/lib/diagnostics.ts`.
 
 ## In progress
-None. The audit produced a build queue but Shane scoped the session as research, not building.
+None.
 
 ## Carryover for next session
 
-### 1. Option B fix — final cron-context verification still pending
-The 18:00 UTC scheduled tick (first cron-context invocation of the new bundle) had not yet been observed when the session closed. Check Slack for any `:rotating_light:` or `:warning:` message dated 2026-05-19 18:00 UTC or later. Two outcomes map to two next actions:
+### 1. Backstop diagnostic — `rows_processed > 0 ⇒ updated_at moved`  [PRIORITY 1]
+The IG silent-writes bug would have been caught immediately by a check correlating `cron_runs` windows against the corresponding `posts.updated_at` distribution. Shape: per cron, find the most recent `cron_runs` row with `status='success' AND rows_processed > 0`; check that `posts.updated_at >= cron_runs.started_at` exists for at least one row matching the cron's platform/content_type filter. If not, that's a silent-write event — RED.
 
-- **Silent OR only-pre-existing-mute-list paths in alert** → full fix held end-to-end. Move on to the build queue.
-- **`internal_consistency.status` listed in red_paths** → the founder-report sub-fetch is the open layer. The `buildInternalConsistency` call inside `buildDiagnostics` still makes one HTTP hop to `/api/founder-report`, which in cron context hits the same Vercel-protection 401. Two ways to resolve:
-  - (a) one-line mute: add `'internal_consistency.status'` to `KNOWN_RED_PATHS` in `src/app/api/cron/diagnostics-alert/route.ts`. Cheap but silences a real consistency check.
-  - (b) ~30-min refactor: extract `/api/founder-report`'s computation into `src/lib/founder-report.ts`, call it in-process from `buildInternalConsistency`. Preserves the check. **Recommend (b).**
+Implementation plan:
+- New `buildWriteCorrelation()` in `src/lib/diagnostics.ts`.
+- 4 sub-checks: `youtube-sync` → posts WHERE platform='youtube' AND content_type='short'; `youtube-sync-longform` → posts WHERE platform='youtube' AND content_type='long_form'; `instagram-sync` → posts WHERE platform='instagram'; `diagnostics-alert` exempted (doesn't write data).
+- New `write_correlation` top-level field in `DiagnosticsResponse`.
+- Wire into the Slack alerter's red-paths walker automatically — no new KNOWN_RED_PATHS needed.
 
-### 2. Diagnostics gap queue (from this session's audit)
-Build queue, ordered by recommended ship order (full details in audit report — conversation history):
+### 2. `schema_integrity.status` red-vs-green mystery (May 19, unresolved)
+On May 19 verification, `diagnostics-alert` reported `red_paths: ["schema_integrity.status"]` while `/api/diagnostics` returned `schema_integrity.status: green` — deterministic divergence, same deployment, same call to `buildDiagnostics()`. Debug commit `09eb51a` was created to add a `_debug` field surfacing the cron-context data shape but never pushed and was later dropped via `git reset --hard HEAD~1`. The data may have shifted enough since then that the divergence is no longer reproducible. If it recurs, the next session should resurrect the debug-instrumentation approach: temporary `_debug` field on the cron response showing the actual `data.schema_integrity` object the cron sees.
 
-1. **C1 — IG sync coverage** (~30 min, small, no schema). Extend cron_health + data_freshness + schema_integrity with IG-specific subfields. Pure addition to `src/lib/diagnostics.ts`.
-2. **C7 — internal_consistency cron-context fix** (one-liner mute OR ~30-min extract). See carryover #1.
-3. **C5 — anomaly check** (~1.5h, medium). New `buildAnomalyCheck()` flagging views > 100× previous day, watch_time > views × 1.0, etc. Returns top 5 anomalous rows in response so the Slack alert is actionable.
-4. **C6 — postToSlack error handling + daily heartbeat** (~20 min). Meta-alerting hygiene: detect when the alerter itself can't deliver.
-5. **C2 — token expiry early warning** (~30 min). IG token has structured expiry in `instagram_auth.token_expiry`; compute days remaining, surface yellow/red.
-6. **C8 — duplicate-row schema check** (~30 min). `GROUP BY (clip_details_code, platform, stat_date) HAVING COUNT(*) > 1` — joins existing schema_integrity card.
-7. **C3 + C4 — cron_runs table + error surfacing** (bigger, needs migration). Replaces the "rows updated_at" proxy with a real "did this cron complete?" signal.
+### 3. YT shorts 300s maxDuration — full validation pending
+The May 22 14:00 UTC scheduled tick ran 61s with success — we can't tell from that data point alone whether the 60s → 300s bump was deployed in time or whether Vercel allowed 1–2s grace. Validate by checking the next several 14:00 UTC scheduled ticks for `duration_sec` values that exceed 60s comfortably (e.g., 70s+ with success). If they cluster at 55–61s, ambiguous. If any exceed 60s with success, fix confirmed live.
 
-Open questions Shane should weigh in on before C3 (cron_runs schema shape) and C5 (anomaly thresholds).
-
-### 3. IG `avg_view_duration_seconds` populate check (carried from prior session)
-24h+ after the 2026-05-18 433ff73 IG-sync expansion, run:
+### 4. Stuck `cron_runs.running` row from 11:00 UTC May 22 IG sync
+One IG scheduled tick (started_at 2026-05-22 11:00:27, finished_at NULL) is stuck. Probably hit a function timeout. Doesn't affect `cron_completion` (which reads most-recent-success, not most-recent-anything), but a permanent leak. Periodic cleanup query needed eventually:
 ```sql
-SELECT COUNT(avg_view_duration_seconds) FROM posts WHERE platform='instagram';
+DELETE FROM cron_runs WHERE status='running' AND started_at < NOW() - INTERVAL '1 hour';
 ```
-> 0 confirms the new metric is flowing.
+Defer until accumulation matters (currently 3 stuck rows total — 2 YT shorts from May 20/21 pre-fix, 1 IG from May 22).
 
-### 4. Dashboard Avg View Duration UI math flip (carried, deferred)
-Once IG AVD data has accumulated, decide whether to drop the "YouTube only" caption + IG → "N/A" override. Open question: tolerate the daily-YT-AVD vs lifetime-IG-AVD semantic mismatch, or split into a separate `lifetime_avg_view_duration_seconds` column?
+### 5. IG `cron_completion.instagram_sync` thresholds may need tightening
+Current: RED at 12h, YELLOW when last_run_errors > 0 OR status in ('partial', 'failed'). With IG running 4×/day (every 6h), the 12h RED threshold means we miss exactly 2 consecutive failures before alerting. That's probably too generous. Consider 8h (one missed cycle + buffer). Defer until we have data on real-world IG cron reliability.
 
 ## Known non-issues (don't escalate)
-- **Pre-deploy scheduled ticks 401ing.** The Vercel protected-alias 401s from 12:00 UTC and earlier ran the pre-cf3b8b5 bundle. Don't re-debug.
-- **The 4 KNOWN_RED_PATHS** (`cron_health.last_scraper_run.status`, `scraper_history.status`, `data_freshness.studio_snapshots_latest_stat.status`, `coverage.status`). Structural fallout from scraper deletion 2026-05-18; all explicitly muted in the alerter.
-- **`/api/diagnostics` has no route-level auth.** Verified during this session. The cron-context 401s were Vercel deployment protection, not an app-level gate.
-- **YT cron `stat_date` trailing today by 2-3 days** — intrinsic YouTube Analytics API reporting lag, not a cron failure.
+- **`last_scraper_run`, `studio_snapshots_latest_stat`, `coverage`, `scraper_history`** all read RED forever — Playwright LaunchAgent scraper deletion fallout from 2026-05-18. Explicitly muted in `KNOWN_RED_PATHS` set in `src/app/api/cron/diagnostics-alert/route.ts`.
+- **YT cron `stat_date` trailing today by 2–3 days** — intrinsic YouTube Analytics API reporting lag, not a cron failure (CLAUDE.md / lessons.md 2026-05-18).
+- **`/api/diagnostics` has no route-level auth.** Verified during this session. Vercel deployment protection is the only gate on production.
+- **One row stuck in `cron_runs.status='running'` from 11:00 UTC May 22 IG tick** — see carryover #4.
+- **`cron_health.last_youtube_sync_short.status: yellow` (16h ago)** at session close — that timestamp will refresh on the next scheduled 14:00 UTC tick. Not a real signal.
 
-## Data shape facts (still current — no schema changes this session)
-- **5,123 YT posts rows** across 69 distinct clip keys, 0 orphans.
-- **269 IG posts rows.** New rows since 433ff73 populate `avg_view_duration_seconds`; historical rows stay NULL.
-- **5,392 total posts rows.** Lifetime YT view total per `getTotalViewsPerClip('youtube')` = 138,800.
+## Data shape facts (current)
+- **499 IG posts rows** (up from 269 on May 19) — IG cron been running 4×/day, accumulating ~50/day.
+- **58 IG rows per daily cycle** (Reels currently active).
+- **YT shorts MAX(stat_date) = 2026-05-18, MAX(updated_at) = 2026-05-22 15:52** — lag is normal YT Analytics behavior; updated_at now bumps correctly post-trigger.
+- **YT longform MAX(stat_date) = 2026-05-18, sync writes ~3700 rows per daily run.**
+- **`cron_runs` table** has ~50 rows as of session close, mostly diagnostics-alert (4×/day) + IG (4×/day).
 
-## Architectural pattern established this session
-**Computation that's callable from both an HTTP route and a cron should live in a runtime-agnostic lib** (no `Request` / `NextResponse` / header reads). The HTTP route is a thin wrapper; the cron calls the lib directly. Precedent: `src/lib/diagnostics.ts` (cf3b8b5). Avoids the Vercel deployment-protection trap entirely. Same pattern likely applies to `/api/founder-report` if C7's option (b) is taken.
+## Architectural patterns established this multi-session arc
+- **Computation callable from both an HTTP route and a cron lives in a runtime-agnostic lib** (no `Request` / `NextResponse` / header reads). HTTP route is a thin wrapper; cron calls the lib directly. Avoids Vercel deployment-protection 401s. Precedents: `src/lib/diagnostics.ts` (cf3b8b5), `src/lib/founder-report.ts` (d3d9032).
+- **Cron observability has two layers**: `cron_runs` (function-completion signal) and `posts.updated_at` (writes-landed signal). Both are necessary; neither replaces the other. The backstop check (carryover #1) is the missing correlation layer.
+- **All `posts` upserts now bump `updated_at` on UPDATE** via the new BEFORE UPDATE trigger. Code-level discipline (passing `updated_at: now()` to upsertPosts) is no longer required for the invariant to hold.
 
 ## Next natural action (in priority order)
-1. **Check Slack for the 18:00 UTC + 00:00 UTC ticks** before doing anything else. The outcome decides whether C7 needs the bigger fix or just the one-line mute.
-2. **Push the close commit** (`git push origin main`).
-3. **Pick C1 (IG diagnostics coverage)** as the first build queue item — fastest, smallest, highest value-per-line.
+1. **Build the backstop write-correlation check** (carryover #1). Highest value-per-line for catching silent-write bugs going forward.
+2. **Monitor next 1–2 days of 14:00 UTC YT shorts ticks** for duration distribution. Confirm 300s bump is live.
+3. **Address `schema_integrity` mystery** if it recurs. Otherwise leave as a known historical anomaly.
 
 ## Blocked / open
 - Supabase MCP write tools (`apply_migration`, `execute_sql` for DML) still blocked. Manual SQL Editor workflow for DDL/DML. Read-only SELECT for diagnostics fine without asking.
