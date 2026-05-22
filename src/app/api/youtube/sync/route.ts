@@ -60,15 +60,17 @@ export async function POST(): Promise<NextResponse> {
     const { data: videoRows, error: videoError } = await supabase
       .from('posts')
       .select('content_id, clip_code')
-      .eq('platform', 'youtube')
-      .not('content_id', 'is', null);
+      .eq('platform', 'youtube');
 
     if (videoError) throw videoError;
 
+    // JS-side filter on content_id NOT NULL — supabase-js .not(...is...null) has
+    // silently returned [] from the Vercel runtime against nullable text columns
+    // (see db.ts:614 getShortsRegistry, db.ts:728 getInstagramRegistry).
     const videoMap = new Map<string, string>();
     for (const row of (videoRows ?? [])) {
-      const contentId = row.content_id as string;
-      const clipCode = row.clip_code as string;
+      const contentId = row.content_id as string | null;
+      const clipCode = row.clip_code as string | null;
       if (contentId && clipCode && !videoMap.has(contentId)) {
         videoMap.set(contentId, clipCode);
       }

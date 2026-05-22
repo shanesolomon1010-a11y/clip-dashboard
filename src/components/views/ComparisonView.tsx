@@ -185,7 +185,7 @@ export default function ComparisonView({ posts }: Props) {
       {/* Radar chart */}
       <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl p-5">
         <h3 className="text-[15px] font-semibold text-[var(--text-1)] mb-1">Performance Radar</h3>
-        <p className="text-[11px] text-[var(--text-3)] mb-5">Normalized 0–100. Each axis shows relative strength across platforms.</p>
+        <p className="text-[11px] text-[var(--text-3)] mb-5">Normalized 0-100. Each axis shows relative strength across platforms.</p>
         <ResponsiveContainer width="100%" height={300}>
           <RadarChart data={radarData} margin={{ top: 10, right: 40, bottom: 10, left: 40 }}>
             <PolarGrid stroke="rgba(247,231,206,0.06)" />

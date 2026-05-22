@@ -526,16 +526,20 @@ export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | n
   let lookupCode = clipCode;
 
   if (!clipCode.includes('-CLIP-')) {
-    // Resolve clip_details_code from posts
-    const { data: postRow } = await supabase
+    // Resolve clip_details_code from posts. JS-side filter on NOT NULL —
+    // supabase-js .not(...is...null) has silently returned [] from the Vercel
+    // runtime against nullable text columns (see getShortsRegistry,
+    // getInstagramRegistry precedents below).
+    const { data: postRows } = await supabase
       .from('posts')
       .select('clip_details_code')
       .eq('clip_code', clipCode)
-      .not('clip_details_code', 'is', null)
-      .limit(1)
-      .maybeSingle();
+      .limit(50);
 
-    lookupCode = (postRow?.clip_details_code as string | null) ?? clipCode;
+    const mapped = (postRows ?? []).find(
+      (r) => (r as Record<string, unknown>).clip_details_code != null,
+    );
+    lookupCode = (mapped?.clip_details_code as string | null) ?? clipCode;
   }
 
   const { data, error } = await supabase

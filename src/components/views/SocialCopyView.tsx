@@ -260,7 +260,7 @@ export default function SocialCopyView() {
             {loading ? 'Generating…' : 'Generate Social Copy'}
           </button>
           {loading && (
-            <p className="text-[12px] text-[var(--text-3)]">Usually 20–40 seconds</p>
+            <p className="text-[12px] text-[var(--text-3)]">Usually 20-40 seconds</p>
           )}
         </div>
 
