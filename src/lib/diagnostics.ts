@@ -127,6 +127,7 @@ export interface DiagnosticsResponse {
     instagram: AuthHealthCheck;
   };
   cron_completion: CronCompletionCheck;
+  write_correlation: WriteCorrelationCheck;
   anomaly_check: AnomalyCheck;
   internal_consistency: ConsistencyCheck;
   drift_check: DriftCheck;
@@ -166,6 +167,28 @@ export interface CronCompletionCheck {
   youtube_sync_longform: CronCompletionPerCron;
   instagram_sync: CronCompletionPerCron;
   diagnostics_alert: CronCompletionPerCron;
+  error?: string;
+}
+
+// Backstop for silent-writes (the IG bug class from 2026-05-22).
+// cron_runs.status='success' and posts.updated_at landing are distinct
+// invariants — this check correlates them. For each cron's most recent
+// success, we ask: did at least one posts row matching the cron's target
+// scope get an updated_at >= cron.started_at? If the cron reported writing
+// rows but no posts.updated_at moved, that's a silent-write event.
+export interface WriteCorrelationPerCron {
+  cron_started_at: string | null;
+  cron_rows_processed: number | null;
+  posts_touched_after_start: number;
+  status: StatusLevel;
+  detail?: string;
+}
+
+export interface WriteCorrelationCheck {
+  youtube_sync: WriteCorrelationPerCron;
+  youtube_sync_longform: WriteCorrelationPerCron;
+  instagram_sync: WriteCorrelationPerCron;
+  status: StatusLevel;
   error?: string;
 }
 
@@ -707,6 +730,108 @@ async function buildCronCompletion(now: Date): Promise<CronCompletionCheck> {
   }
 }
 
+async function buildWriteCorrelation(): Promise<WriteCorrelationCheck> {
+  type Row = {
+    cron_name: string;
+    started_at: string;
+    rows_processed: number | null;
+    status: 'running' | 'success' | 'partial' | 'failed';
+  };
+
+  const empty: WriteCorrelationPerCron = {
+    cron_started_at: null,
+    cron_rows_processed: null,
+    posts_touched_after_start: 0,
+    status: 'red',
+    detail: 'no successful cron run found',
+  };
+
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('cron_runs')
+      .select('cron_name, started_at, rows_processed, status')
+      .eq('status', 'success')
+      .order('started_at', { ascending: false })
+      .limit(200);
+
+    if (error) {
+      return {
+        youtube_sync: empty,
+        youtube_sync_longform: empty,
+        instagram_sync: empty,
+        status: 'red',
+        error: error.message,
+      };
+    }
+
+    const rows = (data ?? []) as Row[];
+
+    const checkCron = async (
+      name: string,
+      platform: string,
+      contentType: string | null,
+    ): Promise<WriteCorrelationPerCron> => {
+      const latest = rows.find((r) => r.cron_name === name);
+      if (!latest) return { ...empty };
+
+      const rowsProcessed = latest.rows_processed ?? 0;
+
+      // Vacuously green: cron ran but had nothing to write, so a zero
+      // posts.updated_at delta is the correct outcome — not a silent failure.
+      if (rowsProcessed === 0) {
+        return {
+          cron_started_at: latest.started_at,
+          cron_rows_processed: 0,
+          posts_touched_after_start: 0,
+          status: 'green',
+          detail: 'cron ran with no rows to write',
+        };
+      }
+
+      let q = supabase
+        .from('posts')
+        .select('*', { count: 'exact', head: true })
+        .eq('platform', platform)
+        .gte('updated_at', latest.started_at);
+      if (contentType) q = q.eq('content_type', contentType);
+      const { count } = await q;
+      const touched = count ?? 0;
+
+      const status: StatusLevel = touched > 0 ? 'green' : 'red';
+      return {
+        cron_started_at: latest.started_at,
+        cron_rows_processed: rowsProcessed,
+        posts_touched_after_start: touched,
+        status,
+        detail: touched === 0
+          ? `cron reported ${rowsProcessed} rows but no posts.updated_at >= started_at - silent-write event`
+          : undefined,
+      };
+    };
+
+    const [yt_shorts, yt_long, ig] = await Promise.all([
+      checkCron('youtube-sync', 'youtube', 'short'),
+      checkCron('youtube-sync-longform', 'youtube', 'long_form'),
+      checkCron('instagram-sync', 'instagram', null),
+    ]);
+
+    return {
+      youtube_sync: yt_shorts,
+      youtube_sync_longform: yt_long,
+      instagram_sync: ig,
+      status: aggregateStatus(yt_shorts.status, yt_long.status, ig.status),
+    };
+  } catch (err) {
+    return {
+      youtube_sync: empty,
+      youtube_sync_longform: empty,
+      instagram_sync: empty,
+      status: 'red',
+      error: err instanceof Error ? err.message : String(err),
+    };
+  }
+}
+
 async function buildAuthHealth(now: Date): Promise<DiagnosticsResponse['auth_health']> {
   try {
     const { data, error } = await supabaseAdmin
@@ -1081,6 +1206,7 @@ export async function buildDiagnostics(
     schema_integrity,
     auth_health,
     cron_completion,
+    write_correlation,
     anomaly_check,
     internal_consistency,
     drift_check,
@@ -1092,6 +1218,7 @@ export async function buildDiagnostics(
     buildSchemaIntegrity(),
     buildAuthHealth(now),
     buildCronCompletion(now),
+    buildWriteCorrelation(),
     buildAnomalyCheck(now),
     buildInternalConsistency(now),
     buildDriftCheck(now, driftWindowDays, driftPctYellow, driftPctRed),
@@ -1112,6 +1239,7 @@ export async function buildDiagnostics(
     schema_integrity,
     auth_health,
     cron_completion,
+    write_correlation,
     anomaly_check,
     internal_consistency,
     drift_check,
