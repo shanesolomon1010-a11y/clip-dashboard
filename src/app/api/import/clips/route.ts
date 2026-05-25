@@ -41,9 +41,6 @@ export async function POST(request: Request) {
       batches.push(sections.slice(i, i + 10).join('\n\n'));
     }
 
-    console.log('sections.length:', sections.length);
-    console.log('batches.length:', batches.length);
-
     // Extract clips from each batch
     const allClips: ClipExtracted[] = [];
     for (const batchText of batches) {
@@ -55,7 +52,6 @@ export async function POST(request: Request) {
       });
 
       const responseText = (message.content[0] as { type: string; text: string }).text.trim();
-      console.log('Anthropic raw response:', responseText);
 
       const match = responseText.match(/\[[\s\S]*\]/);
       if (!match) throw new Error('No JSON array found in response');

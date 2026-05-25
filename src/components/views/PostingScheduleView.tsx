@@ -229,7 +229,6 @@ export default function PostingScheduleView() {
 
   async function handleTimeSave(id: string) {
     const newTime = `${editingTimeValue} CT`;
-    console.log('[TimeSave] updating post id:', id, '→', newTime);
     setTimeEditError(null);
     try {
       const { error } = await supabase
@@ -241,7 +240,6 @@ export default function PostingScheduleView() {
         setTimeEditError(error.message);
         return;
       }
-      console.log('[TimeSave] update succeeded');
       setPosts(prev => prev.map(p => p.id === id ? { ...p, post_time: newTime } : p));
       setEditingTimeId(null);
     } catch (err) {
