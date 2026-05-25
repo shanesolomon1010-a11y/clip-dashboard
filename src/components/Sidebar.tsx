@@ -20,7 +20,10 @@ const NAV_GROUPS = [
     // 'platforms',  // TODO: re-enable after polish pass — see Shane
     // 'comparison', // TODO: re-enable after polish pass — see Shane
   ] },
-  { label: 'Workspace', items: ['schedule', 'settings'] },
+  { label: 'Workspace', items: [
+    // 'schedule', // TODO: re-enable after content fill — see Shane
+    'settings',
+  ] },
 ];
 
 interface Props {
