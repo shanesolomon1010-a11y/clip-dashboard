@@ -4,102 +4,112 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD is `83c8df7` on `main`, **all pushed**. Local matches origin/main. Two major fixes shipped + the 6-item proactive-alerting build queue from May 19 fully landed:
+HEAD is `a8a18e4` on `main`, **6 commits unpushed + 1 close commit pending after this primer write**. Local is 7+ commits ahead of origin/main at session close. Shane will push all in one shot after handoff review.
 
-1. **6-item diagnostics buildout** (May 19) — IG sync coverage, IG token expiry, anomaly detection, duplicate-row schema check, Slack hardening + daily heartbeat, cron_runs tracking + completion check.
-2. **YT shorts maxDuration bump 60s → 300s** (May 21) — scheduled tick was hitting Vercel's 60s timeout and stuck in `running` status; raised to 5× headroom.
-3. **`posts.updated_at` BEFORE UPDATE trigger** (May 22) — `DEFAULT now()` was bumping INSERT-only, leaving `updated_at` frozen on every ON CONFLICT DO UPDATE. IG cron silently wrote successfully for 3 days without bumping the column. Trigger + function shipped via `supabase/migrations/20260521_posts_updated_at_trigger.sql`, applied manually in SQL Editor, verified end-to-end with both IG and YT shorts manual fires (lag dropped to <50s vs NOW).
+The 2026-05-22 IG silent-writes arc is fully closed (write_correlation backstop shipped). The 2026-05-25 session shifted focus to demo-prep + a deep root-cause dive on the auto-mapper (rows landing as PENDING for un-mapped YT shorts and IG reels). 7 manually-mapped clips re-keyed via SQL, 90 cross-platform posts rows promoted PENDING→MAPPED. Founder Report 7d shortsViews recovered from 9 → 877.
 
-### Commits shipped this multi-session arc
-- `d3d9032` refactor(diagnostics): extract founder-report into shared lib, drop inter-route fetch
-- `356b9bf` feat(diagnostics): IG sync coverage + IG token expiry checks
-- `264cb80` feat(diagnostics): anomaly detection + duplicate-row schema check
-- `ea0958e` feat(cron): Slack hardening + daily heartbeat + anomaly inline
-- `1571582` feat(cron): cron_runs tracking + completion check
-- `034643f` fix(cron): bump YT shorts maxDuration to 300s
-- `83c8df7` chore(db): add posts.updated_at BEFORE UPDATE trigger migration
+### Commits unpushed at session close (in order)
+1. `6116e26` fix(cron): bump IG sync maxDuration to 300s — same defensive insurance as YT shorts (034643f)
+2. `5d59371` fix(dashboard): skeleton stat tiles while window data refetches
+3. `28ade1c` chore: strip stray debug console.logs from components and api routes
+4. `1a05265` docs(founder-report): explain PENDING-clip exclusion in footer
+5. `927ae6b` feat(sidebar): hide Platforms + Comparison views for stakeholder demo
+6. `a8a18e4` feat(sidebar): hide Posting Schedule for stakeholder demo
+7. (close commit landing right after this primer write — primer + lessons + CLAUDE.md hygiene + cloudmemory.md hook)
 
-Plus the close commit landing right after this primer (memory + lessons + CLAUDE.md hygiene). All unpushed at session close, per protocol.
+Push command: `git push origin main`.
 
 ## Just completed
 
-### IG silent-writes bug (root cause + fix)
-3-day mystery: IG cron reported `status='success', rows_processed=57` while `MAX(posts.updated_at)` stayed pinned at 11:00 UTC May 21. Diagnostics surfaced it as `cron_health.last_instagram_sync` ratcheting to "19h ago" overnight despite the alerter showing all crons running. Root cause: `posts.updated_at` had `DEFAULT now()` but no `BEFORE UPDATE` trigger. ON CONFLICT DO UPDATE on the same `(clip_details_code, platform, stat_date)` tuple updates the row in place but doesn't fire column defaults — `updated_at` is never written by the UPDATE path. IG writes only today's stat_date, so the first daily INSERT bumps `updated_at`; the subsequent 3 ticks UPDATE the same row and leave it pinned. YT was masked because YT Analytics' 2–3 day reporting lag means each daily cron brings in NEW stat_dates → INSERTs → DEFAULT now() fires cleanly.
+### Auto-mapper backlog cleared via manual mapping (2026-05-25)
+**Discovered root cause:** `src/lib/shorts-discovery.ts:72-88` matches `MBM###-CLIP-###` against `snippet.tags`, which is ALWAYS EMPTY on every video the channel has uploaded. The auto-mapper has been running daily on schedule, doing exactly what the code says, but the upstream tagging signal it depends on doesn't exist. Every new YT short and IG reel auto-creates a PENDING row by design. Founder Report 7d shortsViews showed 9 (down from real ~830) because it excludes PENDING-* via `.or('clip_details_code.is.null,clip_details_code.not.like.PENDING-%')`.
 
-Fix: `BEFORE UPDATE` trigger on `posts` that sets `NEW.updated_at = now()`. Migration `20260521_posts_updated_at_trigger.sql`. One existing caller (`youtube-longform-sync.ts:394`) writes `updated_at` explicitly to `posts`; on INSERT the caller's value wins (no trigger fires), on UPDATE the trigger overrides — both end up "approximately the cron run time", which is the contract diagnostics has always assumed.
+**Phase 1 investigation (read-only):** Fetched YT Data API + IG Graph API metadata for 7 YT PENDING shorts + 10 sampled IG PENDING reels. Confirmed zero MBM-pattern occurrence in any title, description, tag, or caption. Discovered that YT/IG cross-publish times sync within 0-6 minutes for every paired clip — strong signal for future automation.
 
-Initial migration apply via Supabase SQL Editor silently failed — `pg_proc` and `pg_trigger` were empty after Shane said "applied". 30 min of "the fix doesn't work" debugging until catalog query revealed the trigger absent. Shane re-ran successfully on second attempt. Verified end-to-end:
-- IG fire: 58 rows touched, MAX(updated_at) 7.87s behind NOW(), 161ms after cron `finished_at`.
-- YT shorts fire: 227 rows (all UPDATEs — YT lag means no new stat_dates today), 46s lag.
-- `/api/diagnostics` `cron_health.last_instagram_sync.status: green`, `hours_ago: 0`.
+**Phase 2A (executed): YT backlog clearance.** Shane manually pulled 7 video_id → MBM###-CLIP-### mappings from YouTube Studio (the clip code lives in `fileDetails.fileName`, NOT tags — auto-mapper is looking at the wrong field). SQL transaction:
+- Inserted 7 MBM clip_details shell rows with titles
+- Re-keyed 29 posts rows from PENDING-{vid} → MBM###-CLIP-###
+- Deleted 7 PENDING clip_details rows
+- Claimed content_id on the 7 MBM rows (in that order — UNIQUE constraint on `clip_details.content_id` requires PENDING delete first)
 
-### YT shorts 60s timeout (mitigated)
-14:00 UTC scheduled ticks on May 20 + May 21 left `cron_runs` rows stuck in `status='running'` with no `finished_at`. Vercel killed the function at 60s before `finishCronRun` ran. Fix: bump `vercel.json` `maxDuration` for `/api/cron/youtube-sync` to 300s (Pro tier). Other crons unchanged. May 22 14:00 UTC scheduled tick ran 61s and succeeded — either deploy timing or Vercel grace margin; can't strictly confirm 300s deploy state from this single data point. Next scheduled tick on the fresh bundle is the clean test.
+**Phase 2B (executed): IG pairing.** Used YT `publishedAt` ± 48h window + topic-match on captions. All 7 pairings were obvious 1:1 (posted within 0-6 min of each other, same argument). 61 IG posts rows re-keyed to the corresponding MBM codes. Three IG orphans in the window (no YT counterpart in the 7-list) deferred.
 
-### 6-item diagnostics buildout (May 19 session — fully landed)
-Detailed in commits above. Quick map of what each adds to `/api/diagnostics`:
-- **C1**: `cron_health.last_instagram_sync`, `data_freshness.posts_instagram_latest_stat`, `schema_integrity.posts_instagram_null_content_id_count`.
-- **C2**: new `auth_health.instagram` top-level field — surfaces IG token `days_remaining` (RED ≤3, YELLOW ≤14).
-- **C5**: new `anomaly_check` top-level field — view spikes >100× day-over-day, watch_time > views × 1.0, negative metrics, view decay (skipping first 3 days post-upload). Top 5 anomalies returned inline; Slack alert includes them when `anomaly_check.status` is RED.
-- **C8**: 3 new duplicate-row counts in `schema_integrity` (shorts/longform/IG).
-- **C6**: `postToSlack` hardened (throws on non-2xx, caught at call sites with console.error). Daily heartbeat at 00:00 UTC tick with green/yellow/red counts + last-sync hours.
-- **C3+C4**: new `cron_runs` table (migration `20260519_cron_runs.sql`, applied) + `src/lib/cron-runs.ts` with `startCronRun` / `finishCronRun` (sentinel-0 fallback for missing-table). All 4 cron routes wrapped. New `cron_completion` top-level field reads `cron_runs` for actual "did this cron finish?" signal, independent of `posts.updated_at`.
+**Result:** Founder Report 7d shortsViews 9 → 877 (+97×). 30d shortsViews 7,994 → 9,905 (+24%). `shortsPublished` 18 → 25 (+7, exactly matching). Zero remaining PENDING for the 14 mapped content_ids.
 
-Plus Commit 1A (May 19): extracted `/api/founder-report` computation into runtime-agnostic `src/lib/founder-report.ts` so `buildInternalConsistency` calls it in-process instead of via HTTP — eliminates the Vercel deployment-protection 401 risk for the last surviving inter-route fetch. Pattern precedent: cf3b8b5 `src/lib/diagnostics.ts`.
+### Mappings applied this session (for reference / debugging)
+```
+nBCgJxAlVJE → MBM028-CLIP-003 → IG 18123773506725414 ("Kill Rule")
+K03eDcE5CTY → MBM026-CLIP-006 → IG 18097950602037042 ("YouTube Like Facebook")
+sz19jc2cv2k → MBM029-CLIP-003 → IG 18095979344277573 ("Stop Letting Google Tank Margins")
+gUPfy7yizJI → MBM028-CLIP-004 → IG 17989618715981741 ("High CPMs")
+c4St-xx3aaA → MBM027-CLIP-002 → IG 17890685922527525 ("Test Enough Ads")
+bCSERqc23Os → MBM026-CLIP-007 → IG 18036326957609126 ("ChatGPT Keyword List")
+XtfGF4Qo8Bg → MBM027-CLIP-003 → IG 18100491329090782 ("Wait Too Long to Kill")
+```
+
+### Sidebar trimmed for stakeholder demo
+Hidden from sidebar: Platforms, Comparison, Posting Schedule. NAV_GROUPS visibility filter commented (NAV_ITEMS catalog intact — keeps icon imports referenced, no `no-unused-vars` break). Views remain reachable via direct URL (`?tab=platforms` / `?tab=comparison` / `?tab=schedule`). Sidebar at demo time shows: **ANALYTICS** Dashboard, Founder Report; **WORKSPACE** Settings.
+
+### Defensive deploy fixes
+- **Dashboard stale-window fix** (5d59371): 7d → All Time switch was showing old 7d numbers under "All Time" label for 6-8s during the windowed refetch. Added `windowLoading` state and `SkeletonStatCard` component, mirroring FounderReportView's animate-pulse pattern. Scope: 7 numeric tiles get skeletoned; Unique Viewers tile unaffected (its data isn't windowed).
+- **Console.log strip** (28ade1c): 6 debug logs removed across 3 files (VideoPreviewModal, PostingScheduleView, api/import/clips).
+- **Founder Report PENDING footer** (1a05265): one-line italic note below data freshness explaining the Dashboard ↔ Founder Report gap.
+- **IG cron maxDuration 60s → 300s** (6116e26): one IG cron got stuck `status='running'` on 2026-05-23 23:00 UTC — same class as the YT-shorts hangs pre-034643f. Cleaned up manually via SQL; bumped IG to 300s for parity defensive insurance.
+
+### Write-correlation backstop shipped (already pushed pre-2026-05-25)
+The 2026-05-22 carryover item is closed. `buildWriteCorrelation()` in `src/lib/diagnostics.ts` correlates each cron's latest `cron_runs.success` row against `posts.updated_at` to detect silent-write events. Verified end-to-end live: all 3 sub-crons (youtube-sync, youtube-sync-longform, instagram-sync) reporting `posts_touched_after_start == cron_rows_processed`.
 
 ## In progress
-None.
+None at session close.
 
 ## Carryover for next session
 
-### 1. Backstop diagnostic — `rows_processed > 0 ⇒ updated_at moved`  [PRIORITY 1]
-The IG silent-writes bug would have been caught immediately by a check correlating `cron_runs` windows against the corresponding `posts.updated_at` distribution. Shape: per cron, find the most recent `cron_runs` row with `status='success' AND rows_processed > 0`; check that `posts.updated_at >= cron_runs.started_at` exists for at least one row matching the cron's platform/content_type filter. If not, that's a silent-write event — RED.
+### 1. Auto-mapper signal fix — `snippet.tags` → `fileDetails.fileName`  [PRIORITY 1]
+The actual code lives in YT Studio filename. `src/lib/shorts-discovery.ts:72-88` needs:
+- Add `part=fileDetails` to the videos.list request (may require additional OAuth scope — verify against current `youtube_auth` token scopes before assuming).
+- Apply the same `/^(MBM\d{3})-(CLIP-\d{3})$/` regex to `item.fileDetails.fileName` (or whatever subfield carries it — likely strip extension first).
+- Keep `snippet.tags` as a fallback so the function works if/when tags get added later.
 
-Implementation plan:
-- New `buildWriteCorrelation()` in `src/lib/diagnostics.ts`.
-- 4 sub-checks: `youtube-sync` → posts WHERE platform='youtube' AND content_type='short'; `youtube-sync-longform` → posts WHERE platform='youtube' AND content_type='long_form'; `instagram-sync` → posts WHERE platform='instagram'; `diagnostics-alert` exempted (doesn't write data).
-- New `write_correlation` top-level field in `DiagnosticsResponse`.
-- Wire into the Slack alerter's red-paths walker automatically — no new KNOWN_RED_PATHS needed.
+Once shipped, the daily YT cron at 14:00 UTC will start auto-mapping new uploads. The 52 IG reels still PENDING won't be touched — they need their own fix (IG Graph API doesn't expose a fileName equivalent; likely needs caption-similarity matching or a manual UI).
 
-### 2. `schema_integrity.status` red-vs-green mystery (May 19, unresolved)
-On May 19 verification, `diagnostics-alert` reported `red_paths: ["schema_integrity.status"]` while `/api/diagnostics` returned `schema_integrity.status: green` — deterministic divergence, same deployment, same call to `buildDiagnostics()`. Debug commit `09eb51a` was created to add a `_debug` field surfacing the cron-context data shape but never pushed and was later dropped via `git reset --hard HEAD~1`. The data may have shifted enough since then that the divergence is no longer reproducible. If it recurs, the next session should resurrect the debug-instrumentation approach: temporary `_debug` field on the cron response showing the actual `data.schema_integrity` object the cron sees.
+### 2. IG PENDING backlog — 52 reels remaining
+Most are older content from April. Lower priority since IG isn't in tomorrow's Founder Report demo. Same Phase 2B pairing approach works: query IG `posted_at` against the long_form_videos table (16 episodes; each long-form likely produces 3-5 short clips); for each unpaired IG reel, find the nearest long-form by date and offer a candidate code. May be cleaner to ship a manual mapping UI in Settings — surface PENDING rows with a dropdown to assign `clip_details_code`.
 
-### 3. YT shorts 300s maxDuration — full validation pending
-The May 22 14:00 UTC scheduled tick ran 61s with success — we can't tell from that data point alone whether the 60s → 300s bump was deployed in time or whether Vercel allowed 1–2s grace. Validate by checking the next several 14:00 UTC scheduled ticks for `duration_sec` values that exceed 60s comfortably (e.g., 70s+ with success). If they cluster at 55–61s, ambiguous. If any exceed 60s with success, fix confirmed live.
+### 3. Long-form-side auto-mapper validation
+The auto-mapper investigation focused on YT shorts. Long-form catalog (`long_form_videos`, 16 rows, all mapped via `video_id`) doesn't appear to have the PENDING problem. Worth a quick sanity check next session: `SELECT COUNT(*) FROM posts WHERE platform='youtube' AND content_type='long_form' AND clip_details_code LIKE 'PENDING-%'` to confirm zero.
 
-### 4. Stuck `cron_runs.running` row from 11:00 UTC May 22 IG sync
-One IG scheduled tick (started_at 2026-05-22 11:00:27, finished_at NULL) is stuck. Probably hit a function timeout. Doesn't affect `cron_completion` (which reads most-recent-success, not most-recent-anything), but a permanent leak. Periodic cleanup query needed eventually:
-```sql
-DELETE FROM cron_runs WHERE status='running' AND started_at < NOW() - INTERVAL '1 hour';
-```
-Defer until accumulation matters (currently 3 stuck rows total — 2 YT shorts from May 20/21 pre-fix, 1 IG from May 22).
-
-### 5. IG `cron_completion.instagram_sync` thresholds may need tightening
-Current: RED at 12h, YELLOW when last_run_errors > 0 OR status in ('partial', 'failed'). With IG running 4×/day (every 6h), the 12h RED threshold means we miss exactly 2 consecutive failures before alerting. That's probably too generous. Consider 8h (one missed cycle + buffer). Defer until we have data on real-world IG cron reliability.
+### 4. YT cron freshness thresholds still trigger yellow between daily ticks
+`cron_health.last_youtube_sync_short/longform` flips yellow ~12h after the 14:00 UTC tick and stays yellow until the next tick. Known issue from May 22 audit (#7). Threshold misalignment — `cron_health` uses 12h yellow / 24h red, but YT runs daily. Either widen thresholds for YT-specific paths (e.g., 26h yellow / 50h red) or fold YT freshness into `cron_completion` (which uses 36h red and behaves correctly). Defer; not visible noise unless someone watches `/api/diagnostics` between ticks.
 
 ## Known non-issues (don't escalate)
-- **`last_scraper_run`, `studio_snapshots_latest_stat`, `coverage`, `scraper_history`** all read RED forever — Playwright LaunchAgent scraper deletion fallout from 2026-05-18. Explicitly muted in `KNOWN_RED_PATHS` set in `src/app/api/cron/diagnostics-alert/route.ts`.
-- **YT cron `stat_date` trailing today by 2–3 days** — intrinsic YouTube Analytics API reporting lag, not a cron failure (CLAUDE.md / lessons.md 2026-05-18).
-- **`/api/diagnostics` has no route-level auth.** Verified during this session. Vercel deployment protection is the only gate on production.
-- **One row stuck in `cron_runs.status='running'` from 11:00 UTC May 22 IG tick** — see carryover #4.
-- **`cron_health.last_youtube_sync_short.status: yellow` (16h ago)** at session close — that timestamp will refresh on the next scheduled 14:00 UTC tick. Not a real signal.
+- **`last_scraper_run`, `studio_snapshots_latest_stat`, `coverage`, `scraper_history`** all read RED forever — LaunchAgent scraper deletion fallout from 2026-05-18. Muted in `KNOWN_RED_PATHS` in `src/app/api/cron/diagnostics-alert/route.ts`.
+- **YT cron `stat_date` trailing today by 2-3 days** — intrinsic YouTube Analytics API reporting lag.
+- **`/api/diagnostics` has no route-level auth** — Vercel deployment protection is the gate.
+- **`cron_health.last_youtube_sync_short.status: yellow` between 14:00 UTC ticks** — see carryover #4. Not a real signal.
+- **1 PENDING YT short row + 52 PENDING IG reel rows remaining** at session close — expected daily backlog growth until auto-mapper fix lands (carryover #1).
+- **Platforms / Comparison / Posting Schedule views hidden from sidebar** for demo — intentional (commits 927ae6b, a8a18e4). Re-enable = uncomment ids in `NAV_GROUPS[].items`. Views still reachable via `?tab=` URL.
 
 ## Data shape facts (current)
-- **499 IG posts rows** (up from 269 on May 19) — IG cron been running 4×/day, accumulating ~50/day.
-- **58 IG rows per daily cycle** (Reels currently active).
-- **YT shorts MAX(stat_date) = 2026-05-18, MAX(updated_at) = 2026-05-22 15:52** — lag is normal YT Analytics behavior; updated_at now bumps correctly post-trigger.
-- **YT longform MAX(stat_date) = 2026-05-18, sync writes ~3700 rows per daily run.**
-- **`cron_runs` table** has ~50 rows as of session close, mostly diagnostics-alert (4×/day) + IG (4×/day).
+- **5,790 posts rows** total. IG reel 678 (52 still PENDING), YT short 1,453 (1 still PENDING), YT longform 3,765.
+- **137 clip_details rows.** 70 MAPPED (was 63 — added 7 this session: MBM026-CLIP-006/007, MBM027-CLIP-002/003, MBM028-CLIP-003/004, MBM029-CLIP-003), 66 PENDING_IG, 0 PENDING_YT (down from 8 — cleared the 7 mapped, 1 new from today's cron).
+- **IG token** expires 2026-07-14 (50 days remaining).
+- **`cron_runs` table** ~60+ rows, all 4 crons running clean.
+- **Founder Report 7d (post-cleanup):** shortsViews 877, longFormViews 350, +6 subs, lastDataDate 2026-05-22.
+- **Founder Report 30d:** shortsViews 9,905, longFormViews 2,055, +30 subs.
 
 ## Architectural patterns established this multi-session arc
-- **Computation callable from both an HTTP route and a cron lives in a runtime-agnostic lib** (no `Request` / `NextResponse` / header reads). HTTP route is a thin wrapper; cron calls the lib directly. Avoids Vercel deployment-protection 401s. Precedents: `src/lib/diagnostics.ts` (cf3b8b5), `src/lib/founder-report.ts` (d3d9032).
-- **Cron observability has two layers**: `cron_runs` (function-completion signal) and `posts.updated_at` (writes-landed signal). Both are necessary; neither replaces the other. The backstop check (carryover #1) is the missing correlation layer.
-- **All `posts` upserts now bump `updated_at` on UPDATE** via the new BEFORE UPDATE trigger. Code-level discipline (passing `updated_at: now()` to upsertPosts) is no longer required for the invariant to hold.
+- **Computation callable from both an HTTP route AND a cron lives in a runtime-agnostic lib** (no `Request`/`NextResponse`/header reads). Precedents: `src/lib/diagnostics.ts`, `src/lib/founder-report.ts`.
+- **Cron observability is three layers**: `cron_runs` (function-completion), `posts.updated_at` (writes-landed), `write_correlation` (correlation between the two). All three shipped.
+- **All `posts` upserts bump `updated_at` on UPDATE via BEFORE UPDATE trigger** — code-level discipline no longer required.
+- **PENDING→mapped migration ordering**: must DELETE PENDING row BEFORE setting `content_id` on the mapped row (UNIQUE constraint). 4-step transaction pattern documented in CLAUDE.md.
+- **Sidebar hide pattern**: comment ids in `NAV_GROUPS[].items`, NOT in `NAV_ITEMS` (avoids unused-import build break).
 
 ## Next natural action (in priority order)
-1. **Build the backstop write-correlation check** (carryover #1). Highest value-per-line for catching silent-write bugs going forward.
-2. **Monitor next 1–2 days of 14:00 UTC YT shorts ticks** for duration distribution. Confirm 300s bump is live.
-3. **Address `schema_integrity` mystery** if it recurs. Otherwise leave as a known historical anomaly.
+1. **Push the 7 unpushed commits** (`git push origin main`) once handoff doc is reviewed.
+2. **After demo**: ship the auto-mapper signal fix (carryover #1, `fileDetails.fileName`).
+3. **Sometime soon**: revert the sidebar hides (uncomment ids in `NAV_GROUPS[].items` in `Sidebar.tsx`) once the team is ready to demo Platforms / Comparison / Posting Schedule.
+4. **Lower priority**: IG PENDING backlog (carryover #2), long-form sanity check (carryover #3), YT freshness threshold tuning (carryover #4).
 
 ## Blocked / open
 - Supabase MCP write tools (`apply_migration`, `execute_sql` for DML) still blocked. Manual SQL Editor workflow for DDL/DML. Read-only SELECT for diagnostics fine without asking.
+- Auto-mapper full fix is blocked on confirming whether `part=fileDetails` requires an additional OAuth scope — verify against current `youtube_auth.refresh_token` scopes before shipping.

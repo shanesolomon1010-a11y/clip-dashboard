@@ -2948,3 +2948,81 @@ Changed files:
 Changed files:
   - supabase/migrations/20260521_posts_updated_at_trigger.sql
 
+
+## 2026-05-22 11:04:55 — 09f1714
+**chore: session shutdown — IG silent-writes fix + 6-item diagnostics buildout**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
+
+## 2026-05-22 11:52:30 — 00e49ac
+**fix: replace .not(...is,null) with JS-side filter + drop em-dashes**
+
+Changed files:
+  - src/app/api/youtube/sync/route.ts
+  - src/components/views/ComparisonView.tsx
+  - src/components/views/SocialCopyView.tsx
+  - src/lib/db.ts
+
+
+## 2026-05-22 11:52:46 — 9f5b366
+**fix(db): paginate getLatestPostsPerClip to defeat 1000-row cap**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-05-22 11:52:59 — 08386b0
+**feat(diagnostics): write_correlation backstop check**
+
+Changed files:
+  - src/lib/diagnostics.ts
+
+
+## 2026-05-25 01:33:54 — 6116e26
+**fix(cron): bump IG sync maxDuration to 300s - same defensive insurance as YT shorts (034643f)**
+
+Changed files:
+  - vercel.json
+
+
+## 2026-05-25 01:47:29 — 5d59371
+**fix(dashboard): skeleton stat tiles while window data refetches**
+
+Changed files:
+  - src/components/views/DashboardView.tsx
+
+
+## 2026-05-25 01:48:29 — 28ade1c
+**chore: strip stray debug console.logs from components and api routes**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+  - src/components/VideoPreviewModal.tsx
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-05-25 01:49:08 — 1a05265
+**docs(founder-report): explain PENDING-clip exclusion in footer**
+
+Changed files:
+  - src/components/views/FounderReportView.tsx
+
+
+## 2026-05-25 01:56:36 — 927ae6b
+**feat(sidebar): hide Platforms + Comparison views for stakeholder demo**
+
+Changed files:
+  - src/components/Sidebar.tsx
+
+
+## 2026-05-25 08:42:15 — a8a18e4
+**feat(sidebar): hide Posting Schedule for stakeholder demo**
+
+Changed files:
+  - src/components/Sidebar.tsx
+
