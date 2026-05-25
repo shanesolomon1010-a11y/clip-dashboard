@@ -288,6 +288,10 @@ export default function FounderReportView() {
               </p>
             </>
           )}
+          <p className="text-[10px] text-[var(--text-3)] italic">
+            Excludes un-mapped clips (pending team review). Dashboard totals may
+            differ because they include un-mapped clips.
+          </p>
           {lastUpdated && (
             <p className="text-[11px] text-[var(--text-3)]">
               Last updated: {lastUpdated.toLocaleTimeString()}
