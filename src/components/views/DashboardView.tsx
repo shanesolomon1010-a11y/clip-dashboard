@@ -67,6 +67,15 @@ function fmtDuration(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function SkeletonStatCard() {
+  return (
+    <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4 animate-pulse">
+      <div className="h-2.5 w-20 rounded bg-white/[0.04] mb-3" />
+      <div className="h-7 w-16 rounded-lg bg-white/[0.06]" />
+    </div>
+  );
+}
+
 
 interface ClipTotal {
   clip_code: string | null;
@@ -91,6 +100,10 @@ export default function DashboardView({ posts }: Props) {
 
   const [allDailyPosts, setAllDailyPosts] = useState<UnifiedPost[]>([]);
   const [latestClipPosts, setLatestClipPosts] = useState<UnifiedPost[]>([]);
+  // Tracks the windowed getAllPostsByDate fetch. Without this, the date label
+  // updates instantly but tiles keep computing on the previous window's data
+  // for 6-8s — looks broken (e.g., "All Time" label over 7d numbers).
+  const [windowLoading, setWindowLoading] = useState(true);
 
   const { filterPreset, setFilterPreset, customRange, setCustomRange, filterStart, filterEnd, filterLabel } =
     useDateFilter(initialState.preset, initialState.customRange);
@@ -123,9 +136,11 @@ export default function DashboardView({ posts }: Props) {
     // No platform arg — fetch all platforms; FilterContext.platform applies
     // JS-side via dateFilteredDailyPosts. The platform-breakdown rail derives
     // from a separate memo that always sees both platforms (comparison widget).
+    setWindowLoading(true);
     getAllPostsByDate(undefined, filterStart ?? undefined, filterEnd ?? undefined)
       .then(setAllDailyPosts)
-      .catch(() => setAllDailyPosts([]));
+      .catch(() => setAllDailyPosts([]))
+      .finally(() => setWindowLoading(false));
   }, [filterStart, filterEnd]);
 
   useEffect(() => {
@@ -382,6 +397,9 @@ export default function DashboardView({ posts }: Props) {
                   )}
                 </div>
               );
+            }
+            if (windowLoading) {
+              return <SkeletonStatCard key={label} />;
             }
             return (
               <div key={label} className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl px-4 py-4">
