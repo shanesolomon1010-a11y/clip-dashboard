@@ -14,7 +14,12 @@ const NAV_ITEMS: { id: NavSection; label: string; icon: React.ReactNode; badge?:
 ];
 
 const NAV_GROUPS = [
-  { label: 'Analytics', items: ['dashboard', 'founder-report', 'platforms', 'comparison'] },
+  { label: 'Analytics', items: [
+    'dashboard',
+    'founder-report',
+    // 'platforms',  // TODO: re-enable after polish pass — see Shane
+    // 'comparison', // TODO: re-enable after polish pass — see Shane
+  ] },
   { label: 'Workspace', items: ['schedule', 'settings'] },
 ];
 
