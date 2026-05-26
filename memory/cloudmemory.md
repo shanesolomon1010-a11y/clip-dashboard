@@ -3026,3 +3026,13 @@ Changed files:
 Changed files:
   - src/components/Sidebar.tsx
 
+
+## 2026-05-25 14:04:22 — 98d864b
+**chore: session shutdown — auto-mapper backlog cleared + demo prep**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
