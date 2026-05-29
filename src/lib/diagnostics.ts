@@ -92,6 +92,24 @@ export interface AuthHealthCheck {
   error?: string;
 }
 
+export interface IgMappingDesyncRow {
+  ig_content_id: string;
+  posts_code: string;
+  registry_code: string | null;
+  ig_post_rows: number;
+}
+
+// Heartbeat probe for the 5/25 cross-row invariant (IG posts must be keyed
+// under the clip_details row that owns their instagram_content_id). Lives
+// under schema_integrity but carries its own status so the alerter counts it
+// independently — and it is deliberately NOT in KNOWN_RED_PATHS: it must alert.
+export interface IgMappingDesyncCheck {
+  desynced_count: number;
+  rows: IgMappingDesyncRow[];
+  status: StatusLevel;
+  error?: string;
+}
+
 export interface DiagnosticsResponse {
   thresholds: {
     drift_pct_red: number;
@@ -121,6 +139,7 @@ export interface DiagnosticsResponse {
     posts_shorts_duplicate_row_count: number;
     posts_longform_duplicate_row_count: number;
     posts_instagram_duplicate_row_count: number;
+    ig_mapping_desync: IgMappingDesyncCheck;
     status: StatusLevel;
   };
   auth_health: {
@@ -397,6 +416,7 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
   }
 
   const duplicates = await countDuplicateRows();
+  const igMappingDesync = await checkIgMappingDesync();
 
   const status = aggregateStatus(
     nullCountStatus(postsNullContentId),
@@ -418,7 +438,27 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
     posts_shorts_duplicate_row_count: duplicates.shorts,
     posts_longform_duplicate_row_count: duplicates.longform,
     posts_instagram_duplicate_row_count: duplicates.instagram,
+    ig_mapping_desync: igMappingDesync,
     status,
+  };
+}
+
+// Heartbeat probe for the exact 5/25 cross-row invariant: each IG media's posts
+// must be keyed under the clip_details_code that owns its instagram_content_id.
+// Any returned row is a desync. Uses the ig_mapping_desync() RPC rather than a
+// .not(...,'is',null) filter (the nullable-text client footgun). 0 rows → green;
+// any rows → red with the offenders (capped); rpc error → red + message, never
+// silently green. NOT in KNOWN_RED_PATHS — this one is meant to alert.
+async function checkIgMappingDesync(): Promise<IgMappingDesyncCheck> {
+  const { data, error } = await supabase.rpc('ig_mapping_desync');
+  if (error) {
+    return { desynced_count: 0, rows: [], status: 'red', error: error.message };
+  }
+  const rows = (data ?? []) as IgMappingDesyncRow[];
+  return {
+    desynced_count: rows.length,
+    rows: rows.slice(0, 20),
+    status: rows.length === 0 ? 'green' : 'red',
   };
 }
 

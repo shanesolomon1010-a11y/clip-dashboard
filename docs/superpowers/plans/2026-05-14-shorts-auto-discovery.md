@@ -295,3 +295,14 @@ Total estimated complexity: 1×S + 1×M + 1×L + 1×S + 1×S = roughly 2-3 focus
 - `/Users/shane/clip-dashboard/scripts/backfill-clip-details-content-id.ts` — Phase 2 new file
 - `/Users/shane/clip-dashboard/supabase/migrations/20260326_clip_details.sql` — referenced for original schema (the `UNIQUE` constraint on `clip_code` is the blocker behind Open Q #1)
 - `/Users/shane/clip-dashboard/supabase/migrations/20260427_long_form_videos.sql` — referenced for partial-unique-index pattern
+
+---
+
+## 2026-05-29 — both upload-side mapping signals confirmed dead; mapping is manual
+
+Auto-discovery from upload metadata is **not achievable**. The two candidate signals for deriving `MBM###-CLIP-###` from a YouTube upload are both gone:
+
+1. **`snippet.tags` is empty on every upload to this channel.** The Phase 3 pivot (above) bet on Shane tagging uploads with the clip code so the cron could auto-map. He doesn't tag, and the auto-mapper at `src/lib/shorts-discovery.ts:72-88` therefore matches against an always-empty array — every new short lands as PENDING by design.
+2. **`fileDetails.fileName` is no longer returned by the YouTube Data API.** Re-verified 2026-05-29 against a known upload (`nBCgJxAlVJE`, expected filename `MBM028-CLIP-003.MOV`): the refresh token's scope is sufficient (`youtube.force-ssl` is granted), but the `fileName` field is simply absent from the `fileDetails` object the API returns. Re-authenticating would not help — the field is gone server-side, not scope-gated.
+
+Consequence: there is no reliable upload-metadata signal to auto-map clips. **Mapping is manual**, and the only sanctioned path to re-key a clip mapping is the atomic `map_clip(p_code, p_yt_video_id, p_ig_content_id)` plpgsql function (`supabase/migrations/20260529_clip_mapping_integrity.sql`). Never re-key `clip_details_code` across PENDING/MBM rows with raw multi-statement SQL again — that is exactly what caused the 5/25 incident. The `ig_mapping_desync()` heartbeat probe (wired into `schema_integrity.ig_mapping_desync`) now alerts if a posts/registry desync ever recurs.
