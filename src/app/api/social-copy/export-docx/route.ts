@@ -98,7 +98,7 @@ export async function GET(request: Request): Promise<NextResponse> {
           new Paragraph({
             children: [
               new TextRun({
-                text: `Social Copy — ${gen.clip_code}`,
+                text: `Social Copy - ${gen.clip_code}`,
                 bold: true,
                 font: 'Arial',
                 size: 36, // 18pt

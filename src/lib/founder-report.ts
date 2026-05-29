@@ -171,10 +171,10 @@ export async function buildFounderReport(options: BuildFounderReportOptions): Pr
 
   const warnings: string[] = [];
   if (result.longFormsPublished > 0 && result.longFormWatchTimeHours === 0 && result.longFormViews === 0) {
-    warnings.push('Long forms published but zero engagement — possible parser failure');
+    warnings.push('Long forms published but zero engagement - possible parser failure');
   }
   if (result.shortsPublished > 0 && result.shortsWatchTimeHours === 0 && result.shortsViews === 0) {
-    warnings.push('Shorts published but zero engagement — possible parser failure');
+    warnings.push('Shorts published but zero engagement - possible parser failure');
   }
   if (statRows.length === 0) {
     warnings.push(`No daily stat rows found between ${startDate} and ${endDate}`);

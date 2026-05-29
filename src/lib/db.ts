@@ -465,8 +465,6 @@ export async function upsertPosts(posts: UnifiedPost[]): Promise<void> {
   }
   const dedupedRows = Array.from(seen.values());
 
-  console.log(`[upsertPosts] inserting ${dedupedRows.length} rows. First row sample:`, JSON.stringify(dedupedRows[0], null, 2));
-
   const { error } = await supabase
     .from('posts')
     .upsert(dedupedRows, { onConflict: 'clip_details_code,platform,stat_date', ignoreDuplicates: false });
