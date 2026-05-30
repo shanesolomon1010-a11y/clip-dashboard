@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Platform, PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
-import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail, updatePostsClipDetailsCode } from '@/lib/db';
-import type { ClipDetail } from '@/lib/db';
+import { fetchAllClipDetails, insertClipDetail, upsertClipDetail, deleteClipDetail, updatePostsClipDetailsCode, getPendingMappings } from '@/lib/db';
+import type { ClipDetail, PendingMapping } from '@/lib/db';
 import DataEditorTab from '@/components/DataEditorTab';
 import DiagnosticsView from '@/components/views/DiagnosticsView';
+import MappingTab from '@/components/MappingTab';
 
 const ALL_PLATFORMS: Platform[] = ['youtube', 'instagram'];
 
@@ -61,9 +62,9 @@ function nullIfEmpty(s: string): string | null {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-const VALID_STABS = new Set(['clips', 'data-editor', 'connections', 'bulk-import', 'diagnostics']);
+const VALID_STABS = new Set(['clips', 'mapping', 'data-editor', 'connections', 'bulk-import', 'diagnostics']);
 
-type SettingsTab = 'clips' | 'data-editor' | 'connections' | 'bulk-import' | 'diagnostics';
+type SettingsTab = 'clips' | 'mapping' | 'data-editor' | 'connections' | 'bulk-import' | 'diagnostics';
 
 export default function SettingsView({ onClearData }: Props) {
   const router = useRouter();
@@ -83,6 +84,24 @@ export default function SettingsView({ onClearData }: Props) {
 
   // Clip Library state
   const [clips, setClips]           = useState<ClipDetail[]>([]);
+
+  // Mapping tab state
+  const [pending, setPending]       = useState<PendingMapping[]>([]);
+  const mappedCodes = Array.from(
+    new Set(
+      clips
+        .map(c => c.clip_details_code)
+        .filter((c): c is string => !!c && /^MBM\d+-CLIP-\d+$/.test(c)),
+    ),
+  ).sort();
+
+  async function loadPending() {
+    try {
+      setPending(await getPendingMappings());
+    } catch (err) {
+      console.error('pending mappings fetch error:', err);
+    }
+  }
   const [form, setForm]             = useState<ClipForm>(EMPTY_FORM);
   const [clipSubmitting, setClipSubmitting] = useState(false);
   const [clipStatus, setClipStatus] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
@@ -229,7 +248,8 @@ export default function SettingsView({ onClearData }: Props) {
     fetchAllClipDetails()
       .then(setClips)
       .catch(err => console.error('clip_details fetch error:', err));
-  }, []);
+    loadPending();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (searchParams.get('connected') === 'true') {
@@ -386,6 +406,7 @@ export default function SettingsView({ onClearData }: Props) {
         <div className="flex gap-1 mt-4 bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-full p-1 w-fit">
           {([
             { key: 'clips', label: 'Clip Library' },
+            { key: 'mapping', label: 'Mapping' },
             { key: 'data-editor', label: 'Data Editor' },
             { key: 'connections', label: 'Connections' },
             { key: 'bulk-import', label: 'Bulk Import' },
@@ -394,18 +415,32 @@ export default function SettingsView({ onClearData }: Props) {
             <button
               key={key}
               onClick={() => setActiveTab(key)}
-              className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all"
+              className="px-4 py-1.5 rounded-full text-xs font-semibold transition-all flex items-center gap-1.5"
               style={{
                 background: activeTab === key ? 'var(--gold)' : 'transparent',
                 color: activeTab === key ? '#000' : 'var(--text-3)',
               }}
             >
               {label}
+              {key === 'mapping' && pending.length > 0 && (
+                <span
+                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"
+                  style={{
+                    background: activeTab === key ? 'rgba(0,0,0,0.18)' : 'var(--gold)',
+                    color: activeTab === key ? '#000' : '#000',
+                  }}
+                >
+                  {pending.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
       </div>
 
+      {activeTab === 'mapping' && (
+        <MappingTab pending={pending} mappedCodes={mappedCodes} onMapped={loadPending} />
+      )}
       {activeTab === 'data-editor' && <DataEditorTab />}
       {activeTab === 'diagnostics' && <DiagnosticsView />}
 

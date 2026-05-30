@@ -612,6 +612,90 @@ export async function deleteClipDetail(clipCode: string): Promise<void> {
   if (error) throw error;
 }
 
+// ── Manual clip mapping (Settings → Mapping tab) ────────────────────────────────
+
+export interface PendingMapping {
+  clip_details_code: string;
+  category: 'PENDING_IG' | 'PENDING_YT';
+  content_id: string | null;            // YT video id   (PENDING_YT identity)
+  instagram_content_id: string | null;  // IG media id   (PENDING_IG identity)
+  platform: Platform;                    // derived from category, for the badge
+  title: string | null;
+  url: string | null;
+  thumbnail_url: string | null;
+  posted_at: string | null;             // YYYY-MM-DD (date only)
+  has_posts: boolean;
+}
+
+// Un-mapped clips awaiting a manual map_clip call: every clip_details row whose
+// clip_details_code starts 'PENDING-' (covers both 'PENDING-IG-{mediaId}' and
+// 'PENDING-{videoId}'), joined to the latest posts row per code for display.
+//
+// JS-side prefix filter (not a SQL .like) — clip_details is small (~140 rows)
+// and the .not(...is...null)/null-filter supabase-js quirk has bitten this
+// codebase repeatedly (see getShortsRegistry / getInstagramRegistry).
+export async function getPendingMappings(): Promise<PendingMapping[]> {
+  const { data: cdData, error: cdError } = await supabase
+    .from('clip_details')
+    .select('clip_details_code, clip_code, content_id, instagram_content_id');
+  if (cdError) throw cdError;
+
+  const pending = (cdData ?? []).filter((row) => {
+    const code = (row as Record<string, unknown>).clip_details_code as string | null;
+    return code != null && code.startsWith('PENDING-');
+  });
+  if (pending.length === 0) return [];
+
+  const codes = pending.map((r) => (r as Record<string, unknown>).clip_details_code as string);
+
+  // Latest posts row per PENDING code. Bounded to the PENDING codes, but
+  // paginated + stably ordered per the Supabase 1000-row cap rule (CLAUDE.md).
+  const PAGE = 1000;
+  const postRows: Record<string, unknown>[] = [];
+  let from = 0;
+  for (;;) {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('clip_details_code, platform, title, url, thumbnail_url, posted_at, stat_date, id')
+      .in('clip_details_code', codes)
+      .order('stat_date', { ascending: false, nullsFirst: false })
+      .order('posted_at', { ascending: false, nullsFirst: false })
+      .order('id', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+    postRows.push(...(data as Record<string, unknown>[]));
+    if (data.length < PAGE) break;
+    from += PAGE;
+  }
+
+  const latestByCode = new Map<string, Record<string, unknown>>();
+  for (const row of postRows) {
+    const code = row.clip_details_code as string;
+    if (!latestByCode.has(code)) latestByCode.set(code, row); // ordered: first = latest
+  }
+
+  return pending.map((row) => {
+    const r = row as Record<string, unknown>;
+    const code = r.clip_details_code as string;
+    const isIg = code.startsWith('PENDING-IG-');
+    const latest = latestByCode.get(code);
+    const postedAt = latest?.posted_at as string | null | undefined;
+    return {
+      clip_details_code: code,
+      category: isIg ? 'PENDING_IG' : 'PENDING_YT',
+      content_id: (r.content_id as string | null) ?? null,
+      instagram_content_id: (r.instagram_content_id as string | null) ?? null,
+      platform: isIg ? 'instagram' : 'youtube',
+      title: (latest?.title as string | null) ?? null,
+      url: (latest?.url as string | null) ?? null,
+      thumbnail_url: (latest?.thumbnail_url as string | null) ?? null,
+      posted_at: postedAt ? postedAt.slice(0, 10) : null,
+      has_posts: latest != null,
+    };
+  });
+}
+
 // ── Shorts registry (Phase 3a — see docs/superpowers/plans/2026-05-14-shorts-auto-discovery.md) ──
 
 export interface ShortsRegistryRow {
