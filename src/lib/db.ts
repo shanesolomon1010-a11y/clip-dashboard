@@ -562,7 +562,7 @@ export async function fetchClipDetails(clipCode: string): Promise<ClipDetail | n
     .select(
       'clip_code, clip_details_code, title, headline_banner, question_banner, ' +
       'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
-      'video_url, thumbnail_base64'
+      'video_url'
     )
     .eq('clip_details_code', lookupCode)
     .maybeSingle();
@@ -577,7 +577,7 @@ export async function fetchAllClipDetails(): Promise<ClipDetail[]> {
     .select(
       'clip_code, clip_details_code, title, headline_banner, question_banner, ' +
       'caption_youtube_title, caption_tiktok, caption_instagram, caption_youtube, caption_linkedin, caption_twitter, ' +
-      'video_url, thumbnail_base64'
+      'video_url'
     )
     .order('clip_code');
   if (error) throw error;
