@@ -614,6 +614,11 @@ export async function deleteClipDetail(clipCode: string): Promise<void> {
 
 // ── Manual clip mapping (Settings → Mapping tab) ────────────────────────────────
 
+export interface MappingSuggestion {
+  code: string;            // candidate MBM###-CLIP-### code
+  title: string | null;    // candidate's mapped-platform title, for disambiguation
+}
+
 export interface PendingMapping {
   clip_details_code: string;
   category: 'PENDING_IG' | 'PENDING_YT';
@@ -625,6 +630,7 @@ export interface PendingMapping {
   thumbnail_url: string | null;
   posted_at: string | null;             // YYYY-MM-DD (date only)
   has_posts: boolean;
+  suggestions: MappingSuggestion[];      // same-date MBM candidates with an open slot
 }
 
 // Un-mapped clips awaiting a manual map_clip call: every clip_details row whose
@@ -646,10 +652,32 @@ export async function getPendingMappings(): Promise<PendingMapping[]> {
   });
   if (pending.length === 0) return [];
 
-  const codes = pending.map((r) => (r as Record<string, unknown>).clip_details_code as string);
+  // Candidate pools for same-date suggestions: mapped MBM clips with exactly one
+  // platform slot still open. IG candidates (YT mapped, IG slot NULL) suggest to
+  // PENDING IG reels; YT candidates (IG mapped, YT slot NULL) to PENDING YT
+  // reels. Never offer a code whose target slot is already filled.
+  const igCandidateCodes: string[] = [];
+  const ytCandidateCodes: string[] = [];
+  for (const row of cdData ?? []) {
+    const r = row as Record<string, unknown>;
+    const c = r.clip_details_code as string | null;
+    if (c == null || !c.startsWith('MBM')) continue;
+    const hasYt = r.content_id != null;
+    const hasIg = r.instagram_content_id != null;
+    if (hasYt && !hasIg) igCandidateCodes.push(c);
+    else if (hasIg && !hasYt) ytCandidateCodes.push(c);
+  }
 
-  // Latest posts row per PENDING code. Bounded to the PENDING codes, but
-  // paginated + stably ordered per the Supabase 1000-row cap rule (CLAUDE.md).
+  // One posts fetch covers both display rows (PENDING codes) and candidate
+  // date/title rows (candidate codes). Paginated + stably ordered per the
+  // Supabase 1000-row cap rule (CLAUDE.md).
+  const codes = Array.from(
+    new Set([
+      ...pending.map((r) => (r as Record<string, unknown>).clip_details_code as string),
+      ...igCandidateCodes,
+      ...ytCandidateCodes,
+    ]),
+  );
   const PAGE = 1000;
   const postRows: Record<string, unknown>[] = [];
   let from = 0;
@@ -670,10 +698,30 @@ export async function getPendingMappings(): Promise<PendingMapping[]> {
   }
 
   const latestByCode = new Map<string, Record<string, unknown>>();
+  // code::platform → publish date + title, used for candidate same-date matching.
+  const metaByCodePlatform = new Map<string, { date: string | null; title: string | null }>();
   for (const row of postRows) {
     const code = row.clip_details_code as string;
     if (!latestByCode.has(code)) latestByCode.set(code, row); // ordered: first = latest
+    const cp = `${code}::${row.platform as string}`;
+    if (!metaByCodePlatform.has(cp)) {
+      const pa = row.posted_at as string | null;
+      metaByCodePlatform.set(cp, {
+        date: pa ? pa.slice(0, 10) : null,
+        title: (row.title as string | null) ?? null,
+      });
+    }
   }
+
+  // Candidate (code, publish date, title) for the platform slot being offered.
+  const igCandidates = igCandidateCodes.map((c) => ({
+    code: c,
+    ...(metaByCodePlatform.get(`${c}::youtube`) ?? { date: null, title: null }),
+  }));
+  const ytCandidates = ytCandidateCodes.map((c) => ({
+    code: c,
+    ...(metaByCodePlatform.get(`${c}::instagram`) ?? { date: null, title: null }),
+  }));
 
   return pending.map((row) => {
     const r = row as Record<string, unknown>;
@@ -681,6 +729,13 @@ export async function getPendingMappings(): Promise<PendingMapping[]> {
     const isIg = code.startsWith('PENDING-IG-');
     const latest = latestByCode.get(code);
     const postedAt = latest?.posted_at as string | null | undefined;
+    const postedDate = postedAt ? postedAt.slice(0, 10) : null;
+    const pool = isIg ? igCandidates : ytCandidates;
+    const suggestions: MappingSuggestion[] = postedDate
+      ? pool
+          .filter((cand) => cand.date != null && cand.date === postedDate)
+          .map((cand) => ({ code: cand.code, title: cand.title }))
+      : [];
     return {
       clip_details_code: code,
       category: isIg ? 'PENDING_IG' : 'PENDING_YT',
@@ -690,8 +745,9 @@ export async function getPendingMappings(): Promise<PendingMapping[]> {
       title: (latest?.title as string | null) ?? null,
       url: (latest?.url as string | null) ?? null,
       thumbnail_url: (latest?.thumbnail_url as string | null) ?? null,
-      posted_at: postedAt ? postedAt.slice(0, 10) : null,
+      posted_at: postedDate,
       has_posts: latest != null,
+      suggestions,
     };
   });
 }

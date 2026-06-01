@@ -2,9 +2,20 @@
 
 import { useState } from 'react';
 import { PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
-import type { PendingMapping } from '@/lib/db';
+import type { PendingMapping, MappingSuggestion } from '@/lib/db';
 
 const CODE_RE = /^MBM\d+-CLIP-\d+$/;
+
+function tokenize(s: string | null): string[] {
+  return (s ?? '').toLowerCase().match(/[a-z0-9]+/g) ?? [];
+}
+
+// Cheap token-overlap score between the reel title and a candidate's title,
+// used only to rank multiple same-date candidates — not to auto-select.
+function similarity(a: string | null, b: string | null): number {
+  const sa = new Set(tokenize(a));
+  return tokenize(b).filter((t) => sa.has(t)).length;
+}
 
 interface Props {
   pending: PendingMapping[];
@@ -30,12 +41,20 @@ function MappingRow({
   item: PendingMapping;
   onSuccess: (message: string) => Promise<void> | void;
 }) {
-  const [code, setCode] = useState('');
+  // Exactly one same-date candidate → pre-fill (still requires explicit Map).
+  const [code, setCode] = useState(
+    item.suggestions.length === 1 ? item.suggestions[0].code : '',
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const trimmed = code.trim();
   const valid = CODE_RE.test(trimmed);
+  const showInvalid = trimmed !== '' && !valid;
+
+  const ranked: MappingSuggestion[] = [...item.suggestions].sort(
+    (x, y) => similarity(item.title, y.title) - similarity(item.title, x.title),
+  );
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -104,17 +123,57 @@ function MappingRow({
             placeholder="MBM015-CLIP-014"
             value={code}
             onChange={(e) => setCode(e.target.value)}
-            className="flex-1 min-w-0 px-3 py-2 text-xs bg-[var(--bg-base)] border border-[rgba(247,231,206,0.10)] rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] font-mono focus:outline-none focus:border-[var(--gold-border)]"
+            className={`flex-1 min-w-0 px-3 py-2 text-xs bg-[var(--bg-base)] border rounded-xl text-[var(--text-1)] placeholder:text-[var(--text-3)] font-mono focus:outline-none ${
+              showInvalid
+                ? 'border-red-400 focus:border-red-400'
+                : 'border-[rgba(247,231,206,0.10)] focus:border-[var(--gold-border)]'
+            }`}
           />
           <button
             type="submit"
             disabled={!valid || submitting}
-            className="shrink-0 px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-40 disabled:cursor-not-allowed"
+            className="shrink-0 px-4 py-2 text-xs font-semibold text-[var(--bg-base)] bg-[var(--gold)] rounded-xl hover:opacity-90 transition-opacity disabled:opacity-30 disabled:saturate-50 disabled:cursor-not-allowed"
           >
             {submitting ? 'Mapping…' : 'Map'}
           </button>
         </form>
+
+        {showInvalid && (
+          <p className="text-[11px] text-red-400 mt-1.5">Use the form MBM028-CLIP-005</p>
+        )}
         {error && <p className="text-[11px] text-red-400 mt-1.5">{error}</p>}
+
+        {item.suggestions.length === 1 && (
+          <p className="text-[11px] text-[var(--text-3)] mt-1.5">
+            suggested:{' '}
+            <span className="font-mono text-[var(--gold)]">{item.suggestions[0].code}</span>{' '}
+            (same date)
+          </p>
+        )}
+        {item.suggestions.length > 1 && (
+          <div className="mt-2">
+            <p className="text-[10px] text-[var(--text-3)] uppercase tracking-wider mb-1">
+              Same-date candidates
+            </p>
+            <div className="flex flex-col gap-1">
+              {ranked.map((s) => (
+                <button
+                  key={s.code}
+                  type="button"
+                  onClick={() => setCode(s.code)}
+                  className={`text-left px-2.5 py-1.5 rounded-lg border text-[11px] transition-colors ${
+                    code === s.code
+                      ? 'border-[var(--gold-border)] bg-[rgba(247,231,206,0.06)]'
+                      : 'border-[rgba(247,231,206,0.07)] hover:bg-[rgba(247,231,206,0.04)]'
+                  }`}
+                >
+                  <span className="font-mono text-[var(--text-1)]">{s.code}</span>
+                  {s.title && <span className="text-[var(--text-3)] ml-2">{s.title}</span>}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

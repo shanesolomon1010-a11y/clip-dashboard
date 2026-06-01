@@ -87,6 +87,8 @@ export default function SettingsView({ onClearData }: Props) {
 
   // Mapping tab state
   const [pending, setPending]       = useState<PendingMapping[]>([]);
+  // Badge counts the actionable (has-posts) cards, not orphans.
+  const mappableCount = pending.filter(p => p.has_posts).length;
   const mappedCodes = Array.from(
     new Set(
       clips
@@ -422,7 +424,7 @@ export default function SettingsView({ onClearData }: Props) {
               }}
             >
               {label}
-              {key === 'mapping' && pending.length > 0 && (
+              {key === 'mapping' && mappableCount > 0 && (
                 <span
                   className="text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none"
                   style={{
@@ -430,7 +432,7 @@ export default function SettingsView({ onClearData }: Props) {
                     color: activeTab === key ? '#000' : '#000',
                   }}
                 >
-                  {pending.length}
+                  {mappableCount}
                 </span>
               )}
             </button>
