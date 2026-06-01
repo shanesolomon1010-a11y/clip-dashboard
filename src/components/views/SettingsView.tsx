@@ -347,6 +347,7 @@ export default function SettingsView({ onClearData }: Props) {
     try {
       await deleteClipDetail(clipCode);
       setClips(prev => prev.filter(c => c.clip_code !== clipCode));
+      setClipStatus(null);
     } catch (err) {
       // ON DELETE RESTRICT (posts_clip_details_code_fkey): posts still reference
       // this clip, so Postgres rejects the delete with SQLSTATE 23503.
@@ -357,6 +358,10 @@ export default function SettingsView({ onClearData }: Props) {
         });
       } else {
         console.error('delete clip error:', err);
+        setClipStatus({
+          type: 'error',
+          message: `Couldn't delete ${clipCode}: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        });
       }
     }
   }

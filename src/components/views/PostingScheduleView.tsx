@@ -94,6 +94,7 @@ export default function PostingScheduleView() {
   const [posts, setPosts]           = useState<ScheduledPost[]>([]);
   const [loading, setLoading]       = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refetchError, setRefetchError] = useState<string | null>(null);
   const [year, setYear]             = useState(() => new Date().getFullYear());
   const [month, setMonth]           = useState(() => new Date().getMonth());  // 0-indexed
   const [selectedDate, setSelected] = useState<string | null>(null);
@@ -146,11 +147,13 @@ export default function PostingScheduleView() {
       .limit(5000)
       .then(({ data, error }) => {
         if (error) {
+          // Non-destructive: keep the already-loaded posts and show an inline
+          // notice rather than replacing the whole calendar (that's fetchError).
           console.error('scheduled_posts refetch error:', error);
-          setFetchError(error.message);
+          setRefetchError(error.message);
         } else if (data) {
           setPosts(data as ScheduledPost[]);
-          setFetchError(null);
+          setRefetchError(null);
         }
       });
   }
@@ -322,6 +325,12 @@ export default function PostingScheduleView() {
 
   return (
     <div className="p-5">
+
+      {refetchError && (
+        <div className="mb-4 px-4 py-2 text-xs text-red-400 bg-[rgba(255,68,68,0.08)] border border-[rgba(255,68,68,0.15)] rounded-xl">
+          Couldn&apos;t refresh: {refetchError}. Showing the last loaded data.
+        </div>
+      )}
 
       {/* Platform legend */}
       <div className="flex flex-wrap gap-5 mb-5">

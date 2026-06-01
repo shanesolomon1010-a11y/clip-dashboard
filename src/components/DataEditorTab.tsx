@@ -47,6 +47,7 @@ export default function DataEditorTab() {
   const [platformFilter, setPlatformFilter] = useState<'all' | 'youtube' | 'instagram'>('all');
   const [dirty, setDirty] = useState<Map<string, Partial<UnifiedPost>>>(new Map());
   const [saving, setSaving] = useState<Set<string>>(new Set());
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -96,8 +97,10 @@ export default function DataEditorTab() {
       await updatePost(post.id, fields);
       setPosts(prev => prev.map(p => p.id === post.id ? { ...p, ...fields } : p));
       setDirty(prev => { const next = new Map(prev); next.delete(post.id); return next; });
+      setActionError(null);
     } catch (err) {
       console.error('updatePost error:', err);
+      setActionError(`Couldn't save row: ${err instanceof Error ? err.message : 'Unknown error'}`);
     } finally {
       setSaving(prev => { const next = new Set(prev); next.delete(post.id); return next; });
     }
@@ -108,8 +111,10 @@ export default function DataEditorTab() {
       await deletePost(postId);
       setPosts(prev => prev.filter(p => p.id !== postId));
       setDirty(prev => { const next = new Map(prev); next.delete(postId); return next; });
+      setActionError(null);
     } catch (err) {
       console.error('deletePost error:', err);
+      setActionError(`Couldn't delete row: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   }
 
@@ -145,6 +150,10 @@ export default function DataEditorTab() {
           {displayed.length} row{displayed.length !== 1 ? 's' : ''}
         </span>
       </div>
+
+      {actionError && (
+        <p className="text-xs text-red-400">{actionError}</p>
+      )}
 
       {loadError ? (
         <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl py-12 text-center text-red-400 text-sm">
