@@ -68,14 +68,6 @@ export interface DriftCheck {
   status: StatusLevel;
 }
 
-export interface CoverageCheck {
-  posts_distinct_clips_7d: number;
-  studio_snapshots_distinct_clips_7d: number;
-  clips_in_posts_missing_from_studio: string[];
-  clips_in_studio_missing_from_posts: string[];
-  status: StatusLevel;
-}
-
 export interface AuthHealthCheck {
   token_expiry: string | null;
   days_remaining: number | null;
@@ -139,7 +131,6 @@ export interface DiagnosticsResponse {
   anomaly_check: AnomalyCheck;
   internal_consistency: ConsistencyCheck;
   drift_check: DriftCheck;
-  coverage: CoverageCheck;
   generated_at: string;
 }
 
@@ -1110,55 +1101,6 @@ async function buildDriftCheck(
   };
 }
 
-async function buildCoverage(now: Date): Promise<CoverageCheck> {
-  const start = new Date(now);
-  start.setDate(start.getDate() - 7);
-  const startYMD = toYMD(start);
-  const endYMD = toYMD(now);
-
-  const { data: postsRows } = await supabase
-    .from('posts')
-    .select('clip_details_code')
-    .eq('platform', 'youtube')
-    .eq('content_type', 'short')
-    .gte('stat_date', startYMD)
-    .lte('stat_date', endYMD)
-    .not('clip_details_code', 'is', null);
-
-  const { data: studioRows } = await supabase
-    .from('studio_snapshots')
-    .select('clip_details_code')
-    .gte('stat_date', startYMD)
-    .lte('stat_date', endYMD);
-
-  const postsClips = new Set<string>();
-  for (const r of postsRows ?? []) {
-    const c = r.clip_details_code as string | null;
-    if (c) postsClips.add(c);
-  }
-  const studioClips = new Set<string>();
-  for (const r of studioRows ?? []) {
-    const c = r.clip_details_code as string | null;
-    if (c) studioClips.add(c);
-  }
-
-  const missingFromStudio = Array.from(postsClips).filter(c => !studioClips.has(c)).sort();
-  const missingFromPosts = Array.from(studioClips).filter(c => !postsClips.has(c)).sort();
-
-  const status = aggregateStatus(
-    nullCountStatus(missingFromStudio.length),
-    nullCountStatus(missingFromPosts.length),
-  );
-
-  return {
-    posts_distinct_clips_7d: postsClips.size,
-    studio_snapshots_distinct_clips_7d: studioClips.size,
-    clips_in_posts_missing_from_studio: missingFromStudio,
-    clips_in_studio_missing_from_posts: missingFromPosts,
-    status,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
@@ -1184,7 +1126,6 @@ export async function buildDiagnostics(
     anomaly_check,
     internal_consistency,
     drift_check,
-    coverage,
   ] = await Promise.all([
     buildCronHealth(now, freshnessHoursYellow, freshnessHoursRed),
     buildDataFreshness(now),
@@ -1195,7 +1136,6 @@ export async function buildDiagnostics(
     buildAnomalyCheck(now),
     buildInternalConsistency(now),
     buildDriftCheck(now, driftWindowDays, driftPctYellow, driftPctRed),
-    buildCoverage(now),
   ]);
 
   return {
@@ -1215,7 +1155,6 @@ export async function buildDiagnostics(
     anomaly_check,
     internal_consistency,
     drift_check,
-    coverage,
     generated_at: now.toISOString(),
   };
 }

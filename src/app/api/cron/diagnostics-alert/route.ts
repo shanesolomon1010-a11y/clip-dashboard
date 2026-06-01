@@ -5,15 +5,12 @@ import { startCronRun, finishCronRun } from '@/lib/cron-runs';
 export const dynamic = 'force-dynamic';
 
 // Paths into the diagnostics response that read RED by design and should not
-// alert. The three dead Studio-scraper checks (last_scraper_run,
-// scraper_history, studio_snapshots_latest_stat) were retired 2026-06-01 once
-// the scraper was confirmed decommissioned. coverage remains: it reads live
-// `posts` data but compares it against the frozen studio_snapshots clip set,
-// so missing-from-studio accumulates and it reads RED by design — muted here
-// rather than removed.
-const KNOWN_RED_PATHS = new Set([
-  'coverage.status',
-]);
+// alert. Empty as of 2026-06-01: the four dead Studio-scraper checks
+// (last_scraper_run, scraper_history, studio_snapshots_latest_stat, coverage)
+// were all retired once the scraper was confirmed decommissioned, so every
+// remaining check is now load-bearing and any RED legitimately alerts. New
+// entries belong here only for checks that are RED by design, not by failure.
+const KNOWN_RED_PATHS = new Set<string>([]);
 
 interface AnyObject { [k: string]: unknown }
 

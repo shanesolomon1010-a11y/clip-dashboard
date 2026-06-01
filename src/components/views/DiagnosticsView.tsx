@@ -72,13 +72,6 @@ interface DiagnosticsData {
     by_clip: DriftPerClip[];
     status: Status;
   };
-  coverage: {
-    posts_distinct_clips_7d: number;
-    studio_snapshots_distinct_clips_7d: number;
-    clips_in_posts_missing_from_studio: string[];
-    clips_in_studio_missing_from_posts: string[];
-    status: Status;
-  };
   generated_at: string;
 }
 
@@ -416,32 +409,6 @@ export default function DiagnosticsView() {
                   <ConsistencyRow label="Shorts watch (h)" displayed={data.internal_consistency.shorts_watch_displayed} recomputed={data.internal_consistency.shorts_watch_recomputed} delta={data.internal_consistency.shorts_watch_delta} />
                 </tbody>
               </table>
-            </div>
-          </CardShell>
-
-          {/* 6. Coverage */}
-          <CardShell
-            title="Coverage (last 7d)"
-            status={data.coverage.status}
-            headline={`posts: ${data.coverage.posts_distinct_clips_7d} clips · studio_snapshots: ${data.coverage.studio_snapshots_distinct_clips_7d} clips`}
-          >
-            <div className="space-y-3 text-xs">
-              <div>
-                <p className="text-[var(--text-3)] mb-1">In posts but missing from studio_snapshots ({data.coverage.clips_in_posts_missing_from_studio.length})</p>
-                {data.coverage.clips_in_posts_missing_from_studio.length === 0 ? (
-                  <p className="text-[var(--text-3)]">—</p>
-                ) : (
-                  <p className="font-mono text-[var(--text-2)] break-words">{data.coverage.clips_in_posts_missing_from_studio.join(', ')}</p>
-                )}
-              </div>
-              <div>
-                <p className="text-[var(--text-3)] mb-1">In studio_snapshots but missing from posts ({data.coverage.clips_in_studio_missing_from_posts.length})</p>
-                {data.coverage.clips_in_studio_missing_from_posts.length === 0 ? (
-                  <p className="text-[var(--text-3)]">—</p>
-                ) : (
-                  <p className="font-mono text-[var(--text-2)] break-words">{data.coverage.clips_in_studio_missing_from_posts.join(', ')}</p>
-                )}
-              </div>
             </div>
           </CardShell>
 
