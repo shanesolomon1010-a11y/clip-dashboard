@@ -84,9 +84,11 @@ export default function SettingsView({ onClearData }: Props) {
 
   // Clip Library state
   const [clips, setClips]           = useState<ClipDetail[]>([]);
+  const [clipsLoadError, setClipsLoadError] = useState<string | null>(null);
 
   // Mapping tab state
   const [pending, setPending]       = useState<PendingMapping[]>([]);
+  const [pendingLoadError, setPendingLoadError] = useState<string | null>(null);
   // Badge counts the actionable (has-posts) cards, not orphans.
   const mappableCount = pending.filter(p => p.has_posts).length;
   const mappedCodes = Array.from(
@@ -100,8 +102,10 @@ export default function SettingsView({ onClearData }: Props) {
   async function loadPending() {
     try {
       setPending(await getPendingMappings());
+      setPendingLoadError(null);
     } catch (err) {
       console.error('pending mappings fetch error:', err);
+      setPendingLoadError(err instanceof Error ? err.message : 'Unknown error');
     }
   }
   const [form, setForm]             = useState<ClipForm>(EMPTY_FORM);
@@ -248,8 +252,11 @@ export default function SettingsView({ onClearData }: Props) {
 
   useEffect(() => {
     fetchAllClipDetails()
-      .then(setClips)
-      .catch(err => console.error('clip_details fetch error:', err));
+      .then(clips => { setClips(clips); setClipsLoadError(null); })
+      .catch(err => {
+        console.error('clip_details fetch error:', err);
+        setClipsLoadError(err instanceof Error ? err.message : 'Unknown error');
+      });
     loadPending();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -450,7 +457,13 @@ export default function SettingsView({ onClearData }: Props) {
       </div>
 
       {activeTab === 'mapping' && (
-        <MappingTab pending={pending} mappedCodes={mappedCodes} onMapped={loadPending} />
+        pendingLoadError ? (
+          <div className="max-w-2xl">
+            <p className="px-5 py-4 text-xs text-red-400">Couldn&apos;t load pending mappings: {pendingLoadError}</p>
+          </div>
+        ) : (
+          <MappingTab pending={pending} mappedCodes={mappedCodes} onMapped={loadPending} />
+        )
       )}
       {activeTab === 'data-editor' && <DataEditorTab />}
       {activeTab === 'diagnostics' && <DiagnosticsView />}
@@ -676,7 +689,9 @@ export default function SettingsView({ onClearData }: Props) {
               </button>
             )}
           </div>
-          {clips.length === 0 ? (
+          {clipsLoadError ? (
+            <p className="px-5 py-4 text-xs text-red-400">Couldn&apos;t load clips: {clipsLoadError}</p>
+          ) : clips.length === 0 ? (
             <p className="px-5 py-4 text-xs text-[var(--text-3)]">No clips yet.</p>
           ) : selectedEpisode === null ? (
             <div className="p-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
