@@ -93,7 +93,7 @@ function formatDisplayDate(dateStr: string): { full: string; weekday: string } {
 export default function PostingScheduleView() {
   const [posts, setPosts]           = useState<ScheduledPost[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [fetchError, setFetchError] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [year, setYear]             = useState(() => new Date().getFullYear());
   const [month, setMonth]           = useState(() => new Date().getMonth());  // 0-indexed
   const [selectedDate, setSelected] = useState<string | null>(null);
@@ -105,6 +105,7 @@ export default function PostingScheduleView() {
   const [schedulingMode, setSchedulingMode]           = useState(false);
   const [formStep, setFormStep]                       = useState<1 | 2 | 3>(1);
   const [clipOptions, setClipOptions]                 = useState<ClipDetail[]>([]);
+  const [clipLoadError, setClipLoadError]             = useState<string | null>(null);
   const [clipSearch, setClipSearch]                   = useState('');
   const [selectedClip, setSelectedClip]               = useState<ClipDetail | null>(null);
   const [selectedPlatforms, setSelectedPlatforms]     = useState<Set<Platform>>(new Set(DEFAULT_PLATFORMS));
@@ -127,9 +128,10 @@ export default function PostingScheduleView() {
       .then(({ data, error }) => {
         if (error) {
           console.error('scheduled_posts fetch error:', error);
-          setFetchError(true);
+          setFetchError(error.message);
         } else if (data) {
           setPosts(data as ScheduledPost[]);
+          setFetchError(null);
         }
         setLoading(false);
       });
@@ -143,8 +145,13 @@ export default function PostingScheduleView() {
       .order('post_time', { ascending: true })
       .limit(5000)
       .then(({ data, error }) => {
-        if (error) console.error('scheduled_posts refetch error:', error);
-        else if (data) setPosts(data as ScheduledPost[]);
+        if (error) {
+          console.error('scheduled_posts refetch error:', error);
+          setFetchError(error.message);
+        } else if (data) {
+          setPosts(data as ScheduledPost[]);
+          setFetchError(null);
+        }
       });
   }
 
@@ -201,8 +208,10 @@ export default function PostingScheduleView() {
     try {
       const clips = await fetchAllClipDetails();
       setClipOptions(clips);
+      setClipLoadError(null);
     } catch (err) {
       console.error('clip_details fetch error:', err);
+      setClipLoadError(err instanceof Error ? err.message : 'Unknown error');
     }
   }
 
@@ -305,8 +314,8 @@ export default function PostingScheduleView() {
 
   if (fetchError) {
     return (
-      <div className="flex items-center justify-center h-64 text-[var(--text-2)] text-sm">
-        Failed to load schedule.
+      <div className="flex items-center justify-center h-64 text-red-400 text-sm">
+        Failed to load schedule: {fetchError}
       </div>
     );
   }
@@ -504,7 +513,9 @@ export default function PostingScheduleView() {
                           <span className="font-mono text-[10px] text-[var(--text-3)]">{clip.clip_details_code}</span>
                         </button>
                       ))}
-                      {filteredClips.length === 0 && (
+                      {clipLoadError ? (
+                        <p className="px-3 py-4 text-xs text-red-400 text-center">Couldn&apos;t load clips: {clipLoadError}</p>
+                      ) : filteredClips.length === 0 && (
                         <p className="px-3 py-4 text-xs text-[var(--text-3)] text-center">No clips found</p>
                       )}
                     </div>

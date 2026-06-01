@@ -42,6 +42,7 @@ const INPUT_BASE =
 export default function DataEditorTab() {
   const [posts, setPosts] = useState<UnifiedPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [platformFilter, setPlatformFilter] = useState<'all' | 'youtube' | 'instagram'>('all');
   const [dirty, setDirty] = useState<Map<string, Partial<UnifiedPost>>>(new Map());
@@ -50,8 +51,11 @@ export default function DataEditorTab() {
   useEffect(() => {
     setLoading(true);
     getAllPosts()
-      .then(setPosts)
-      .catch(err => console.error('getAllPosts error:', err))
+      .then(p => { setPosts(p); setLoadError(null); })
+      .catch(err => {
+        console.error('getAllPosts error:', err);
+        setLoadError(err instanceof Error ? err.message : 'Unknown error');
+      })
       .finally(() => setLoading(false));
   }, []);
 
@@ -142,7 +146,11 @@ export default function DataEditorTab() {
         </span>
       </div>
 
-      {displayed.length === 0 ? (
+      {loadError ? (
+        <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl py-12 text-center text-red-400 text-sm">
+          Couldn&apos;t load posts: {loadError}
+        </div>
+      ) : displayed.length === 0 ? (
         <div className="bg-[var(--bg-card)] border border-[rgba(247,231,206,0.06)] rounded-2xl py-12 text-center text-[var(--text-3)] text-sm">
           No rows match the current filters.
         </div>
