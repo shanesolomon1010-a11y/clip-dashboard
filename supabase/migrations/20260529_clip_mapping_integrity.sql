@@ -81,3 +81,26 @@ AS $function$
          OR cd.clip_details_code <> p.clip_details_code)
   GROUP BY p.content_id, p.clip_details_code, cd.clip_details_code;
 $function$;
+
+-- ----------------------------------------------------------------------------
+-- posts -> clip_details foreign key (APPLIED MANUALLY 2026-06-01 via SQL Editor)
+--
+-- The DB-level GUARD layer that completes the prevent/detect/guard model:
+--   PREVENT — map_clip() is the only sanctioned re-key path (atomic, RAISEs on
+--             any half-state) so a partial mapping can never be written.
+--   DETECT  — ig_mapping_desync() heartbeat probe alerts on any cross-row drift.
+--   GUARD   — this FK makes it physically impossible for a posts row to
+--             reference a clip_details_code that isn't in clip_details.
+--
+-- ON DELETE RESTRICT: a clip_details row cannot be deleted while posts still
+-- reference it (map_clip re-keys posts onto the MBM code BEFORE deleting the
+-- PENDING row, so its own deletes are never blocked). ON UPDATE CASCADE: a
+-- clip_details_code rename propagates to posts automatically. NULL children
+-- (long-form posts, by design) are exempt from the check.
+--
+-- Pre-add trace confirmed zero orphan posts and clip_details_code UNIQUE
+-- (clip_details_code_unique); see the 2026-06-01 read-only safety report.
+ALTER TABLE posts
+  ADD CONSTRAINT posts_clip_details_code_fkey
+  FOREIGN KEY (clip_details_code) REFERENCES clip_details(clip_details_code)
+  ON UPDATE CASCADE ON DELETE RESTRICT;

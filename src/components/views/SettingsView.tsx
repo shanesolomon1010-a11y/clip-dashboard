@@ -341,7 +341,16 @@ export default function SettingsView({ onClearData }: Props) {
       await deleteClipDetail(clipCode);
       setClips(prev => prev.filter(c => c.clip_code !== clipCode));
     } catch (err) {
-      console.error('delete clip error:', err);
+      // ON DELETE RESTRICT (posts_clip_details_code_fkey): posts still reference
+      // this clip, so Postgres rejects the delete with SQLSTATE 23503.
+      if ((err as { code?: string } | null)?.code === '23503') {
+        setClipStatus({
+          type: 'error',
+          message: `Can't delete ${clipCode}: posts still reference it. Re-map or remove those posts first.`,
+        });
+      } else {
+        console.error('delete clip error:', err);
+      }
     }
   }
 
