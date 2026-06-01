@@ -36,12 +36,10 @@ interface DiagnosticsData {
   cron_health: {
     last_youtube_sync_short: FreshnessCheck;
     last_youtube_sync_longform: FreshnessCheck;
-    last_scraper_run: FreshnessCheck;
   };
   data_freshness: {
     posts_short_latest_stat: StatDateCheck;
     posts_longform_latest_stat: StatDateCheck;
-    studio_snapshots_latest_stat: StatDateCheck;
   };
   schema_integrity: {
     posts_null_content_id_count: number;
@@ -79,13 +77,6 @@ interface DiagnosticsData {
     studio_snapshots_distinct_clips_7d: number;
     clips_in_posts_missing_from_studio: string[];
     clips_in_studio_missing_from_posts: string[];
-    status: Status;
-  };
-  scraper_history: {
-    last_run_at: string | null;
-    last_run_rows_written: number;
-    runs_last_7_days: number;
-    expected_runs_last_7_days: number;
     status: Status;
   };
   generated_at: string;
@@ -360,7 +351,6 @@ export default function DiagnosticsView() {
             <div className="space-y-2 text-xs">
               <FreshnessRow label="YouTube Shorts sync" check={data.cron_health.last_youtube_sync_short} />
               <FreshnessRow label="YouTube long-form sync" check={data.cron_health.last_youtube_sync_longform} />
-              <FreshnessRow label="Studio scraper run" check={data.cron_health.last_scraper_run} />
             </div>
           </CardShell>
 
@@ -373,7 +363,6 @@ export default function DiagnosticsView() {
             <div className="space-y-2 text-xs">
               <StatDateRow label="posts (Shorts) latest stat_date" check={data.data_freshness.posts_short_latest_stat} />
               <StatDateRow label="posts (long-form) latest stat_date" check={data.data_freshness.posts_longform_latest_stat} />
-              <StatDateRow label="studio_snapshots latest stat_date" check={data.data_freshness.studio_snapshots_latest_stat} />
             </div>
           </CardShell>
 
@@ -453,19 +442,6 @@ export default function DiagnosticsView() {
                   <p className="font-mono text-[var(--text-2)] break-words">{data.coverage.clips_in_studio_missing_from_posts.join(', ')}</p>
                 )}
               </div>
-            </div>
-          </CardShell>
-
-          {/* 7. Scraper history */}
-          <CardShell
-            title="Scraper History"
-            status={data.scraper_history.status}
-            headline={`${data.scraper_history.runs_last_7_days}/${data.scraper_history.expected_runs_last_7_days} runs in the last 7 days`}
-          >
-            <div className="space-y-2 text-xs">
-              <KeyValueRow label="Last run at" value={data.scraper_history.last_run_at ?? '—'} />
-              <KeyValueRow label="Rows written on last run" value={fmtNumber(data.scraper_history.last_run_rows_written)} />
-              <KeyValueRow label="Distinct run-days (7d)" value={`${data.scraper_history.runs_last_7_days} / ${data.scraper_history.expected_runs_last_7_days}`} />
             </div>
           </CardShell>
 
@@ -735,11 +711,11 @@ function SortHeader({
 }
 
 function worstFreshness(c: DiagnosticsData['cron_health']): Status {
-  return worstOf(c.last_youtube_sync_short.status, c.last_youtube_sync_longform.status, c.last_scraper_run.status);
+  return worstOf(c.last_youtube_sync_short.status, c.last_youtube_sync_longform.status);
 }
 
 function worstStatDate(c: DiagnosticsData['data_freshness']): Status {
-  return worstOf(c.posts_short_latest_stat.status, c.posts_longform_latest_stat.status, c.studio_snapshots_latest_stat.status);
+  return worstOf(c.posts_short_latest_stat.status, c.posts_longform_latest_stat.status);
 }
 
 function worstOf(...statuses: Status[]): Status {

@@ -6,7 +6,6 @@ import {
   driftStatus,
   statFreshnessStatus,
   nullCountStatus,
-  scraperRunStatus,
   tokenExpiryStatus,
   aggregateStatus,
   type StatusLevel,
@@ -77,14 +76,6 @@ export interface CoverageCheck {
   status: StatusLevel;
 }
 
-export interface ScraperHistoryCheck {
-  last_run_at: string | null;
-  last_run_rows_written: number;
-  runs_last_7_days: number;
-  expected_runs_last_7_days: number;
-  status: StatusLevel;
-}
-
 export interface AuthHealthCheck {
   token_expiry: string | null;
   days_remaining: number | null;
@@ -122,13 +113,11 @@ export interface DiagnosticsResponse {
     last_youtube_sync_short: FreshnessCheck;
     last_youtube_sync_longform: FreshnessCheck;
     last_instagram_sync: FreshnessCheck;
-    last_scraper_run: FreshnessCheck;
   };
   data_freshness: {
     posts_short_latest_stat: StatDateCheck;
     posts_longform_latest_stat: StatDateCheck;
     posts_instagram_latest_stat: StatDateCheck;
-    studio_snapshots_latest_stat: StatDateCheck;
   };
   schema_integrity: {
     posts_null_content_id_count: number;
@@ -151,7 +140,6 @@ export interface DiagnosticsResponse {
   internal_consistency: ConsistencyCheck;
   drift_check: DriftCheck;
   coverage: CoverageCheck;
-  scraper_history: ScraperHistoryCheck;
   generated_at: string;
 }
 
@@ -285,13 +273,6 @@ async function buildCronHealth(
     .limit(1)
     .maybeSingle();
 
-  const { data: scraperRow } = await supabase
-    .from('studio_snapshots')
-    .select('scraped_at')
-    .order('scraped_at', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle();
-
   function toCheck(
     timestamp: string | null | undefined,
     yellow: number,
@@ -311,7 +292,6 @@ async function buildCronHealth(
     last_youtube_sync_short: toCheck(shortRow?.updated_at as string | undefined, yellowHours, redHours),
     last_youtube_sync_longform: toCheck(longRow?.updated_at as string | undefined, yellowHours, redHours),
     last_instagram_sync: toCheck(igRow?.updated_at as string | undefined, IG_FRESHNESS_YELLOW_HOURS, IG_FRESHNESS_RED_HOURS),
-    last_scraper_run: toCheck(scraperRow?.scraped_at as string | undefined, yellowHours, redHours),
   };
 }
 
@@ -345,14 +325,6 @@ async function buildDataFreshness(now: Date): Promise<DiagnosticsResponse['data_
     .limit(1)
     .maybeSingle();
 
-  const { data: studioRow } = await supabase
-    .from('studio_snapshots')
-    .select('stat_date')
-    .not('stat_date', 'is', null)
-    .order('stat_date', { ascending: false, nullsFirst: false })
-    .limit(1)
-    .maybeSingle();
-
   function toCheck(date: string | null | undefined): StatDateCheck {
     if (!date) return { date: null, days_ago: null, status: 'red' };
     const daysAgo = daysBetween(now, date);
@@ -363,7 +335,6 @@ async function buildDataFreshness(now: Date): Promise<DiagnosticsResponse['data_
     posts_short_latest_stat: toCheck(shortRow?.stat_date as string | undefined),
     posts_longform_latest_stat: toCheck(longRow?.stat_date as string | undefined),
     posts_instagram_latest_stat: toCheck(igStatRow?.stat_date as string | undefined),
-    studio_snapshots_latest_stat: toCheck(studioRow?.stat_date as string | undefined),
   };
 }
 
@@ -1188,43 +1159,6 @@ async function buildCoverage(now: Date): Promise<CoverageCheck> {
   };
 }
 
-async function buildScraperHistory(now: Date): Promise<ScraperHistoryCheck> {
-  const start = new Date(now);
-  start.setDate(start.getDate() - 7);
-
-  const { data: rows } = await supabase
-    .from('studio_snapshots')
-    .select('scraped_at')
-    .gte('scraped_at', start.toISOString())
-    .order('scraped_at', { ascending: false, nullsFirst: false });
-
-  const distinctDates = new Set<string>();
-  let mostRecent: string | null = null;
-  for (const r of rows ?? []) {
-    const ts = r.scraped_at as string | null;
-    if (!ts) continue;
-    distinctDates.add(ts.slice(0, 10));
-    if (!mostRecent || ts > mostRecent) mostRecent = ts;
-  }
-
-  let lastRunRows = 0;
-  if (mostRecent) {
-    const { count } = await supabase
-      .from('studio_snapshots')
-      .select('*', { count: 'exact', head: true })
-      .eq('scraped_at', mostRecent);
-    lastRunRows = count ?? 0;
-  }
-
-  return {
-    last_run_at: mostRecent,
-    last_run_rows_written: lastRunRows,
-    runs_last_7_days: distinctDates.size,
-    expected_runs_last_7_days: 7,
-    status: scraperRunStatus(distinctDates.size),
-  };
-}
-
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------
@@ -1251,7 +1185,6 @@ export async function buildDiagnostics(
     internal_consistency,
     drift_check,
     coverage,
-    scraper_history,
   ] = await Promise.all([
     buildCronHealth(now, freshnessHoursYellow, freshnessHoursRed),
     buildDataFreshness(now),
@@ -1263,7 +1196,6 @@ export async function buildDiagnostics(
     buildInternalConsistency(now),
     buildDriftCheck(now, driftWindowDays, driftPctYellow, driftPctRed),
     buildCoverage(now),
-    buildScraperHistory(now),
   ]);
 
   return {
@@ -1284,7 +1216,6 @@ export async function buildDiagnostics(
     internal_consistency,
     drift_check,
     coverage,
-    scraper_history,
     generated_at: now.toISOString(),
   };
 }

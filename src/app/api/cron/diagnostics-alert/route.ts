@@ -5,15 +5,13 @@ import { startCronRun, finishCronRun } from '@/lib/cron-runs';
 export const dynamic = 'force-dynamic';
 
 // Paths into the diagnostics response that read RED by design and should not
-// alert. The Playwright LaunchAgent scraper was deleted 2026-05-18 (per
-// CLAUDE.md). Four checks are downstream of that deletion and will read RED
-// forever: last_scraper_run, scraper_history, studio_snapshots_latest_stat,
-// and coverage (compares posts vs studio_snapshots clip sets — the latter
-// stops growing, so missing-from-studio accumulates over time).
+// alert. The three dead Studio-scraper checks (last_scraper_run,
+// scraper_history, studio_snapshots_latest_stat) were retired 2026-06-01 once
+// the scraper was confirmed decommissioned. coverage remains: it reads live
+// `posts` data but compares it against the frozen studio_snapshots clip set,
+// so missing-from-studio accumulates and it reads RED by design — muted here
+// rather than removed.
 const KNOWN_RED_PATHS = new Set([
-  'cron_health.last_scraper_run.status',
-  'scraper_history.status',
-  'data_freshness.studio_snapshots_latest_stat.status',
   'coverage.status',
 ]);
 
