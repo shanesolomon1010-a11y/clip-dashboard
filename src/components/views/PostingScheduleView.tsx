@@ -95,6 +95,7 @@ export default function PostingScheduleView() {
   const [loading, setLoading]       = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [refetchError, setRefetchError] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [year, setYear]             = useState(() => new Date().getFullYear());
   const [month, setMonth]           = useState(() => new Date().getMonth());  // 0-indexed
   const [selectedDate, setSelected] = useState<string | null>(null);
@@ -262,8 +263,15 @@ export default function PostingScheduleView() {
   }
 
   async function handleDeletePost(id: string) {
-    await supabase.from('scheduled_posts').delete().eq('id', id);
-    refetchPosts();
+    try {
+      const { error } = await supabase.from('scheduled_posts').delete().eq('id', id);
+      if (error) throw error;
+      setDeleteError(null);
+      refetchPosts();
+    } catch (err) {
+      console.error('scheduled_posts delete error:', err);
+      setDeleteError(err instanceof Error ? err.message : 'Unknown error');
+    }
   }
 
   async function handleScheduleSubmit() {
@@ -329,6 +337,12 @@ export default function PostingScheduleView() {
       {refetchError && (
         <div className="mb-4 px-4 py-2 text-xs text-red-400 bg-[rgba(255,68,68,0.08)] border border-[rgba(255,68,68,0.15)] rounded-xl">
           Couldn&apos;t refresh: {refetchError}. Showing the last loaded data.
+        </div>
+      )}
+
+      {deleteError && (
+        <div className="mb-4 px-4 py-2 text-xs text-red-400 bg-[rgba(255,68,68,0.08)] border border-[rgba(255,68,68,0.15)] rounded-xl">
+          Couldn&apos;t delete post: {deleteError}
         </div>
       )}
 
