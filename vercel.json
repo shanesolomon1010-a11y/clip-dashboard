@@ -2,11 +2,11 @@
   "crons": [
     {
       "path": "/api/cron/youtube-sync",
-      "schedule": "0 14 * * *"
+      "schedule": "0 14,21 * * *"
     },
     {
       "path": "/api/cron/youtube-sync-longform",
-      "schedule": "30 14 * * *"
+      "schedule": "30 14,21 * * *"
     },
     {
       "path": "/api/cron/instagram-sync",
