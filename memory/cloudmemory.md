@@ -3036,3 +3036,123 @@ Changed files:
   - memory/primer.md
   - tasks/lessons.md
 
+
+## 2026-05-25 23:19:57 — 8a32f9f
+**chore: session shutdown — IG sync incident revert + Phase 2B lessons**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/handoff-2026-05-26.md
+  - tasks/lessons.md
+
+
+## 2026-05-29 11:30:39 — 525ed16
+**fix: strip em-dashes from founder-report + docx export copy; drop verbose upsert row dump**
+
+Changed files:
+  - src/app/api/social-copy/export-docx/route.ts
+  - src/lib/db.ts
+  - src/lib/founder-report.ts
+
+
+## 2026-05-29 16:25:58 — ba6ec80
+**feat(integrity): map_clip atomic mapping + ig_mapping_desync heartbeat probe; capture migrations + lessons**
+
+Changed files:
+  - docs/superpowers/plans/2026-05-14-shorts-auto-discovery.md
+  - src/lib/diagnostics.ts
+  - supabase/migrations/20260529_clip_mapping_integrity.sql
+  - tasks/lessons.md
+
+
+## 2026-05-29 19:44:55 — c00e05e
+**feat(mapping): manual clip-mapping tab + map-clip route**
+
+Changed files:
+  - src/app/api/library/map-clip/route.ts
+  - src/components/MappingTab.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-05-31 19:59:06 — da5899d
+**feat(mapping): same-date suggestions + invalid-code feedback + badge count**
+
+Changed files:
+  - src/components/MappingTab.tsx
+  - src/components/views/SettingsView.tsx
+  - src/lib/db.ts
+
+
+## 2026-06-01 00:20:49 — 1061c2c
+**chore(diagnostics): retire dead Studio-scraper checks (scraper decommissioned 5/08)**
+
+Changed files:
+  - src/app/api/cron/diagnostics-alert/route.ts
+  - src/components/views/DiagnosticsView.tsx
+  - src/lib/diagnostics.ts
+
+
+## 2026-06-01 00:26:31 — efc208e
+**chore(diagnostics): retire coverage check (studio_snapshots reference frozen)**
+
+Changed files:
+  - src/app/api/cron/diagnostics-alert/route.ts
+  - src/components/views/DiagnosticsView.tsx
+  - src/lib/diagnostics.ts
+
+
+## 2026-06-01 00:51:07 — 1844b38
+**feat(integrity): posts->clip_details FK guard + Clip Library delete guard**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+  - supabase/migrations/20260529_clip_mapping_integrity.sql
+
+
+## 2026-06-01 08:58:30 — 7c32cbb
+**fix(clip-library): drop unused thumbnail_base64 from list selects (empty-render bug)**
+
+Changed files:
+  - src/lib/db.ts
+
+
+## 2026-06-01 09:19:47 — 5a985c1
+**fix(settings): surface clip/pending load failures instead of silent empty state**
+
+Changed files:
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-06-01 09:41:09 — 89063b8
+**fix(views): surface load failures in Data Editor and Posting Schedule (no silent empty state)**
+
+Changed files:
+  - src/components/DataEditorTab.tsx
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-06-01 09:54:28 — 7532043
+**fix(views): surface write/action and refetch failures instead of silent console.error**
+
+Changed files:
+  - src/components/DataEditorTab.tsx
+  - src/components/views/PostingScheduleView.tsx
+  - src/components/views/SettingsView.tsx
+
+
+## 2026-06-01 10:04:44 — 3694460
+**fix(schedule): surface calendar post-delete failures instead of silent**
+
+Changed files:
+  - src/components/views/PostingScheduleView.tsx
+
+
+## 2026-06-02 11:34:11 — ded3fc3
+**harden YT crons: add 21:00 UTC redundant tick to shorts + longform**
+
+Changed files:
+  - vercel.json
+
