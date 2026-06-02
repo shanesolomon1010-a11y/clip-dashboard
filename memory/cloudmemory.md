@@ -3156,3 +3156,13 @@ Changed files:
 Changed files:
   - vercel.json
 
+
+## 2026-06-02 14:44:03 — 54af3f1
+**chore: session close — manual clip-mapping feature, diagnostics retirement, posts->clip_details FK guard, silent-load/write hardening, YT cron 21:00 tick**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+  - memory/primer.md
+  - tasks/lessons.md
+
