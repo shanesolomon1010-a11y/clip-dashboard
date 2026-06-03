@@ -136,11 +136,15 @@ export async function runDiagnosticsTriage(
 
       if (!res.ok) return null;
       const data = (await res.json()) as AnthropicResponse;
-      const text = (data.content ?? [])
+      const raw = (data.content ?? [])
         .filter((b) => b.type === 'text' && typeof b.text === 'string')
         .map((b) => b.text as string)
         .join('\n')
         .trim();
+      // Normalize to Slack mrkdwn in case the model ignored the prompt: Slack
+      // bold is single-asterisk, so ** renders literally — collapse it. Also
+      // strip leading markdown header markers (#) Slack doesn't support.
+      const text = raw.replace(/\*\*/g, '*').replace(/^#{1,6}\s+/gm, '');
       return text.length > 0 ? text : null;
     } finally {
       clearTimeout(timeout);
