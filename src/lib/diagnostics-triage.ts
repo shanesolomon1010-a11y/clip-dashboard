@@ -7,6 +7,10 @@ import { TRIAGE_SYSTEM_PROMPT, DIAGNOSTICS_PLAYBOOK } from '@/lib/diagnostics-pl
 // ANTHROPIC_API_KEY — no new secret.
 const TRIAGE_MODEL = 'claude-sonnet-4-20250514';
 const TRIAGE_MAX_TOKENS = 1024;
+// Abort the Anthropic call well inside the route's maxDuration=60. A hung fetch
+// is not a throw, so without this it could burn the whole budget and get the
+// function killed before the raw RED alert posts — defeating the alert.
+const TRIAGE_FETCH_TIMEOUT_MS = 15000;
 
 // Top-level diagnostics groups always included for context even when green, so
 // the model can distinguish e.g. a dropped YT tick from a real failure (a RED
@@ -108,29 +112,39 @@ export async function runDiagnosticsTriage(
       `Here is the current RED diagnostics context as JSON. Triage it per your instructions.\n\n` +
       `\`\`\`json\n${JSON.stringify(context, null, 2)}\n\`\`\``;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: TRIAGE_MODEL,
-        max_tokens: TRIAGE_MAX_TOKENS,
-        system: TRIAGE_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
-    });
+    // Hard timeout: abort the fetch after TRIAGE_FETCH_TIMEOUT_MS so a hang can
+    // never suppress the alert. An abort throws AbortError into the outer catch,
+    // which returns null (the existing fallback). clearTimeout runs in finally.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TRIAGE_FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: TRIAGE_MODEL,
+          max_tokens: TRIAGE_MAX_TOKENS,
+          system: TRIAGE_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userMessage }],
+        }),
+        signal: controller.signal,
+      });
 
-    if (!res.ok) return null;
-    const data = (await res.json()) as AnthropicResponse;
-    const text = (data.content ?? [])
-      .filter((b) => b.type === 'text' && typeof b.text === 'string')
-      .map((b) => b.text as string)
-      .join('\n')
-      .trim();
-    return text.length > 0 ? text : null;
+      if (!res.ok) return null;
+      const data = (await res.json()) as AnthropicResponse;
+      const text = (data.content ?? [])
+        .filter((b) => b.type === 'text' && typeof b.text === 'string')
+        .map((b) => b.text as string)
+        .join('\n')
+        .trim();
+      return text.length > 0 ? text : null;
+    } finally {
+      clearTimeout(timeout);
+    }
   } catch {
     return null;
   }
