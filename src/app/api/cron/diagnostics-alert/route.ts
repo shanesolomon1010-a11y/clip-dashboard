@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { buildDiagnostics, type DiagnosticsResponse, type AnomalyRow } from '@/lib/diagnostics';
-import { runDiagnosticsTriage } from '@/lib/diagnostics-triage';
+import { runDiagnosticsTriage, triageSelfCheck } from '@/lib/diagnostics-triage';
 import { startCronRun, finishCronRun } from '@/lib/cron-runs';
 
 export const dynamic = 'force-dynamic';
@@ -124,10 +124,19 @@ export async function GET(request: Request): Promise<NextResponse> {
     const ytShort = data.cron_health.last_youtube_sync_short.hours_ago;
     const ytLong = data.cron_health.last_youtube_sync_longform.hours_ago;
     const ig = data.cron_health.last_instagram_sync.hours_ago;
+    // Triage-layer liveness, surfaced in the message read each day. Defensive:
+    // any throw is treated as down. The 15s timeout caps the added latency.
+    let triageOk = false;
+    try {
+      triageOk = await triageSelfCheck();
+    } catch {
+      triageOk = false;
+    }
     await trySlackPost(
       webhook,
       `:bar_chart: *Clip Dashboard daily heartbeat* — ${counts.green} green, ${counts.yellow} yellow, ${counts.red} red.\n` +
-        `Last syncs: YT shorts ${formatHours(ytShort)}, YT longform ${formatHours(ytLong)}, IG ${formatHours(ig)}.`,
+        `Last syncs: YT shorts ${formatHours(ytShort)}, YT longform ${formatHours(ytLong)}, IG ${formatHours(ig)}.\n` +
+        `AI triage: ${triageOk ? 'ok' : 'down'}`,
     );
   }
 

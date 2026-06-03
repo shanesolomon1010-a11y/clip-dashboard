@@ -153,3 +153,48 @@ export async function runDiagnosticsTriage(
     return null;
   }
 }
+
+// Liveness probe for the triage path: makes ONE minimal, bounded Anthropic call
+// (same key, model, headers, and 15s timeout as runDiagnosticsTriage) to confirm
+// the API + key + parse are alive without running a full triage. Returns true on
+// an OK response with non-empty text, false on any failure. The daily heartbeat
+// uses this to surface triage-layer health; the 15s abort means a down API
+// resolves fast and never delays the heartbeat.
+export async function triageSelfCheck(): Promise<boolean> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return false;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), TRIAGE_FETCH_TIMEOUT_MS);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: TRIAGE_MODEL,
+          max_tokens: 16,
+          messages: [{ role: 'user', content: 'Reply with the single word READY.' }],
+        }),
+        signal: controller.signal,
+      });
+
+      if (!res.ok) return false;
+      const data = (await res.json()) as AnthropicResponse;
+      const text = (data.content ?? [])
+        .filter((b) => b.type === 'text' && typeof b.text === 'string')
+        .map((b) => b.text as string)
+        .join('')
+        .trim();
+      return text.length > 0;
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    return false;
+  }
+}
