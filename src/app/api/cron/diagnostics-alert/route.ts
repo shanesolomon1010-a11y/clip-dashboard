@@ -1,8 +1,12 @@
 import { NextResponse } from 'next/server';
 import { buildDiagnostics, type DiagnosticsResponse, type AnomalyRow } from '@/lib/diagnostics';
+import { runDiagnosticsTriage } from '@/lib/diagnostics-triage';
 import { startCronRun, finishCronRun } from '@/lib/cron-runs';
 
 export const dynamic = 'force-dynamic';
+// RED runs add an Anthropic triage call + cron_runs reads on top of
+// buildDiagnostics; give the function room beyond the default timeout.
+export const maxDuration = 60;
 
 // Paths into the diagnostics response that read RED by design and should not
 // alert. Empty as of 2026-06-01: the four dead Studio-scraper checks
@@ -136,11 +140,25 @@ export async function GET(request: Request): Promise<NextResponse> {
   const anomalyDetail = redPaths.includes('anomaly_check.status')
     ? formatAnomalyLines(data.anomaly_check.top_anomalies)
     : '';
-  await trySlackPost(
-    webhook,
-    `:rotating_light: *Clip Dashboard diagnostics RED* (${redPaths.length})\n${lines}${anomalyDetail}\n\nDetails: ${origin}/api/diagnostics`,
-  );
+  const rawAlert =
+    `:rotating_light: *Clip Dashboard diagnostics RED* (${redPaths.length})\n${lines}${anomalyDetail}\n\nDetails: ${origin}/api/diagnostics`;
 
-  await finishCronRun(runId, 'success', { metadata: { red_paths: redPaths.length, heartbeat: isHeartbeatTick } });
-  return NextResponse.json({ alerted: true, red_paths: redPaths, heartbeat: isHeartbeatTick });
+  // Advisory AI triage — appended beneath the raw check list. Never a critical
+  // path: runDiagnosticsTriage returns null on any failure, and we defensively
+  // wrap it too, so a failed triage falls back to the raw RED post unchanged.
+  let triage: string | null = null;
+  try {
+    triage = await runDiagnosticsTriage(data, redPaths);
+  } catch {
+    triage = null;
+  }
+  const alertText = triage
+    ? `${rawAlert}\n\n:robot_face: *AI triage (advisory)*\n${triage}`
+    : rawAlert;
+  await trySlackPost(webhook, alertText);
+
+  await finishCronRun(runId, 'success', {
+    metadata: { red_paths: redPaths.length, heartbeat: isHeartbeatTick, triaged: triage != null },
+  });
+  return NextResponse.json({ alerted: true, red_paths: redPaths, triaged: triage != null, heartbeat: isHeartbeatTick });
 }
