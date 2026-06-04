@@ -286,13 +286,19 @@ async function buildCronHealth(
   };
 }
 
+// Latest stat_date per stream via a DB-side ordered single-row query — one row
+// regardless of table size, so the 1000-row SELECT cap can't truncate it into a
+// spurious null. We deliberately do NOT filter `.not('stat_date','is',null)`:
+// that filter is the supabase-js client footgun (returns [] from the Vercel
+// runtime → maybeSingle null → false-positive RED; see CLAUDE.md). `nullsFirst:
+// false` sorts any null stat_date last, so limit(1) returns the latest real
+// date; a genuinely empty stream yields null → its existing red status.
 async function buildDataFreshness(now: Date): Promise<DiagnosticsResponse['data_freshness']> {
   const { data: shortRow } = await supabase
     .from('posts')
     .select('stat_date')
     .eq('platform', 'youtube')
     .eq('content_type', 'short')
-    .not('stat_date', 'is', null)
     .order('stat_date', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle();
@@ -302,7 +308,6 @@ async function buildDataFreshness(now: Date): Promise<DiagnosticsResponse['data_
     .select('stat_date')
     .eq('platform', 'youtube')
     .eq('content_type', 'long_form')
-    .not('stat_date', 'is', null)
     .order('stat_date', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle();
@@ -311,7 +316,6 @@ async function buildDataFreshness(now: Date): Promise<DiagnosticsResponse['data_
     .from('posts')
     .select('stat_date')
     .eq('platform', 'instagram')
-    .not('stat_date', 'is', null)
     .order('stat_date', { ascending: false, nullsFirst: false })
     .limit(1)
     .maybeSingle();
