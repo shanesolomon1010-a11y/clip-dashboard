@@ -360,25 +360,38 @@ async function buildSchemaIntegrity(): Promise<DiagnosticsResponse['schema_integ
       .is('clip_details_code', null),
   );
 
-  // Orphaned posts rows: clip_details_code is set but doesn't match clip_details.
-  const { data: postsCodes } = await supabase
-    .from('posts')
-    .select('clip_details_code')
-    .not('clip_details_code', 'is', null);
+  // Orphaned posts rows: clip_details_code is set but matches no clip_details
+  // row. clip_details is small (~100 rows, no truncation risk), so fetch the
+  // known codes, then count orphans DB-side with a NOT IN filter — an exact
+  // count regardless of posts size. The previous fetch-all-then-compare
+  // silently truncated posts at the 1000-row cap (shorts alone exceed it), so
+  // it only sampled the first 1000 rows. NOT IN also excludes null codes, so no
+  // separate is-null filter is needed.
   const { data: knownCodes } = await supabase
     .from('clip_details')
-    .select('clip_details_code')
-    .not('clip_details_code', 'is', null);
+    .select('clip_details_code');
 
-  const known = new Set<string>();
+  const known: string[] = [];
   for (const row of knownCodes ?? []) {
     const c = row.clip_details_code as string | null;
-    if (c) known.add(c);
+    if (c) known.push(c);
   }
-  let orphaned = 0;
-  for (const row of postsCodes ?? []) {
-    const c = row.clip_details_code as string | null;
-    if (c && !known.has(c)) orphaned++;
+
+  let orphaned: number;
+  if (known.length > 0) {
+    const inList = `(${known.map((c) => `"${c}"`).join(',')})`;
+    const { count } = await supabase
+      .from('posts')
+      .select('*', { count: 'exact', head: true })
+      .not('clip_details_code', 'in', inList);
+    orphaned = count ?? 0;
+  } else {
+    // No known codes at all → every non-null posts code is an orphan.
+    const { count } = await supabase
+      .from('posts')
+      .select('*', { count: 'exact', head: true })
+      .not('clip_details_code', 'is', null);
+    orphaned = count ?? 0;
   }
 
   const duplicates = await countDuplicateRows();
@@ -545,13 +558,16 @@ async function buildAnomalyCheck(now: Date): Promise<AnomalyCheck> {
       const yViews = Number(y.views ?? 0);
       const yWatch = Number(y.watch_time_hours ?? 0);
 
-      // C: negative metrics (any platform).
+      // C: negative metrics (any platform). Only flag metrics that are
+      // monotonic under the daily-delta model. likes and comments legitimately
+      // go negative on a given day (net unlikes / deleted comments), so flagging
+      // them produces false-positive RED anomalies (37 such long_form like-rows
+      // exist historically). views, watch time, avg duration, and shares should
+      // never be negative — keep those strict.
       const metrics: Array<[string, number | null]> = [
         ['views', y.views],
         ['watch_time_hours', y.watch_time_hours],
         ['avg_view_duration_seconds', y.avg_view_duration_seconds],
-        ['likes', y.likes],
-        ['comments', y.comments],
         ['shares', y.shares],
       ];
       for (const [name, val] of metrics) {
