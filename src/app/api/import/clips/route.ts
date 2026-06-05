@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     const allClips: ClipExtracted[] = [];
     for (const batchText of batches) {
       const message = await anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 4000,
         system: SYSTEM_PROMPT,
         messages: [{ role: 'user', content: batchText }],

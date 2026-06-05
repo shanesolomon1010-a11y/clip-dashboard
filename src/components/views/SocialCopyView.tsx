@@ -142,7 +142,7 @@ export default function SocialCopyView() {
         youtube_description: data.youtube_description,
         instagram_caption: data.instagram_caption,
         raw_response: null,
-        model_used: 'claude-sonnet-4-20250514',
+        model_used: 'claude-sonnet-4-6',
         tokens_used: data.tokens_used,
         created_at: new Date().toISOString(),
       };

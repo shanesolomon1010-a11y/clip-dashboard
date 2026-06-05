@@ -149,7 +149,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-sonnet-4-6',
       max_tokens: 3000,
       temperature: 0.8,
       system: systemPrompt,
@@ -182,7 +182,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     youtube_description: sections.youtube_description,
     instagram_caption:  sections.instagram_caption,
     raw_response: rawText,
-    model_used: 'claude-sonnet-4-20250514',
+    model_used: 'claude-sonnet-4-6',
     tokens_used: tokensUsed,
   });
 

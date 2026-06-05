@@ -5,7 +5,7 @@ import { TRIAGE_SYSTEM_PROMPT, DIAGNOSTICS_PLAYBOOK } from '@/lib/diagnostics-pl
 // Same model the Founder Report / Weekly Report use. Server-side call mirrors
 // the raw-fetch shape of src/app/api/ai-proxy/route.ts and reuses the existing
 // ANTHROPIC_API_KEY — no new secret.
-const TRIAGE_MODEL = 'claude-sonnet-4-20250514';
+const TRIAGE_MODEL = 'claude-sonnet-4-6';
 const TRIAGE_MAX_TOKENS = 1024;
 // Abort the Anthropic call well inside the route's maxDuration=60. A hung fetch
 // is not a throw, so without this it could burn the whole budget and get the
