@@ -3166,3 +3166,69 @@ Changed files:
   - memory/primer.md
   - tasks/lessons.md
 
+
+## 2026-06-02 14:49:38 — 53c4610
+**docs(claude.md): correct auto-mapper bullet — fileDetails.fileName signal is dead, mapping is manual**
+
+Changed files:
+  - CLAUDE.md
+  - memory/cloudmemory.md
+
+
+## 2026-06-03 15:13:26 — a07fbc0
+**feat(diagnostics): AI triage step on RED diagnostics alerts**
+
+Changed files:
+  - src/app/api/cron/diagnostics-alert/route.ts
+  - src/lib/diagnostics-playbook.ts
+  - src/lib/diagnostics-triage.ts
+
+
+## 2026-06-03 15:22:16 — 08543db
+**feat(diagnostics): timeout triage fetch + add triage-preview endpoint**
+
+Changed files:
+  - src/app/api/diagnostics/triage-preview/route.ts
+  - src/lib/diagnostics-triage.ts
+
+
+## 2026-06-03 15:37:52 — 2b09f10
+**fix(diagnostics): emit Slack mrkdwn bold in triage, not markdown ****
+
+Changed files:
+  - src/lib/diagnostics-playbook.ts
+  - src/lib/diagnostics-triage.ts
+
+
+## 2026-06-03 15:59:30 — cb1c26f
+**feat(diagnostics): triage self-check in daily heartbeat**
+
+Changed files:
+  - src/app/api/cron/diagnostics-alert/route.ts
+  - src/lib/diagnostics-triage.ts
+
+
+## 2026-06-04 13:12:57 — 3a43d0c
+**fix(diagnostics): kill false-positive shorts freshness RED**
+
+Changed files:
+  - src/lib/diagnostics-playbook.ts
+  - src/lib/diagnostics.ts
+
+
+## 2026-06-04 15:01:05 — 577f086
+**fix(diagnostics): exact orphan count + don't flag negative likes/comments**
+
+Changed files:
+  - src/lib/diagnostics.ts
+
+
+## 2026-06-05 13:43:24 — 2df3dba
+**chore: migrate off retired claude-sonnet-4-20250514 model ID**
+
+Changed files:
+  - src/app/api/import/clips/route.ts
+  - src/app/api/social-copy/generate/route.ts
+  - src/components/views/SocialCopyView.tsx
+  - src/lib/diagnostics-triage.ts
+

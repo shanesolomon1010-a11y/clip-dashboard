@@ -4,63 +4,54 @@ _This file is rewritten by Claude at the end of every session._
 _It captures current project state so the next session starts with full context._
 
 ## Status
-HEAD = `ded3fc3` on `main`. `origin/main` = `3694460` (Shane pushed the earlier session commits between turns). **Unpushed: `ded3fc3` + this close commit = 2 commits** awaiting `git push origin main`.
+HEAD = `2df3dba` on `main`. `origin/main` = `2df3dba` — **all 7 work commits of this session are already pushed.** Only the `/close` commit (this rewrite + `cloudmemory.md`) is local/unpushed; push with `git push origin main` if desired (it's docs/memory only, no deploy impact).
 
-This was a large build + integrity + ops session (2026-05-29 → 2026-06-02). Shipped the manual clip-mapping feature, retired the dead Studio-scraper diagnostics, added the DB-level `posts → clip_details` FK guard, hardened every silent data-load/write path in the three editor views, fixed the Clip Library empty-render bug, and added a redundant YT cron tick. Also built a ground-truth image-match pipeline that produced a 47-call `map_clip` batch (applied a prior session) plus a 5-reel follow-on block (applied 2026-06-02) — together these cleared most of the PENDING-IG backlog; `ig_mapping_desync()` = 0.
+This session (2026-06-02 → 2026-06-16) was an analysis + diagnostics-hardening + ops session. Built the AI triage layer on top of the diagnostics-alert cron end-to-end, killed two latent diagnostics false-positives found in a full sweep, migrated off the retired Claude model ID before its 2026-06-15 API cutoff, and did two read-only data pulls (insights population + a one-time IG Graph CSV). Live data + crons confirmed fully healthy on 2026-06-08.
 
-## Shipped this session (commits on top of ba6ec80)
-- `c00e05e` **feat(mapping): manual clip-mapping tab + map-clip route** — Settings → "Mapping" sub-tab (`stab=mapping`, 2nd after Clip Library); new `getPendingMappings()` in db.ts; server route `POST /api/library/map-clip` (x-dashboard-secret gated, service-role, validates `/^MBM\d+-CLIP-\d+$/` + ≥1 id, calls `supabase.rpc('map_clip', …)`, returns jsonb). New `MappingTab.tsx`.
-- `da5899d` **feat(mapping): same-date suggestions + invalid-code feedback + badge count** — same-date candidate ranking (token-overlap), pre-fill on single candidate, inline invalid-code error + red border, badge counts mappable (has-posts) reels only.
-- `1061c2c` **chore(diagnostics): retire dead Studio-scraper checks** — removed `last_scraper_run`, `studio_snapshots_latest_stat`, `scraper_history` from diagnostics.ts + DiagnosticsView + KNOWN_RED_PATHS. `studio_snapshots` table & `studio_snapshots_null_clip_details_code_count` left intact; `scraperRunStatus` + tests left alone.
-- `efc208e` **chore(diagnostics): retire coverage check** — removed `coverage`/`CoverageCheck`/`buildCoverage` end-to-end. **`KNOWN_RED_PATHS` is now empty** (`new Set<string>([])`) — every remaining check is load-bearing; heartbeat red-by-design count = 0.
-- `1844b38` **feat(integrity): posts→clip_details FK guard + Clip Library delete guard** — recorded the live FK (`posts_clip_details_code_fkey`, ON UPDATE CASCADE / ON DELETE RESTRICT, applied 2026-06-01 via SQL Editor) in `supabase/migrations/20260529_clip_mapping_integrity.sql`; SettingsView `handleDeleteClip` now catches SQLSTATE 23503.
-- `7c32cbb` **fix(clip-library): drop unused thumbnail_base64 from list selects** — root cause of the "Episodes (0) / No clips yet" empty-render. `fetchAllClipDetails` + `fetchClipDetails` selects no longer include `thumbnail_base64` (zero render consumers).
-- `5a985c1` **fix(settings): surface clip/pending load failures** — `clipsLoadError`/`pendingLoadError` states + visible error lines instead of silent empty state.
-- `89063b8` **fix(views): surface load failures in Data Editor and Posting Schedule** — `loadError` (DataEditorTab); `fetchError` carries message + `clipLoadError` (PostingScheduleView).
-- `7532043` **fix(views): surface write/action and refetch failures** — DataEditor save/delete `actionError`; SettingsView delete-clip non-23503 branch sets clipStatus; split PostingScheduleView refetch into non-destructive `refetchError` banner.
-- `3694460` **fix(schedule): surface calendar post-delete failures** — wrapped `handleDeletePost` in try/catch + `deleteError` banner (the last fully-silent mutation handler).
-- `ded3fc3` **harden YT crons: add 21:00 UTC redundant tick** — `youtube-sync` → `0 14,21 * * *`, `youtube-sync-longform` → `30 14,21 * * *`. Mitigates Hobby-tier skipped daily runs. **Takes effect only after deploy.**
+## Shipped this session (7 commits, all pushed; on top of 53c4610)
+- `a07fbc0` **feat(diagnostics): AI triage step on RED diagnostics alerts** — on RED only, append a plain-English root-cause triage beneath the existing raw Slack check-list. New `src/lib/diagnostics-triage.ts` (`runDiagnosticsTriage`) + `src/lib/diagnostics-playbook.ts` (`TRIAGE_SYSTEM_PROMPT` + `DIAGNOSTICS_PLAYBOOK`, editable). Reuses `ANTHROPIC_API_KEY` + the `/api/ai-proxy` raw-fetch shape; no new secret. Advisory-only, bounded context (RED groups + cron_health/data_freshness/cron_completion/schema_integrity + 10 cron_runs/cron). Fails safe to the raw post (`triage` → null).
+- `08543db` **feat(diagnostics): timeout triage fetch + triage-preview endpoint** — 15s `AbortController` (`TRIAGE_FETCH_TIMEOUT_MS`) so a hung Anthropic fetch can't burn `maxDuration=60` and suppress the alert; `clearTimeout` in `finally`. New `GET /api/diagnostics/triage-preview` (same access model as `/api/diagnostics` — no auth gate, Vercel protection is the gate; `?paths=` override, default canonical dropped-tick set). Read-only: no Slack, no cron_runs writes.
+- `2b09f10` **fix(diagnostics): emit Slack mrkdwn bold, not markdown** — Slack bold is single-`*`; prompt now instructs single-`*`/no `#`, and the triage text is normalized before return (`**`→`*`, strip leading `#`).
+- `cb1c26f` **feat(diagnostics): triage self-check in daily heartbeat** — `triageSelfCheck()` (one minimal `max_tokens:16` "READY" call, same key/model/15s timeout) appends `AI triage: ok/down` to the 00:00 UTC heartbeat only. Indicator only, defensive (throw → down).
+- `3a43d0c` **fix(diagnostics): kill false-positive shorts freshness RED** — root cause was NOT a 1000-row truncation (the latest-stat query was already DB-side `.order().limit(1).maybeSingle()`); it was the `.not('stat_date','is',null)` client footgun spuriously returning `[]`. Dropped the filter on all three `data_freshness` streams; `nullsFirst:false` keeps latest-real-date semantics. Playbook entry 7 (freshness RED + healthy cron/completion/write_correlation = stale read, not write failure) + system-prompt rule (never assert write failure when write_correlation is green).
+- `577f086` **fix(diagnostics): exact orphan count + don't flag negative likes/comments** — orphan check replaced fetch-all-then-JS-compare (silently truncated posts at 1000 rows) with DB-side exact `NOT IN` count off the small clip_details set. Negative-metric anomaly no longer flags `likes`/`comments` (legitimately negative as daily deltas — 37 historical long_form like-rows are benign); keeps `views`/`watch_time`/`avg_duration`/`shares` strict.
+- `2df3dba` **chore: migrate off retired claude-sonnet-4-20250514** — Anthropic retired that ID on 2026-06-15. Replaced at all 5 sites (`claude-sonnet-4-6`): social-copy generate (call + `model_used`), import/clips (call), SocialCopyView (`model_used`), diagnostics-triage (`TRIAGE_MODEL`). No `claude-opus-4-20250514` anywhere. Message format compatible across 4.x.
 
-## Clip-mapping backlog — image-match batches APPLIED ✅
-Built a ground-truth image-match pipeline (clip files on disk are named with MBM codes) to pair PENDING-IG reels → MBM clips, replacing the unreliable same-date guess. **Both batches are applied and verified — `ig_mapping_desync()` = 0.**
-- **47-call batch** (winners pHash dist ≤6, deduped, existing clip_details row): applied a prior session.
-- **5-reel follow-on block** (the clip_details-gap rows that needed map_clip to create the MBM shell): applied **2026-06-02**.
-- **Method (for re-use)**: ffmpeg banner-frame extraction (t=0,1s) per clip rep → pHash vs each reel thumbnail (by `thumbnail_url`) → min distance, deduped by target code, cutoff ≤6 (clean cliff: 0/2/4/6 then nothing until 10). Each call `SELECT map_clip('MBM###-CLIP-###', NULL, '<ig_media_id>');` — `p_yt=NULL` preserves YT `content_id`, sets `instagram_content_id`, re-keys posts, deletes the PENDING-IG row. Artifacts were in `/tmp/clipmatch/` (volatile); source clips in `~/Downloads` + `~/Movies` are intact (162 files → 68 distinct MBM codes) so the pipeline is fully re-runnable; deps installed (ffmpeg, pillow, imagehash, requests).
+## Read-only data work (not committed — by design)
+- **Insights population**: emitted 6 `INSERT … public.insights` statements (client=mbm) from live analysis; Shane ran them in the SQL Editor. Source tag `chat:data-breakdown-2026-06-02`. Headlines: long-form is a single-hit catalog (1 of 16 videos = 94% of long-form views + 92% of subs); IG Reels beat YT Shorts ~5× in a matched window (34/36 head-to-head); short-form engagement is reach-only (near-zero comments). Deliberately skipped posting-time (posted_at is batch-stamped midnight) and hook/banner (headline_banner only populated on old MBM015/018 — data-entry artifact).
+- **One-time IG fresh pull**: `scripts/ig-fresh-pull.mjs` (untracked) — reads creds from `instagram_auth` via service-role (same as IG cron), Graph v22.0, pulled 74 reels → `/tmp/mediabuyer_ig_fresh_2026-06-03.csv`. Did NOT read/write posts. `reposts` metric rejected for all reels (blank); 7 oldest reels (Sept 2025) have no insights (pre-eligibility). Script is re-runnable; delete if not wanted.
 
-## Next natural action (in order)
-1. **Push the 2 unpushed commits** (`git push origin main`) → Vercel deploy activates the 21:00 UTC redundant YT cron tick (ded3fc3 has no effect until deployed).
-2. **Adjudicate the ~5 hard-held reels** — 3 collision losers likely from MBM022/023 (no local clip files exist for those episodes, so image-match can't place them) + 2 with best pHash distance >6. Needs a manual/visual call.
-3. **Clear the rest of the PENDING backlog** — the 13 PENDING_IG = the ~5 hard-held + 7 known IG orphans + 1 new overnight reel; plus 8 PENDING_YT. Pair via the same `map_clip` path wherever a ground-truth match exists.
-4. **Refresh the IG token before 2026-07-14** (~6 weeks out).
+## Live data state (verified 2026-06-08, read-only)
+- **posts**: long_form 3,852 rows (latest_stat 06-05), short 1,534 (06-05), reel 1,610 (06-08). All `updated_at` = 06-08 — writes landing. Hard-negative metrics (views/watch/avg-dur/shares) = **0**.
+- **Integrity**: orphans 0, dupes 0/0/0, `ig_mapping_desync()` = 0.
+- **clip_details**: 106 total — 75 MAPPED, 18 PENDING_IG, 13 PENDING_YT (31 PENDING, up from 25 on 06-04; manual-mapping backlog grows ~1-2/day, expected).
+- **Collection vs mapping are independent** — PENDING items ARE collected daily (PENDING-IG: 11 items w/ posts, 137 rows, latest 06-08; PENDING-YT: 12 items, 55 rows). `map_clip` re-keys retroactively, no backfill/gap. ~8 PENDING placeholders have no posts row yet (new/zero-view uploads — normal). Backlog = attribution debt only, NOT data loss.
+- **Crons** (last 3d): all 4 success, zero failed/partial. shorts 14:00, longform 14:30, IG 17:00, diagnostics 18:00 (UTC).
+- **IG token** expires **2026-07-14** (~28 days out as of 06-16). Refresh is the next calendar to-do.
 
-## Mapping is MANUAL now (auto-mapper is dead — confirmed 2026-05-29)
-Both upload-side signals are gone: `snippet.tags` always empty on this channel; `fileDetails.fileName` no longer returned by the YT Data API (verified, not scope-gated). The sanctioned re-key path is the atomic `map_clip(p_code, p_yt_video_id, p_ig_content_id)` plpgsql fn. The new Settings → Mapping UI + the `/tmp/clipmatch` image-match pipeline are how the backlog gets cleared. **Old "Priority 1: auto-mapper fix" is obsolete — do not revive it.**
+## Next natural actions (in order)
+1. **Push the `/close` commit** (`git push origin main`) — docs/memory only, optional, no deploy effect.
+2. **Refresh the IG token before 2026-07-14** — now ~4 weeks out, the only time-bound item. `refreshAccessToken()` exists in `src/lib/instagram.ts`.
+3. **Work the PENDING mapping backlog** (31 items) when convenient — Settings → Mapping UI + `map_clip`; the `/tmp/clipmatch` image-match pipeline is re-runnable from `~/Downloads`+`~/Movies`. Attribution only; no urgency.
+4. **Optional**: validate the triage layer live via `GET /api/diagnostics/triage-preview` (forces the canonical dropped-tick RED set, returns model output) — no real failure needed.
 
-## Integrity model now complete (prevent / detect / guard)
-- **PREVENT** — `map_clip()` is the only sanctioned re-key path (atomic, RAISEs on half-state).
-- **DETECT** — `ig_mapping_desync()` heartbeat probe; wired into diagnostics, NOT muted.
-- **GUARD** — `posts_clip_details_code_fkey` FK (live since 2026-06-01) makes a posts row referencing a non-existent clip_details_code physically impossible. NULL children (long-form posts) exempt. ON DELETE RESTRICT blocks deleting a clip_details row with live posts (Clip Library delete catches 23503 → friendly message).
-
-## Cron health
-- `youtube-sync` cron entry is present & correctly wired (route → `runYouTubeSync()`, Bearer auth, maxDuration 300s). A "dead" shorts cron is NOT a config problem — most likely Vercel Hobby skipped-run unreliability. The new 21:00 tick (ded3fc3) is the mitigation; needs deploy to take effect.
-- Schedules: shorts `0 14,21 * * *`, longform `30 14,21 * * *`, IG `0 11,17,23,5 * * *`, diagnostics-alert `0 */6 * * *`.
-- Shorts and longform use SEPARATE sync fns (`runYouTubeSync` in `youtube-sync.ts`; `syncLongFormVideos` in `youtube-longform-sync.ts`) — not shared.
-
-## Data shape facts (live, queried 2026-06-02 post-batch-apply)
-- **96 clip_details rows**: 75 MAPPED, 13 PENDING_IG, 8 PENDING_YT. `clip_details_code` is UNIQUE (`clip_details_code_unique`), 0 nulls, 0 dupes.
-- **`ig_mapping_desync()` = 0** — no cross-row desync after the mapping batches.
-- **0 orphan posts** — every non-null `posts.clip_details_code` has a matching clip_details row, now guaranteed by the FK.
-- The 13 PENDING_IG ≈ 5 hard-held image-match reels (3 collision losers likely MBM022/023 + 2 dist>6) + 7 known IG orphans + 1 new overnight reel; the 8 PENDING_YT are separate.
-- `posts.posted_at` is **date-resolution only** (midnight / batch-stamped constants) — no minute-level publish time, which is why same-date pairing was ambiguous and image-match is the better signal.
+## Diagnostics AI triage — how it fits together (new this session)
+- **Trigger**: only on RED paths (heartbeat / all-green / yellow-only runs unchanged). `runDiagnosticsTriage(diagnostics, redPaths)` → text or null; route appends under `:robot_face: *AI triage (advisory)*`, falls back to raw post on null.
+- **Self-check**: `triageSelfCheck()` on the 00:00 UTC heartbeat → `AI triage: ok/down` line. One tiny call/day.
+- **Preview**: `GET /api/diagnostics/triage-preview` for on-demand validation.
+- **Guardrails**: advisory-only (reads diagnostics + cron_runs, writes one Slack message); 15s fetch timeout; editable playbook in `diagnostics-playbook.ts`; model `claude-sonnet-4-6`.
+- **KNOWN_RED_PATHS still empty** — any RED is real and alerts.
 
 ## Known non-issues (don't escalate)
-- **YT cron `stat_date` trailing today by 2-3 days** — intrinsic YouTube Analytics API reporting lag, not a failure.
-- **`/api/diagnostics` has no route-level auth** — Vercel deployment protection is the gate.
-- **`clip_details.thumbnail_base64` is unusable via the anon/PostgREST client** — selecting it returns []/400 (browser empty-render + reel-download 400 both traced to it). Fetch thumbnails by `thumbnail_url` instead. Column stays in the DB.
-- **Some sidebar views hidden for demo** (Posting Schedule etc.) — intentional; re-enable = uncomment ids in `NAV_GROUPS[].items`.
-- **`KNOWN_RED_PATHS` is now empty** — the 4 studio-scraper RED-forever checks were removed entirely, not muted. Any RED now is real and alerts.
+- YT `stat_date` trailing today by 2-3 days — intrinsic YouTube Analytics lag.
+- PENDING backlog growth — expected; collection continues regardless of mapping.
+- `/api/diagnostics` + `/api/diagnostics/triage-preview` have no route auth — Vercel deployment protection is the gate (by design, mirrors each other).
+- `clip_details.thumbnail_base64` unusable via anon/PostgREST — use `thumbnail_url`.
+- Some sidebar views hidden for demo — uncomment ids in `NAV_GROUPS[].items`.
+- Em-dashes in a few UI microcopy strings (MappingTab toasts, SettingsView sublabel) — minor, left as-is per Shane; the `'—'` no-value placeholders are intentional.
+- `memory/cloudmemory.md` shows dirty post-commit — expected from the hook.
 
 ## Blocked / open
 - Supabase MCP write tools blocked for DML/DDL — SQL Editor workflow only; read-only SELECT fine without asking.
-- Commit author resolves to `Shane Solomon <shane@Mac.lan>` — git identity not configured (`git config --global` to fix; harmless).
-- 8 remaining `.not(...is,null)` patterns in `diagnostics.ts` still deferred (same client quirk; fetch-all-then-JS-filter fix). Not user-visible.
+- Manual curl is not a valid cron-context test (Vercel deployment protection on the alias domain) — use the dashboard "Run Cron Job" button or wait for the scheduled tick.
+- Never push for Shane (global deny rule) — surface the command, he runs it.
