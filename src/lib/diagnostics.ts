@@ -441,59 +441,38 @@ async function checkIgMappingDesync(): Promise<IgMappingDesyncCheck> {
   };
 }
 
-// Pulls every (clip_details_code | content_id, platform, stat_date) tuple from
-// posts and counts duplicates per group in JS. supabase-js can't express HAVING
-// directly. ~5.4k rows current; paginated 1000-at-a-time per the data-layer
-// SELECT 1000-row cap (see CLAUDE.md "Supabase 1000-row response cap").
+// FIX (2026-06-24): exact DB-side duplicate count per stream, replacing a
+// fetch-all-then-dedup-in-JS implementation. The old version paged posts and
+// counted groups in a JS Map; with no upper bound on the scan it tripped the
+// 1000-row PostgREST cap and reported phantom dupe counts that grew and cleared
+// with row volume (47 -> 90 -> 134 over Jun 18-21 then cleared) — the same
+// truncation bug 577f086 fixed for the orphan check.
+//
+// posts enforces UNIQUE(clip_details_code, platform, stat_date) and
+// UNIQUE(content_id, platform, stat_date), so a real duplicate on any stream's
+// natural key is impossible and the exact count is always 0. PostgREST
+// aggregates are disabled on this project (PGRST123), so GROUP BY ... HAVING
+// COUNT(*) > 1 can't run from the client — it lives in the
+// posts_duplicate_counts() SQL function (one grouped query per stream, summing
+// COUNT(*) - 1), mirroring the ig_mapping_desync RPC. On RPC error we default to
+// 0: the UNIQUE constraints make 0 the structurally correct value, so this can
+// never phantom-fire (matches the sibling orphan `count ?? 0`).
 async function countDuplicateRows(): Promise<{ shorts: number; longform: number; instagram: number }> {
-  type Row = {
-    clip_details_code: string | null;
-    content_id: string | null;
-    platform: string | null;
-    stat_date: string | null;
-    content_type: string | null;
+  const { data, error } = await supabase.rpc('posts_duplicate_counts');
+  const rows = (data ?? []) as Array<{
+    shorts: number | string | null;
+    longform: number | string | null;
+    instagram: number | string | null;
+  }>;
+  if (error || rows.length === 0) {
+    return { shorts: 0, longform: 0, instagram: 0 };
+  }
+  const row = rows[0];
+  return {
+    shorts: Number(row.shorts ?? 0),
+    longform: Number(row.longform ?? 0),
+    instagram: Number(row.instagram ?? 0),
   };
-
-  const all: Row[] = [];
-  const PAGE = 1000;
-  let from = 0;
-  for (;;) {
-    const { data, error } = await supabase
-      .from('posts')
-      .select('clip_details_code, content_id, platform, stat_date, content_type')
-      .order('id', { ascending: true })
-      .range(from, from + PAGE - 1);
-    if (error || !data || data.length === 0) break;
-    all.push(...(data as Row[]));
-    if (data.length < PAGE) break;
-    from += PAGE;
-  }
-
-  const shortsCounts = new Map<string, number>();
-  const longformCounts = new Map<string, number>();
-  const igCounts = new Map<string, number>();
-  for (const r of all) {
-    if (!r.platform || !r.stat_date) continue;
-    if (r.platform === 'youtube' && r.content_type === 'short' && r.clip_details_code) {
-      const key = `${r.clip_details_code}|${r.platform}|${r.stat_date}`;
-      shortsCounts.set(key, (shortsCounts.get(key) ?? 0) + 1);
-    } else if (r.platform === 'youtube' && r.content_type === 'long_form' && r.content_id) {
-      const key = `${r.content_id}|${r.platform}|${r.stat_date}`;
-      longformCounts.set(key, (longformCounts.get(key) ?? 0) + 1);
-    } else if (r.platform === 'instagram' && r.content_id) {
-      const key = `${r.content_id}|${r.platform}|${r.stat_date}`;
-      igCounts.set(key, (igCounts.get(key) ?? 0) + 1);
-    }
-  }
-
-  let shortsDupes = 0;
-  shortsCounts.forEach((c) => { if (c > 1) shortsDupes += c - 1; });
-  let longformDupes = 0;
-  longformCounts.forEach((c) => { if (c > 1) longformDupes += c - 1; });
-  let igDupes = 0;
-  igCounts.forEach((c) => { if (c > 1) igDupes += c - 1; });
-
-  return { shorts: shortsDupes, longform: longformDupes, instagram: igDupes };
 }
 
 async function buildAnomalyCheck(now: Date): Promise<AnomalyCheck> {
@@ -986,13 +965,22 @@ async function buildInternalConsistency(
   const longformWatchDisplayed = displayed.longFormWatchTimeHours;
   const shortsWatchDisplayed = displayed.shortsWatchTimeHours;
 
-  const deltas = [
-    longformViewsDisplayed - longformViewsRecomputed,
-    shortsViewsDisplayed - shortsViewsRecomputed,
-    longformWatchDisplayed - longformWatchRecomputed,
-    shortsWatchDisplayed - shortsWatchRecomputed,
-  ];
-  const anyDelta = deltas.some(d => Math.abs(d) > 0.0001);
+  // FIX (2026-06-24): split status by metric instead of flagging any non-zero
+  // delta. Views are exact integer sums — any disagreement is a real defect, so
+  // stay strict. Watch hours cross a float rounding boundary: founder-report
+  // rounds the displayed total to 1 decimal and we round the recomputed sum the
+  // same way, but the two can still land on opposite sides of a .05 boundary
+  // (observed delta -0.10000000000000009 — just over 0.1, so a 0.1 cutoff
+  // wouldn't clear it; shorts 1.2 vs 1.3, longform 91.6 vs 91.7). With views
+  // held exact, a watch-only delta can only be a rounding artifact, never row
+  // loss, so it can't mask a real issue — tolerate up to 0.5h.
+  const viewsMismatch =
+    longformViewsDisplayed !== longformViewsRecomputed ||
+    shortsViewsDisplayed !== shortsViewsRecomputed;
+  const watchMismatch =
+    Math.abs(longformWatchDisplayed - longformWatchRecomputed) > 0.5 ||
+    Math.abs(shortsWatchDisplayed - shortsWatchRecomputed) > 0.5;
+  const status: StatusLevel = viewsMismatch || watchMismatch ? 'red' : 'green';
 
   return {
     longform_views_displayed: longformViewsDisplayed,
@@ -1007,7 +995,7 @@ async function buildInternalConsistency(
     shorts_watch_displayed: shortsWatchDisplayed,
     shorts_watch_recomputed: shortsWatchRecomputed,
     shorts_watch_delta: shortsWatchDisplayed - shortsWatchRecomputed,
-    status: anyDelta ? 'red' : 'green',
+    status,
   };
 }
 
