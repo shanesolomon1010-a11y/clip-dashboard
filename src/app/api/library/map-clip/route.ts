@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
-const CODE_RE = /^MBM\d+-CLIP-\d+$/;
+// Optional trailing R marks a repost (same clip re-uploaded under a new
+// content_id); it maps to its own code so original vs repost stay separate and
+// don't collide on (clip_details_code, platform, stat_date).
+const CODE_RE = /^MBM\d+-CLIP-\d+R?$/;
 
 function asTrimmedOrNull(v: unknown): string | null {
   return typeof v === 'string' && v.trim() !== '' ? v.trim() : null;
