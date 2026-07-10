@@ -1,7 +1,8 @@
 # MBM Clip GFX — Design
 
 **Date:** 2026-07-09
-**Status:** Approved (design); Phase 0 bakeoff pending
+**Status:** Approved. Framework decided: **Remotion** (2026-07-10). Bakeoff dropped —
+see "Framework decision" below.
 **Owner:** Shane
 
 ## Problem
@@ -59,12 +60,24 @@ with no countable structure gets nothing; forcing a graphic onto it reads as fil
 This distinction is itself detectable from a transcript, and is a far more tractable
 problem than "invent a bespoke graphic for arbitrary speech."
 
-## Phase 0 — Framework bakeoff (do this first)
+## Framework decision — Remotion
 
-Two candidate frameworks. Build `FigureGroup` in both, against a real clip, and decide
-from evidence.
+Decided 2026-07-10: build on **Remotion**, no bakeoff. Rationale: it is React (the rest
+of the stack), mature and stable, has confirmed alpha-export, ships an official agent
+skill, and reaches the Phase 3 agent-authored endgame with only slightly more friction
+than HyperFrames. The deciding factor was avoiding the cost of learning two frameworks
+while also learning the underlying concept for the first time — not a claim that the two
+are technically identical (they differ on license and agent-fit; see below).
 
-### Candidates
+The one thing this decision does **not** resolve is Remotion's license (see Risks). That
+is a headcount/budget question, not a technical one.
+
+The four bakeoff criteria below are retained not as a comparison but as **quality bars**
+for the Remotion `FigureGroup`: alpha export must actually work end to end; the preview
+loop must feel fast; Claude must be able to edit the graphic from plain-English requests;
+and the file must be legible cold six months later.
+
+### Framework comparison (retained for the record)
 
 | | Remotion | HyperFrames |
 |---|---|---|
@@ -76,47 +89,27 @@ from evidence.
 | Ecosystem fit | Matches our Next.js/React stack | Shares nothing with the dashboard |
 | Churn risk | Low | 287 releases in <3 months |
 
-### Why this is worth a day
-
-Two facts make the choice non-obvious rather than a formality:
-
-- Remotion's license could be a hard blocker depending on MBM headcount. HyperFrames'
-  Apache 2.0 removes that risk permanently.
-- Phase 3's endgame (Claude authors the graphics) is *literally HyperFrames' design
-  thesis*. Remotion can get there, but HyperFrames is built for it.
-
-Against that: HyperFrames is pre-1.0 and Shane is learning the tool while its API moves.
+Why the choice was non-obvious (and why it still went to Remotion): HyperFrames'
+Apache 2.0 sidesteps Remotion's license entirely, and Phase 3's endgame — Claude
+authoring graphics — is literally HyperFrames' design thesis. Both real advantages.
+They were outweighed by Remotion's maturity, React-stack fit, confirmed alpha export,
+and the cost of learning a second, pre-1.0, fast-moving tool during a first pass.
 
 The circulating "HyperFrames renders 3× faster" benchmark is one blog, one prompt, and
 conflates one-time build cost with per-render cost. Render speed is not the bottleneck.
-Disregard it. Several "HyperFrames vs Remotion" posts sit on three different
-HyperFrames-branded domains and should be treated as marketing.
+Several "HyperFrames vs Remotion" posts sit on three different HyperFrames-branded
+domains and should be treated as marketing.
 
-### Scorecard (decide on these, not on vibes)
+### Quality bars for the Remotion FigureGroup
 
-Build the same `FigureGroup` over `~/Movies/MBM015-CLIP-003-Headline.mp4` in each.
-Score:
-
-1. **Does alpha overlay export actually work?** Render, import to the editor, confirm
-   true transparency. *A failure here is disqualifying.* Known-good for Remotion;
-   this is the single most important unknown for HyperFrames.
-2. **Preview loop.** Edit a timing value, save, see the change. Measure the latency and
-   whether it preserves scrub position.
-3. **Agent authorship.** Shane asks Claude, in plain English, for three changes
-   ("make them stagger in", "make the bad ones shake", "move it 400ms later").
-   Which framework yields correct output more often, with less correction?
-4. **Legibility to Shane.** Six months from now, opening the file cold, which is
-   comprehensible?
-
-Criteria 1 is a gate. Criterion 3 is the tiebreaker, because it is what the project
-becomes.
-
-### Portability
-
-The rest of this design is framework-agnostic. The cue schema, the preview/overlay
-split, the phasing, and the "one graphic end to end" discipline all survive either
-outcome. **Only the implementation of `FigureGroup` changes.** The bakeoff is therefore
-low-risk: no downstream work is invalidated by either result.
+1. **Alpha overlay export works end to end.** Render, import to the editor, confirm true
+   transparency. This is a gate, not a nicety — the whole deliverable is an overlay.
+2. **Preview loop feels fast.** Edit a timing value, save, see the change without losing
+   scrub position.
+3. **Claude can edit it from plain English.** "Make them stagger in", "make the bad ones
+   shake", "move it 400ms later" should yield correct output with little correction.
+   This is the Phase 3 rehearsal.
+4. **Legible cold.** Openable and comprehensible six months later.
 
 ## Architecture
 
@@ -213,7 +206,7 @@ after the pipeline is proven end to end, not before.
 ### Working loop
 
 ```bash
-cd gfx && npx remotion studio            # or: npx hyperframes preview
+cd gfx && npx remotion studio
 # scrub, edit cues/MBM015-CLIP-003.json, watch it update
 npx remotion render GfxOverlay out/MBM015-CLIP-003-gfx.mov \
   --props=./cues/MBM015-CLIP-003.json \
@@ -238,19 +231,12 @@ designing them now is guessing.
 
 ## Risks
 
-**Remotion licensing.** Free for individuals and companies of ≤3 employees; paid
-company license above that. **Resolve MBM's headcount before committing to Remotion.**
-Not applicable to HyperFrames (Apache 2.0). This is the only risk capable of killing a
-framework choice outright, and it costs thirty seconds to check.
+**Remotion licensing — the one open blocker.** Free for individuals and companies of ≤3
+employees; paid company license above that. **Resolve MBM's headcount before building
+on it.** This is the only risk that code can't fix, and it costs thirty seconds to
+check. If MBM is over the threshold, price the license before Phase 1.
 
-**HyperFrames alpha export is unverified.** Docs mention transparent overlay output;
-the flags are not confirmed. Gate criterion #1 of the bakeoff. If it fails, HyperFrames
-is disqualified for this use case regardless of its other merits.
-
-**HyperFrames API churn.** Pre-1.0, 287 releases in under three months. Shane would be
-learning a moving target.
-
-**Taste, not technology.** Both frameworks will work. Whether an animated figure group
+**Taste, not technology.** The framework will work. Whether an animated figure group
 makes an MBM clip *better* is unproven. This is a design problem no framework solves,
 and the fastest way to learn the answer is one graphic over one real clip. Discovering
 it in Phase 1 is cheap; discovering it after building a director is not.
@@ -277,8 +263,8 @@ whether to drop the unused dependencies.
 
 ## Open questions
 
-1. **MBM headcount** — determines whether Remotion is free. Blocks nothing until the
-   bakeoff concludes, but must be answered before Remotion is chosen.
+1. **MBM headcount** — determines whether Remotion is free. Must be answered before
+   Phase 1 build starts; it is the only unresolved item on the framework choice.
 2. **Visual language** — no brand motion system exists yet. `PLATFORM_COLORS` is
    analytics chrome (`#FF4444` YouTube, `#C855E8` Instagram), not a GFX palette. The
    bakeoff should not try to settle this; it only needs to be legible enough to judge.

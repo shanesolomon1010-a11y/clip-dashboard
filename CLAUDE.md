@@ -6,7 +6,7 @@ Clip Studio Dashboard — Next.js single-page app (one route, view-state via `ac
 ## Stack & deployment
 - Next.js 14 App Router, TypeScript strict, Tailwind, Recharts.
 - Supabase (Postgres) for persistence; client uses anon key in-browser.
-- FFmpeg.wasm for client-side video processing in EditorView.
+- `@ffmpeg/*` remain in `package.json` but are currently unused — there is no `EditorView` and no ffmpeg import in `src/` (verified 2026-07-10).
 - Anthropic API called direct from browser (`claude-sonnet-4-20250514`, requires `anthropic-dangerous-direct-browser-access: true`).
 - Vercel for deploy; two crons in `vercel.json` (`/api/cron/youtube-sync`, `/api/cron/youtube-sync-longform`).
 
