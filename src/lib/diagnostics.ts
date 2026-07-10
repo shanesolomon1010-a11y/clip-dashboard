@@ -691,10 +691,23 @@ async function buildCronCompletion(now: Date): Promise<CronCompletionCheck> {
 
     const rows = (data ?? []) as Row[];
 
-    const perCron = (name: string): CronCompletionPerCron => {
+    const perCron = (name: string, creditInflight = false): CronCompletionPerCron => {
       const lastRun = rows.find((r) => r.cron_name === name);
       const lastSuccess = rows.find((r) => r.cron_name === name && r.status === 'success');
-      const lastSuccessAt = lastSuccess?.finished_at ?? lastSuccess?.started_at ?? null;
+      // The diagnostics-alert cron monitors its own completion, which is
+      // circular: startCronRun writes a 'running' row before buildDiagnostics
+      // runs, so while this check executes the newest diagnostics-alert row is
+      // the current in-flight run (never yet 'success') and its last success is
+      // always one full 6h interval stale. With a 12h threshold, a single slow
+      // or skipped prior tick pushes hours_since_success past RED and fires a
+      // self-referential alert that a genuinely-dead alerter could never have
+      // sent anyway (a stalled diagnostics cron shows up as a missing daily
+      // heartbeat, which is the real liveness signal). The act of running this
+      // code proves the cron is alive, so credit the in-flight run.
+      const lastSuccessAt =
+        creditInflight && lastRun?.status === 'running'
+          ? lastRun.started_at
+          : lastSuccess?.finished_at ?? lastSuccess?.started_at ?? null;
       const hoursSince = lastSuccessAt
         ? hoursBetween(now, new Date(lastSuccessAt))
         : null;
@@ -718,7 +731,7 @@ async function buildCronCompletion(now: Date): Promise<CronCompletionCheck> {
       youtube_sync: perCron('youtube-sync'),
       youtube_sync_longform: perCron('youtube-sync-longform'),
       instagram_sync: perCron('instagram-sync'),
-      diagnostics_alert: perCron('diagnostics-alert'),
+      diagnostics_alert: perCron('diagnostics-alert', true),
     };
   } catch (err) {
     return {
