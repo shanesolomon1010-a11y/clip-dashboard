@@ -95,7 +95,7 @@ export default function SettingsView({ onClearData }: Props) {
     new Set(
       clips
         .map(c => c.clip_details_code)
-        .filter((c): c is string => !!c && /^MBM\d+-CLIP-\d+$/.test(c)),
+        .filter((c): c is string => !!c && /^MBM\d+-CLIP-\d+R?$/.test(c)),
     ),
   ).sort();
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { PLATFORM_COLORS, PLATFORM_LABELS } from '@/types';
 import type { PendingMapping, MappingSuggestion } from '@/lib/db';
 
-const CODE_RE = /^MBM\d+-CLIP-\d+$/;
+const CODE_RE = /^MBM\d+-CLIP-\d+R?$/;
 
 function tokenize(s: string | null): string[] {
   return (s ?? '').toLowerCase().match(/[a-z0-9]+/g) ?? [];
