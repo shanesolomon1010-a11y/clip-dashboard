@@ -33,6 +33,15 @@ export interface StatDateCheck {
   status: StatusLevel;
 }
 
+export interface DataGapCheck {
+  window_days: number;
+  present_days: number;
+  first_present: string | null;
+  last_present: string | null;
+  missing_interior_days: string[];
+  status: StatusLevel;
+}
+
 export interface ConsistencyCheck {
   longform_views_displayed: number;
   longform_views_recomputed: number;
@@ -110,6 +119,9 @@ export interface DiagnosticsResponse {
     posts_short_latest_stat: StatDateCheck;
     posts_longform_latest_stat: StatDateCheck;
     posts_instagram_latest_stat: StatDateCheck;
+  };
+  data_gaps: {
+    instagram: DataGapCheck;
   };
   schema_integrity: {
     posts_null_content_id_count: number;
@@ -330,6 +342,63 @@ async function buildDataFreshness(now: Date): Promise<DiagnosticsResponse['data_
     posts_short_latest_stat: toCheck(shortRow?.stat_date as string | undefined),
     posts_longform_latest_stat: toCheck(longRow?.stat_date as string | undefined),
     posts_instagram_latest_stat: toCheck(igStatRow?.stat_date as string | undefined),
+  };
+}
+
+// Trailing-window calendar-gap detector for Instagram. IG syncs 4×/day and is
+// expected to have a row for every calendar day, so a multi-day cron outage
+// leaves a hole the latest-date freshness check can't see once the cron recovers
+// (2026-07-11..07-13 went missing for 3 days behind a green freshness reading).
+// Only INTERIOR gaps count — days strictly between the earliest and latest
+// present date in the window — so a normal trailing lag is never flagged. Yellow,
+// never red: the outage itself pages via cron_completion, and a recovered IG gap
+// is not backfillable (Graph API returns lifetime totals, not historical daily),
+// so paging on it until it ages out of the window would be pure noise.
+async function buildDataGaps(now: Date): Promise<DiagnosticsResponse['data_gaps']> {
+  const WINDOW_DAYS = 14;
+  const start = toYMD(new Date(now.getTime() - WINDOW_DAYS * 24 * 60 * 60 * 1000));
+
+  // Paginate: a 14-day IG window is ~1.3k rows, over the 1000-row response cap.
+  const present = new Set<string>();
+  const PAGE = 1000;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('posts')
+      .select('stat_date')
+      .eq('platform', 'instagram')
+      .gte('stat_date', start)
+      .order('stat_date', { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    for (const row of data) {
+      const d = (row as { stat_date: string | null }).stat_date;
+      if (d) present.add(d);
+    }
+    if (data.length < PAGE) break;
+  }
+
+  const sorted = Array.from(present).sort();
+  const missing: string[] = [];
+  if (sorted.length >= 2) {
+    const last = new Date(`${sorted[sorted.length - 1]}T00:00:00Z`);
+    const cursor = new Date(`${sorted[0]}T00:00:00Z`);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+    while (cursor < last) {
+      const ymd = toYMD(cursor);
+      if (!present.has(ymd)) missing.push(ymd);
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    }
+  }
+
+  return {
+    instagram: {
+      window_days: WINDOW_DAYS,
+      present_days: present.size,
+      first_present: sorted[0] ?? null,
+      last_present: sorted[sorted.length - 1] ?? null,
+      missing_interior_days: missing,
+      status: missing.length > 0 ? 'yellow' : 'green',
+    },
   };
 }
 
@@ -1140,6 +1209,7 @@ export async function buildDiagnostics(
   const [
     cron_health,
     data_freshness,
+    data_gaps,
     schema_integrity,
     auth_health,
     cron_completion,
@@ -1150,6 +1220,7 @@ export async function buildDiagnostics(
   ] = await Promise.all([
     buildCronHealth(now, freshnessHoursYellow, freshnessHoursRed),
     buildDataFreshness(now),
+    buildDataGaps(now),
     buildSchemaIntegrity(),
     buildAuthHealth(now),
     buildCronCompletion(now),
@@ -1169,6 +1240,7 @@ export async function buildDiagnostics(
     },
     cron_health,
     data_freshness,
+    data_gaps,
     schema_integrity,
     auth_health,
     cron_completion,
