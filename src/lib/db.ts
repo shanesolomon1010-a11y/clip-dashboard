@@ -810,6 +810,42 @@ export async function setClipDetailContentIdIfNull(
   return (data ?? []).length > 0;
 }
 
+// Promotes a short that is currently only PENDING to a real MBM code once it
+// carries a matching tag/description. Uses the atomic map_clip RPC (service
+// role, same path as /api/library/map-clip): it frees the PENDING row's
+// content_id, re-keys its posts, and RAISEs on any collision — so a stray tag
+// can never half-map or clobber real data. Guarded to only map to a clip that
+// already exists (a tag typo must not mint a junk clip_details row). Returns
+// true only when the mapping actually landed.
+export async function promotePendingShort(
+  contentId: string,
+  clipDetailsCode: string,
+): Promise<boolean> {
+  const { data: known } = await supabase
+    .from('clip_details')
+    .select('clip_details_code')
+    .eq('clip_details_code', clipDetailsCode)
+    .maybeSingle();
+  if (!known) {
+    console.warn(
+      `[db] promotePendingShort ${contentId} → ${clipDetailsCode}: no such clip_details row, skipped`,
+    );
+    return false;
+  }
+  const { error } = await adminClient().rpc('map_clip', {
+    p_code: clipDetailsCode,
+    p_yt_video_id: contentId,
+    p_ig_content_id: null,
+  });
+  if (error) {
+    console.warn(
+      `[db] promotePendingShort ${contentId} → ${clipDetailsCode} failed: ${error.message}`,
+    );
+    return false;
+  }
+  return true;
+}
+
 // Re-keys posts rows previously written under PENDING-{contentId} to the newly
 // mapped clip_details_code. Must run after setClipDetailContentIdIfNull so the
 // next cron tick's upsert (keyed by clip_details_code,platform,stat_date)

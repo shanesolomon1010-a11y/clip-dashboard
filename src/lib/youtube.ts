@@ -262,6 +262,7 @@ export async function fetchBreakdownForVideo(
 
 export interface VideoDiscoveryDetails {
   tags: string[];
+  description: string;
   publishedAt: string;
   durationSeconds: number;
   privacyStatus: string;
@@ -269,7 +270,7 @@ export interface VideoDiscoveryDetails {
 
 interface VideoDiscoveryItem {
   id: string;
-  snippet: { publishedAt: string; tags?: string[] };
+  snippet: { publishedAt: string; tags?: string[]; description?: string };
   contentDetails: { duration: string };
   status: { privacyStatus: string };
 }
@@ -308,6 +309,7 @@ export async function fetchVideoDiscoveryDetails(
     for (const item of data.items ?? []) {
       result.set(item.id, {
         tags: item.snippet.tags ?? [],
+        description: item.snippet.description ?? '',
         publishedAt: item.snippet.publishedAt,
         durationSeconds: parseDurationSeconds(item.contentDetails.duration),
         privacyStatus: item.status.privacyStatus,
