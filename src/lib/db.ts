@@ -864,6 +864,56 @@ export async function promotePendingShort(
   return true;
 }
 
+// Instagram twin of promotePendingShort: promotes a reel that is currently only
+// PENDING to a real MBM code once its caption carries a matching code. Uses the
+// atomic map_clip RPC (IG side): it frees the PENDING-IG row, re-keys its posts,
+// sets instagram_content_id, and guards collisions in one transaction — so it
+// can't leave the half-state that produces the IG cron's 23505 errors. The
+// already-mapped guard checks instagram_content_id specifically, so a clip
+// already mapped on YouTube (content_id set, instagram_content_id null) can
+// still get its Instagram side mapped. Returns true only when it landed.
+export async function promotePendingReel(
+  instagramContentId: string,
+  clipDetailsCode: string,
+): Promise<boolean> {
+  const { data: known, error: readError } = await supabase
+    .from('clip_details')
+    .select('instagram_content_id')
+    .eq('clip_details_code', clipDetailsCode)
+    .maybeSingle();
+  if (readError) {
+    console.warn(
+      `[db] promotePendingReel ${instagramContentId} → ${clipDetailsCode}: lookup failed (${readError.message}), skipped`,
+    );
+    return false;
+  }
+  if (!known) {
+    console.warn(
+      `[db] promotePendingReel ${instagramContentId} → ${clipDetailsCode}: no such clip_details row, skipped`,
+    );
+    return false;
+  }
+  const existingIg = (known as { instagram_content_id: string | null }).instagram_content_id;
+  if (existingIg != null && existingIg !== instagramContentId) {
+    console.warn(
+      `[db] promotePendingReel ${instagramContentId} → ${clipDetailsCode}: already mapped to ${existingIg}, refusing to overwrite`,
+    );
+    return false;
+  }
+  const { error } = await adminClient().rpc('map_clip', {
+    p_code: clipDetailsCode,
+    p_yt_video_id: null,
+    p_ig_content_id: instagramContentId,
+  });
+  if (error) {
+    console.warn(
+      `[db] promotePendingReel ${instagramContentId} → ${clipDetailsCode} failed: ${error.message}`,
+    );
+    return false;
+  }
+  return true;
+}
+
 // Re-keys posts rows previously written under PENDING-{contentId} to the newly
 // mapped clip_details_code. Must run after setClipDetailContentIdIfNull so the
 // next cron tick's upsert (keyed by clip_details_code,platform,stat_date)

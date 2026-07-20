@@ -7,11 +7,12 @@
  *   2. For each media:
  *        - If media_product_type !== 'REELS', log to instagram_discovery_audit
  *          and skip (Q6 audit-first: spot-check before locking the strict rule).
- *        - If already in the registry (instagram_content_id populated on some
- *          clip_details row), skip — daily stats sync handles it.
- *        - If the caption matches /MBM\d{3}-CLIP-\d{3}/, attempt to auto-map
- *          to that clip_details row (only updates rows where
- *          instagram_content_id IS NULL).
+ *        - If already MAPPED to a real MBM code, skip — daily stats handle it.
+ *        - If only PENDING-IG (registered but unmapped), re-check the caption:
+ *          promote via the atomic map_clip path if it now carries a code. This
+ *          removes the post-time race and lets the backlog clear by caption edit.
+ *        - If new and the caption matches /MBM\d{3}-CLIP-\d{3}/, auto-map to that
+ *          clip_details row (only where instagram_content_id IS NULL).
  *        - Otherwise (or if no matching clip_details row exists), register a
  *          PENDING-IG- row so daily stats still flow.
  */
@@ -23,12 +24,14 @@ import {
   logSkippedMediaToAudit,
   registerInstagramPending,
   setClipDetailInstagramContentIdIfNull,
+  promotePendingReel,
 } from './db';
 
-// Capture-grouped variant of the locked caption regex. Anchored to neither end
-// — the code is typically embedded in a caption with hashtags, emoji, etc.
-// m[1] = MBM###, m[2] = CLIP-###, m[0] = full clip_details_code.
-const CAPTION_REGEX = /(MBM\d{3})-(CLIP-\d{3})/;
+// Capture-grouped variant of the locked caption regex. Word-boundaried (not
+// string-anchored) so the code is still matched embedded in a caption with
+// hashtags, emoji, etc., while a trailing digit can't truncate-match a real code
+// (e.g. MBM015-CLIP-0201). m[1] = MBM###, m[2] = CLIP-###, m[0] = full code.
+const CAPTION_REGEX = /\b(MBM\d{3})-(CLIP-\d{3})\b/;
 
 export interface InstagramDiscoveryResult {
   matched: number;
@@ -61,7 +64,10 @@ export async function discoverInstagramMedia(
   const allMedia = preFetchedMedia ?? (await fetchMediaList(igUserId, accessToken));
   const initialRegistry = await getInstagramRegistry();
   const registry: InstagramRegistryRow[] = [...initialRegistry];
-  const registeredIds = new Set(initialRegistry.map((r) => r.instagram_content_id));
+  // media_id -> its current registry row: lets us tell a real mapping (skip)
+  // from a PENDING-IG placeholder (re-check the caption and promote), and swap
+  // the row in place when a promotion lands so downstream stats use the new code.
+  const registryByMedia = new Map(registry.map((r) => [r.instagram_content_id, r]));
 
   for (const media of allMedia) {
     if (media.media_product_type !== 'REELS') {
@@ -76,7 +82,25 @@ export async function discoverInstagramMedia(
       continue;
     }
 
-    if (registeredIds.has(media.id)) {
+    const existing = registryByMedia.get(media.id);
+    const isMapped = existing != null && !existing.clip_details_code.startsWith('PENDING-');
+    if (isMapped) {
+      result.skipped++;
+      continue;
+    }
+
+    if (existing != null) {
+      // Currently only PENDING-IG: re-check the caption and promote if it now
+      // carries the code. Removes the post-time race and clears the backlog by
+      // caption edit — a short that first went PENDING is no longer stuck.
+      const promoted = await tryPromotePending(media);
+      if (promoted) {
+        const idx = registry.indexOf(existing);
+        if (idx !== -1) registry[idx] = promoted;
+        registryByMedia.set(media.id, promoted);
+        result.matched++;
+        continue;
+      }
       result.skipped++;
       continue;
     }
@@ -84,7 +108,7 @@ export async function discoverInstagramMedia(
     const matched = await tryAutoMap(media);
     if (matched) {
       registry.push(matched);
-      registeredIds.add(media.id);
+      registryByMedia.set(media.id, matched);
       result.matched++;
       continue;
     }
@@ -97,7 +121,7 @@ export async function discoverInstagramMedia(
       skip_insights: false,
     };
     registry.push(pendingRow);
-    registeredIds.add(media.id);
+    registryByMedia.set(media.id, pendingRow);
     console.log(`[instagram-discovery] registered PENDING-IG-${media.id}`);
     result.pending++;
   }
@@ -136,4 +160,26 @@ async function tryAutoMap(media: InstagramMedia): Promise<InstagramRegistryRow |
     `clip_details row (or instagram_content_id already set) — falling back to PENDING`,
   );
   return null;
+}
+
+// PENDING twin of tryAutoMap: if a currently-PENDING reel's caption now carries
+// a code whose clip_details row exists, promote it via the atomic map_clip path
+// and return its mapped registry row. Null when there is no code, or the clip is
+// unknown / already mapped to another reel / the promote collided — all guarded
+// in the db layer, which logs the reason.
+async function tryPromotePending(media: InstagramMedia): Promise<InstagramRegistryRow | null> {
+  if (!media.caption) return null;
+  const m = media.caption.match(CAPTION_REGEX);
+  if (!m) return null;
+
+  const clipDetailsCode = `${m[1]}-${m[2]}`;
+  const promoted = await promotePendingReel(media.id, clipDetailsCode);
+  if (!promoted) return null;
+  console.log(`[instagram-discovery] promoted PENDING-IG ${media.id} → ${clipDetailsCode}`);
+  return {
+    instagram_content_id: media.id,
+    clip_details_code: clipDetailsCode,
+    clip_code: m[1],
+    skip_insights: false,
+  };
 }
