@@ -34,7 +34,7 @@ import {
 // Unanchored so the code is matched whether it is the whole tag or embedded in a
 // tag / the description. Tags are hidden from viewers, so they are the intended
 // slot; the description is a fallback for flexibility.
-const CODE_REGEX = /MBM\d{3}-CLIP-\d{3}/;
+const CODE_REGEX = /\bMBM\d{3}-CLIP-\d{3}\b/;
 const MAX_DURATION_SECONDS = 180;
 const MIN_PUBLISHED_AT = '2023-01-01';
 const BATCH_SIZE = 50;

@@ -821,14 +821,32 @@ export async function promotePendingShort(
   contentId: string,
   clipDetailsCode: string,
 ): Promise<boolean> {
-  const { data: known } = await supabase
+  const { data: known, error: readError } = await supabase
     .from('clip_details')
-    .select('clip_details_code')
+    .select('content_id')
     .eq('clip_details_code', clipDetailsCode)
     .maybeSingle();
+  if (readError) {
+    console.warn(
+      `[db] promotePendingShort ${contentId} → ${clipDetailsCode}: lookup failed (${readError.message}), skipped`,
+    );
+    return false;
+  }
   if (!known) {
     console.warn(
       `[db] promotePendingShort ${contentId} → ${clipDetailsCode}: no such clip_details row, skipped`,
+    );
+    return false;
+  }
+  // Refuse to overwrite a code already mapped to a DIFFERENT video: map_clip
+  // would COALESCE the new video_id over the existing content_id and, when the
+  // stat_dates don't overlap, silently merge (e.g. a repost mis-tagged with the
+  // original's code) instead of erroring. Mirror the new-video path's
+  // `.is('content_id', null)` guard.
+  const existingContentId = (known as { content_id: string | null }).content_id;
+  if (existingContentId != null && existingContentId !== contentId) {
+    console.warn(
+      `[db] promotePendingShort ${contentId} → ${clipDetailsCode}: already mapped to ${existingContentId}, refusing to overwrite`,
     );
     return false;
   }
